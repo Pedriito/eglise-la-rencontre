@@ -43,6 +43,8 @@ export async function addAssignment(formData: FormData) {
   const userId = formData.get('user_id') as string
   const positionId = formData.get('position_id') as string || null
 
+  if (!userId) redirect(`/benevoles/admin/plans/${planId}`)
+
   await admin.from('plan_assignments').upsert({
     plan_id: planId,
     user_id: userId,
