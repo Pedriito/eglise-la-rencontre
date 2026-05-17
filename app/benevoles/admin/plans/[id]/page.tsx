@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { addAssignment, removeAssignment, deletePlan, sendInvitations } from '../actions'
+import { addAssignment, removeAssignment, deletePlan, sendSingleInvitation } from '../actions'
 import { StatusDot } from '../../../_components/StatusDot'
 
 const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
@@ -20,10 +20,13 @@ type AssignmentRow = {
 
 export default async function PlanDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ error?: string; sent?: string }>
 }) {
   const { id } = await params
+  const { error: flashError, sent: flashSent } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/benevoles/login')
@@ -101,17 +104,6 @@ export default async function PlanDetailPage({
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {pendingCount > 0 && (
-            <form action={sendInvitations}>
-              <input type="hidden" name="plan_id" value={id} />
-              <button
-                type="submit"
-                className="px-4 py-2 bg-teal text-white rounded-lg font-sans text-sm font-medium hover:bg-teal-dark transition-colors"
-              >
-                Envoyer les invitations ({pendingCount})
-              </button>
-            </form>
-          )}
           <form action={deletePlan}>
             <input type="hidden" name="plan_id" value={id} />
             <button type="submit" className="text-xs text-dark/30 hover:text-red-400 transition-colors font-sans">
@@ -122,6 +114,16 @@ export default async function PlanDetailPage({
       </header>
 
       <main className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+        {flashError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-3 font-sans text-sm text-red-600">
+            Erreur : {flashError}
+          </div>
+        )}
+        {flashSent && (
+          <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-3 font-sans text-sm text-green-700">
+            Invitation envoyée avec succès.
+          </div>
+        )}
         {plan.notes && (
           <div className="bg-teal/10 rounded-xl px-5 py-3 font-sans text-sm text-dark/70">
             {plan.notes}
@@ -176,6 +178,15 @@ export default async function PlanDetailPage({
                             <span className="text-xs text-red-400 font-sans" title="Indisponible ce jour-là">⚠</span>
                           )}
                           {!isInvite && <StatusDot status={a.status} />}
+                          {!isInvite && a.status === 'pending' && (
+                            <form action={sendSingleInvitation}>
+                              <input type="hidden" name="assignment_id" value={a.id} />
+                              <input type="hidden" name="plan_id" value={id} />
+                              <button type="submit" title="Envoyer l'invitation" className="text-dark/25 hover:text-teal transition-colors text-base leading-none">
+                                ✉
+                              </button>
+                            </form>
+                          )}
                           <form action={removeAssignment}>
                             <input type="hidden" name="plan_id" value={id} />
                             <input type="hidden" name="assignment_id" value={a.id} />

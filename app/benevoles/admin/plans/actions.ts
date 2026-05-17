@@ -68,42 +68,46 @@ export async function removeAssignment(formData: FormData) {
   redirect(`/benevoles/admin/plans/${planId}`)
 }
 
-export async function sendInvitations(formData: FormData) {
+export async function sendSingleInvitation(formData: FormData) {
   const admin = await requireAdmin()
+  const assignmentId = formData.get('assignment_id') as string
   const planId = formData.get('plan_id') as string
 
-  const { data: pending } = await admin
+  const { data: a, error } = await admin
     .from('plan_assignments')
-    .select('id, user_id, position_id, plans(title, service_date), positions(name)')
-    .eq('plan_id', planId)
-    .eq('status', 'pending')
+    .select('id, user_id, plans(title, service_date), positions(name)')
+    .eq('id', assignmentId)
+    .single()
 
-  for (const a of pending ?? []) {
-    if (a.user_id === INVITE_EXT_ID) continue
+  if (error || !a) redirect(`/benevoles/admin/plans/${planId}?error=Assignment+introuvable`)
+  if (a.user_id === INVITE_EXT_ID) redirect(`/benevoles/admin/plans/${planId}`)
 
-    try {
-      const [{ data: profile }, { data: authData }] = await Promise.all([
-        admin.from('profiles').select('first_name').eq('id', a.user_id).single(),
-        admin.auth.admin.getUserById(a.user_id),
-      ])
-      const email = authData?.user?.email
-      const plan = a.plans as any
-      const position = a.positions as any
-      if (email && plan && profile) {
-        await sendPlanAssignmentEmail({
-          to: email,
-          firstName: profile.first_name,
-          planTitle: plan.title,
-          serviceDate: plan.service_date,
-          positionName: position?.name ?? null,
-        })
-      }
-    } catch {
-      // continue si un email échoue
-    }
+  const [{ data: profile }, { data: authData }] = await Promise.all([
+    admin.from('profiles').select('first_name').eq('id', a.user_id).single(),
+    admin.auth.admin.getUserById(a.user_id),
+  ])
+
+  const email = authData?.user?.email
+  const plan = a.plans as any
+  const position = a.positions as any
+
+  if (!email || !plan || !profile) {
+    redirect(`/benevoles/admin/plans/${planId}?error=Données+manquantes`)
   }
 
-  redirect(`/benevoles/admin/plans/${planId}`)
+  try {
+    await sendPlanAssignmentEmail({
+      to: email,
+      firstName: profile.first_name,
+      planTitle: plan.title,
+      serviceDate: plan.service_date,
+      positionName: position?.name ?? null,
+    })
+  } catch (err: any) {
+    redirect(`/benevoles/admin/plans/${planId}?error=${encodeURIComponent(err?.message ?? 'Erreur envoi email')}`)
+  }
+
+  redirect(`/benevoles/admin/plans/${planId}?sent=1`)
 }
 
 export async function respondAssignment(formData: FormData) {
