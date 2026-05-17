@@ -102,6 +102,7 @@ export async function sendSingleInvitation(formData: FormData) {
       planTitle: plan.title,
       serviceDate: plan.service_date,
       positionName: position?.name ?? null,
+      assignmentId,
     })
   } catch (err: any) {
     redirect(`/benevoles/admin/plans/${planId}?error=${encodeURIComponent(err?.message ?? 'Erreur envoi email')}`)

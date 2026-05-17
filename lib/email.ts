@@ -46,12 +46,14 @@ export async function sendPlanAssignmentEmail({
   planTitle,
   serviceDate,
   positionName,
+  assignmentId,
 }: {
   to: string
   firstName: string
   planTitle: string
   serviceDate: string
   positionName: string | null
+  assignmentId: string
 }) {
   const date = new Date(serviceDate).toLocaleDateString('fr-FR', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
@@ -78,12 +80,23 @@ export async function sendPlanAssignmentEmail({
         </div>
 
         <p style="margin-bottom:20px;">
-          Merci de confirmer ou décliner ta disponibilité depuis ton espace bénévole.
+          Merci de confirmer ou décliner ta disponibilité :
         </p>
 
+        <div style="display:flex;gap:12px;margin-bottom:24px;">
+          <a href="${siteUrl}/benevoles/repondre/${assignmentId}?status=confirmed"
+             style="display:inline-block;background:#16a34a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
+            ✓ Je confirme
+          </a>
+          <a href="${siteUrl}/benevoles/repondre/${assignmentId}?status=declined"
+             style="display:inline-block;background:#dc2626;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
+            ✕ Je décline
+          </a>
+        </div>
+
         <a href="${siteUrl}/benevoles/dashboard"
-           style="display:inline-block;background:#0d9488;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
-          Accéder à mon espace →
+           style="display:inline-block;color:#0d9488;font-size:13px;text-decoration:underline;">
+          Accéder à mon espace bénévole
         </a>
 
         <p style="margin-top:32px;font-size:12px;color:#999;">
