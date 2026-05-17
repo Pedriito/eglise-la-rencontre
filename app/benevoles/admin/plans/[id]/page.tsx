@@ -1,8 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { addAssignment, removeAssignment, deletePlan } from '../actions'
+import { addAssignment, removeAssignment, deletePlan, sendInvitations } from '../actions'
 import { StatusDot } from '../../../_components/StatusDot'
+
+const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
+const TEAMS_WITH_INVITE = new Set(['Prédicateurs', 'Louange'])
 
 type TeamPosition = { id: string; name: string }
 type AssignmentRow = {
@@ -10,6 +13,7 @@ type AssignmentRow = {
   status: string
   user_id: string
   position_id: string | null
+  team_id: string | null
   profiles: { first_name: string; last_name: string } | null
   positions: { id: string; name: string; team_id: string } | null
 }
@@ -38,7 +42,7 @@ export default async function PlanDetailPage({
     supabase.from('plans').select('id, title, service_date, notes').eq('id', id).single(),
     supabase
       .from('plan_assignments')
-      .select('id, status, user_id, position_id, profiles(first_name, last_name), positions(id, name, team_id)')
+      .select('id, status, user_id, position_id, team_id, profiles(first_name, last_name), positions(id, name, team_id)')
       .eq('plan_id', id),
     supabase.from('teams').select('id, name, positions(id, name)').order('name'),
     supabase.from('profiles').select('id, first_name, last_name').order('last_name'),
@@ -57,18 +61,18 @@ export default async function PlanDetailPage({
 
   const assignedUserIds = new Set(assignments.map(a => a.user_id))
 
-  // Membres par équipe (pour filtrer le sélecteur de bénévoles)
+  // Membres par équipe
   const membersByTeam: Record<string, Set<string>> = {}
   teamMemberships?.forEach(tm => {
     if (!membersByTeam[tm.team_id]) membersByTeam[tm.team_id] = new Set()
     membersByTeam[tm.team_id].add(tm.user_id)
   })
 
-  // Grouper les affectations par team_id
+  // Grouper les affectations par équipe (team_id direct, sinon via positions)
   const assignmentsByTeam: Record<string, AssignmentRow[]> = {}
   const noTeamAssignments: AssignmentRow[] = []
   assignments.forEach(a => {
-    const tid = a.positions?.team_id
+    const tid = a.team_id ?? a.positions?.team_id ?? null
     if (tid) {
       if (!assignmentsByTeam[tid]) assignmentsByTeam[tid] = []
       assignmentsByTeam[tid].push(a)
@@ -77,8 +81,7 @@ export default async function PlanDetailPage({
     }
   })
 
-  // Toutes les équipes (même sans postes définis)
-  const activeTeams = teams ?? []
+  const pendingCount = assignments.filter(a => a.status === 'pending' && a.user_id !== INVITE_EXT_ID).length
 
   const date = new Date(plan.service_date).toLocaleDateString('fr-FR', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
@@ -97,12 +100,25 @@ export default async function PlanDetailPage({
             <p className="text-xs text-dark/50 font-sans capitalize">{date} · {time}</p>
           </div>
         </div>
-        <form action={deletePlan}>
-          <input type="hidden" name="plan_id" value={id} />
-          <button type="submit" className="text-xs text-dark/30 hover:text-red-400 transition-colors font-sans">
-            Supprimer
-          </button>
-        </form>
+        <div className="flex items-center gap-3">
+          {pendingCount > 0 && (
+            <form action={sendInvitations}>
+              <input type="hidden" name="plan_id" value={id} />
+              <button
+                type="submit"
+                className="px-4 py-2 bg-teal text-white rounded-lg font-sans text-sm font-medium hover:bg-teal-dark transition-colors"
+              >
+                Envoyer les invitations ({pendingCount})
+              </button>
+            </form>
+          )}
+          <form action={deletePlan}>
+            <input type="hidden" name="plan_id" value={id} />
+            <button type="submit" className="text-xs text-dark/30 hover:text-red-400 transition-colors font-sans">
+              Supprimer
+            </button>
+          </form>
+        </div>
       </header>
 
       <main className="max-w-6xl mx-auto px-6 py-8 space-y-6">
@@ -113,9 +129,18 @@ export default async function PlanDetailPage({
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {activeTeams.map(team => {
+          {(teams ?? []).map(team => {
             const teamPositions = team.positions as unknown as TeamPosition[]
             const teamAssignments = assignmentsByTeam[team.id] ?? []
+            const isInviteTeam = TEAMS_WITH_INVITE.has(team.name)
+            const hidePositions = team.name === 'Prédicateurs'
+
+            const teamMemberIds = membersByTeam[team.id]
+            const teamProfiles = (allProfiles ?? []).filter(p => {
+              if (assignedUserIds.has(p.id)) return false
+              if (!teamMemberIds || teamMemberIds.size === 0) return true
+              return teamMemberIds.has(p.id)
+            })
 
             return (
               <div key={team.id} className="bg-white rounded-2xl border border-teal/20 overflow-hidden flex flex-col">
@@ -132,92 +157,83 @@ export default async function PlanDetailPage({
                   {teamAssignments.length === 0 && (
                     <p className="px-5 py-4 text-xs text-dark/25 font-sans italic">Aucun bénévole</p>
                   )}
-                  {teamAssignments.map(a => (
-                    <div key={a.id} className="px-5 py-3 flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        {a.positions && (
-                          <p className="text-xs text-teal/60 font-sans uppercase tracking-wide leading-none mb-1">
-                            {a.positions.name}
+                  {teamAssignments.map(a => {
+                    const isInvite = a.user_id === INVITE_EXT_ID
+                    return (
+                      <div key={a.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          {a.positions && (
+                            <p className="text-xs text-teal/60 font-sans uppercase tracking-wide leading-none mb-1">
+                              {a.positions.name}
+                            </p>
+                          )}
+                          <p className="font-sans text-sm text-dark font-medium truncate">
+                            {isInvite ? 'Invité (Ext)' : `${a.profiles?.first_name} ${a.profiles?.last_name}`}
                           </p>
-                        )}
-                        <p className="font-sans text-sm text-dark font-medium truncate">
-                          {a.profiles?.first_name} {a.profiles?.last_name}
-                        </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {!isInvite && unavailableIds.has(a.user_id) && (
+                            <span className="text-xs text-red-400 font-sans" title="Indisponible ce jour-là">⚠</span>
+                          )}
+                          {!isInvite && <StatusDot status={a.status} />}
+                          <form action={removeAssignment}>
+                            <input type="hidden" name="plan_id" value={id} />
+                            <input type="hidden" name="assignment_id" value={a.id} />
+                            <button type="submit" className="text-dark/20 hover:text-red-400 transition-colors font-sans text-lg leading-none">
+                              ×
+                            </button>
+                          </form>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {unavailableIds.has(a.user_id) && (
-                          <span className="text-xs text-red-400 font-sans" title="Indisponible ce jour-là">⚠</span>
-                        )}
-                        <StatusDot status={a.status} />
-                        <form action={removeAssignment}>
-                          <input type="hidden" name="plan_id" value={id} />
-                          <input type="hidden" name="assignment_id" value={a.id} />
-                          <button type="submit" className="text-dark/20 hover:text-red-400 transition-colors font-sans text-lg leading-none">
-                            ×
-                          </button>
-                        </form>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
 
                 {/* Formulaire d'ajout */}
-                {(() => {
-                  const teamMemberIds = membersByTeam[team.id]
-                  // Si l'équipe a des membres définis → filtre ; sinon → tous les non-affectés
-                  const teamProfiles = (allProfiles ?? []).filter(p => {
-                    if (assignedUserIds.has(p.id)) return false
-                    if (!teamMemberIds || teamMemberIds.size === 0) return true
-                    return teamMemberIds.has(p.id)
-                  })
-                  const isPredicateurs = team.name === 'Prédicateurs'
-                  return (
-                    <div className="px-4 py-3 border-t border-teal/10 bg-teal-50/20">
-                      <form action={addAssignment} className="flex gap-2 items-center">
-                        <input type="hidden" name="plan_id" value={id} />
-                        <select
-                          name="user_id"
-                          className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-teal/30 bg-white text-dark font-sans text-xs focus:outline-none focus:ring-1 focus:ring-teal/40"
-                        >
-                          <option value="">— Bénévole —</option>
-                          {isPredicateurs && (
-                            <option value="00000000-0000-0000-0000-000000000001">Invité (Ext)</option>
-                          )}
-                          {teamProfiles.map(p => (
-                            <option key={p.id} value={p.id}>{p.first_name} {p.last_name}</option>
-                          ))}
-                        </select>
-                        {/* Poste masqué si Prédicateurs ou si un seul poste */}
-                        {!isPredicateurs && teamPositions.length === 1 && (
-                          <input type="hidden" name="position_id" value={teamPositions[0].id} />
-                        )}
-                        {!isPredicateurs && teamPositions.length > 1 && (
-                          <select
-                            name="position_id"
-                            className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-teal/30 bg-white text-dark font-sans text-xs focus:outline-none focus:ring-1 focus:ring-teal/40"
-                          >
-                            <option value="">— Poste —</option>
-                            {teamPositions.map(pos => (
-                              <option key={pos.id} value={pos.id}>{pos.name}</option>
-                            ))}
-                          </select>
-                        )}
-                        <button
-                          type="submit"
-                          className="px-3 py-1.5 bg-teal text-white rounded-lg font-sans text-xs font-medium hover:bg-teal-dark transition-colors shrink-0"
-                        >
-                          +
-                        </button>
-                      </form>
-                    </div>
-                  )
-                })()}
+                <div className="px-4 py-3 border-t border-teal/10 bg-teal-50/20">
+                  <form action={addAssignment} className="flex gap-2 items-center">
+                    <input type="hidden" name="plan_id" value={id} />
+                    <input type="hidden" name="team_id" value={team.id} />
+                    <select
+                      name="user_id"
+                      className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-teal/30 bg-white text-dark font-sans text-xs focus:outline-none focus:ring-1 focus:ring-teal/40"
+                    >
+                      <option value="">— Bénévole —</option>
+                      {isInviteTeam && (
+                        <option value={INVITE_EXT_ID}>Invité (Ext)</option>
+                      )}
+                      {teamProfiles.map(p => (
+                        <option key={p.id} value={p.id}>{p.first_name} {p.last_name}</option>
+                      ))}
+                    </select>
+                    {!hidePositions && teamPositions.length === 1 && (
+                      <input type="hidden" name="position_id" value={teamPositions[0].id} />
+                    )}
+                    {!hidePositions && teamPositions.length > 1 && (
+                      <select
+                        name="position_id"
+                        className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-teal/30 bg-white text-dark font-sans text-xs focus:outline-none focus:ring-1 focus:ring-teal/40"
+                      >
+                        <option value="">— Poste —</option>
+                        {teamPositions.map(pos => (
+                          <option key={pos.id} value={pos.id}>{pos.name}</option>
+                        ))}
+                      </select>
+                    )}
+                    <button
+                      type="submit"
+                      className="px-3 py-1.5 bg-teal text-white rounded-lg font-sans text-xs font-medium hover:bg-teal-dark transition-colors shrink-0"
+                    >
+                      +
+                    </button>
+                  </form>
+                </div>
               </div>
             )
           })}
         </div>
 
-        {/* Affectations sans équipe */}
+        {/* Affectations sans équipe (ancien format sans team_id) */}
         {noTeamAssignments.length > 0 && (
           <div className="bg-white rounded-2xl border border-teal/20 overflow-hidden">
             <div className="px-5 py-3 border-b border-teal/10 bg-teal-50/50">
