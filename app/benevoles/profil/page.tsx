@@ -43,7 +43,7 @@ export default async function ProfilPage({
           </h2>
           <p className="text-sm text-dark/50 font-sans mb-6">
             {isFirstTime
-              ? 'Ces informations permettent à l'équipe de te contacter.'
+              ? "Ces informations permettent à l'équipe de te contacter."
               : 'Mets à jour tes informations personnelles.'}
           </p>
 

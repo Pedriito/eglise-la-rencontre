@@ -34,7 +34,7 @@ export default async function PlansPage() {
   counts?.forEach(c => { countByPlan[c.plan_id] = (countByPlan[c.plan_id] ?? 0) + 1 })
 
   function PlanRow({ plan }: { plan: { id: string; title: string; service_date: string; teams: unknown } }) {
-    const team = plan.teams as { name: string } | null
+    const team = plan.teams as unknown as { name: string } | null
     const date = new Date(plan.service_date).toLocaleDateString('fr-FR', {
       weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
     })

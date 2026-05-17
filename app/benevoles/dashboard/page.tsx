@@ -25,7 +25,7 @@ export default async function DashboardPage() {
   // Sépare à venir / passés
   const now = new Date()
   const upcoming = assignments?.filter(a => {
-    const plan = a.plans as { service_date: string } | null
+    const plan = a.plans as unknown as { service_date: string } | null
     return plan && new Date(plan.service_date) >= now
   }) ?? []
   const pending = upcoming.filter(a => a.status === 'pending')
@@ -61,8 +61,8 @@ export default async function DashboardPage() {
             </h2>
             <div className="space-y-2">
               {pending.map(a => {
-                const plan = a.plans as { title: string; service_date: string } | null
-                const pos = a.positions as { name: string } | null
+                const plan = a.plans as unknown as { title: string; service_date: string } | null
+                const pos = a.positions as unknown as { name: string } | null
                 const date = plan ? new Date(plan.service_date).toLocaleDateString('fr-FR', {
                   weekday: 'long', day: 'numeric', month: 'long',
                 }) : '—'
@@ -113,8 +113,8 @@ export default async function DashboardPage() {
                 </thead>
                 <tbody>
                   {upcoming.map((a, i) => {
-                    const plan = a.plans as { title: string; service_date: string } | null
-                    const pos = a.positions as { name: string } | null
+                    const plan = a.plans as unknown as { title: string; service_date: string } | null
+                    const pos = a.positions as unknown as { name: string } | null
                     const date = plan ? new Date(plan.service_date).toLocaleDateString('fr-FR', {
                       weekday: 'short', day: 'numeric', month: 'short',
                     }) : '—'
@@ -144,7 +144,7 @@ export default async function DashboardPage() {
             {teams && teams.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {teams.map((t, i) => {
-                  const team = t.teams as { name: string } | null
+                  const team = t.teams as unknown as { name: string } | null
                   return (
                     <span key={i} className="px-3 py-1.5 bg-white border border-teal/20 rounded-full font-sans text-sm text-dark">
                       {t.role === 'leader' && <span className="text-teal mr-1">★</span>}

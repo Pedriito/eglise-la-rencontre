@@ -54,18 +54,19 @@ export default async function BenevoleProfilePage({
 
   if (!profile) redirect('/benevoles/admin')
 
-  const email = profile.email || authUser?.user?.email
+  const p = profile as any
+  const email = p.email || authUser?.user?.email
 
   // Regroupe les positions par équipe
   const positionsByTeam: Record<string, string[]> = {}
   memberPositions?.forEach(mp => {
-    const pos = mp.positions as { id: string; name: string; team_id: string } | null
+    const pos = mp.positions as unknown as { id: string; name: string; team_id: string } | null
     if (!pos) return
     if (!positionsByTeam[pos.team_id]) positionsByTeam[pos.team_id] = []
     positionsByTeam[pos.team_id].push(pos.name)
   })
 
-  const st = statusLabels[profile.status] ?? statusLabels.inactive
+  const st = statusLabels[p.status] ?? statusLabels.inactive
 
   return (
     <div className="min-h-screen bg-teal-50">
@@ -77,7 +78,7 @@ export default async function BenevoleProfilePage({
           ← Bénévoles
         </Link>
         <h1 className="font-display text-2xl text-dark font-light">
-          {profile.first_name} {profile.last_name}
+          {p.first_name} {p.last_name}
         </h1>
         <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-sans font-medium ${st.color}`}>
           {st.label}
@@ -91,18 +92,18 @@ export default async function BenevoleProfilePage({
           <h2 className="font-display text-xl text-dark font-light mb-4">Coordonnées</h2>
           <dl className="space-y-3">
             <Row label="Email" value={email ?? '—'} />
-            <Row label="Téléphone" value={profile.phone ?? '—'} />
-            <Row label="Ville" value={profile.city ?? '—'} />
+            <Row label="Téléphone" value={p.phone ?? '—'} />
+            <Row label="Ville" value={p.city ?? '—'} />
             <Row
               label="Date de naissance"
-              value={profile.birthdate
-                ? new Date(profile.birthdate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+              value={p.birthdate
+                ? new Date(p.birthdate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
                 : '—'}
             />
-            <Row label="Niveau d'accès" value={permissionLabels[profile.permission] ?? profile.permission} />
+            <Row label="Niveau d'accès" value={permissionLabels[p.permission] ?? p.permission} />
             <Row
               label="Membre depuis"
-              value={new Date(profile.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+              value={new Date(p.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
             />
           </dl>
         </section>
@@ -113,7 +114,7 @@ export default async function BenevoleProfilePage({
           {teamMemberships && teamMemberships.length > 0 ? (
             <div className="space-y-3">
               {teamMemberships.map(tm => {
-                const team = tm.teams as { id: string; name: string } | null
+                const team = tm.teams as unknown as { id: string; name: string } | null
                 if (!team) return null
                 const positions = positionsByTeam[team.id] ?? []
                 return (

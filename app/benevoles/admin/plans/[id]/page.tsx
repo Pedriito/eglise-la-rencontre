@@ -61,7 +61,7 @@ export default async function PlanDetailPage({
   // Grouper les affectations par équipe
   const byTeam: Record<string, typeof assignments> = {}
   assignments?.forEach(a => {
-    const pos = a.positions as { name: string; teams: { name: string } } | null
+    const pos = a.positions as unknown as { name: string; teams: { name: string } } | null
     const teamName = pos?.teams?.name ?? 'Sans équipe'
     if (!byTeam[teamName]) byTeam[teamName] = []
     byTeam[teamName]!.push(a)
@@ -108,8 +108,8 @@ export default async function PlanDetailPage({
                   </div>
                   <div className="divide-y divide-teal/10">
                     {members?.map(a => {
-                      const profile = a.profiles as { first_name: string; last_name: string } | null
-                      const pos = a.positions as { name: string } | null
+                      const profile = a.profiles as unknown as { first_name: string; last_name: string } | null
+                      const pos = a.positions as unknown as { name: string } | null
                       return (
                         <div key={a.id} className="px-5 py-3 flex items-center justify-between">
                           <div>
@@ -167,7 +167,7 @@ export default async function PlanDetailPage({
                   <select name="position_id" className="px-3 py-2 rounded-lg border border-teal/30 bg-teal-50 text-dark font-sans text-sm focus:outline-none focus:ring-2 focus:ring-teal/40">
                     <option value="">— Sans poste —</option>
                     {allPositions?.map(p => {
-                      const team = p.teams as { name: string } | null
+                      const team = p.teams as unknown as { name: string } | null
                       return (
                         <option key={p.id} value={p.id}>
                           {team?.name} · {p.name}
