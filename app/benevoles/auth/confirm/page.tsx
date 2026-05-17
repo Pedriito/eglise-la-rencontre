@@ -28,7 +28,7 @@ export default function ConfirmPage() {
           router.replace('/benevoles/login?error=auth')
           return
         }
-        if (type === 'recovery') {
+        if (type === 'recovery' || type === 'invite') {
           router.replace('/benevoles/set-password')
         } else {
           router.replace('/benevoles/dashboard')
