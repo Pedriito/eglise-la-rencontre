@@ -182,7 +182,7 @@ export default async function PlanDetailPage({
                             <form action={sendSingleInvitation}>
                               <input type="hidden" name="assignment_id" value={a.id} />
                               <input type="hidden" name="plan_id" value={id} />
-                              <button type="submit" title="Envoyer l'invitation" className="text-dark/25 hover:text-teal transition-colors text-base leading-none">
+                              <button type="submit" title="Envoyer l'invitation" className="text-dark/40 hover:text-teal transition-colors text-xl leading-none">
                                 ✉
                               </button>
                             </form>
