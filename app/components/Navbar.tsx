@@ -37,6 +37,12 @@ export default function Navbar() {
               {l.label}
             </a>
           ))}
+          <a
+            href="/benevoles/dashboard"
+            className="font-sans text-xs tracking-wide text-white/50 hover:text-white/80 transition-colors border border-white/20 rounded-full px-3 py-1"
+          >
+            Espace bénévoles
+          </a>
         </nav>
 
         <button
@@ -62,6 +68,13 @@ export default function Navbar() {
               {l.label}
             </a>
           ))}
+          <a
+            href="/benevoles/dashboard"
+            onClick={() => setOpen(false)}
+            className="font-sans text-xs tracking-wide text-white/50 hover:text-white/80 transition-colors"
+          >
+            Espace bénévoles
+          </a>
         </nav>
       )}
     </header>
