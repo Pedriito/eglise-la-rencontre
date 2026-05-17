@@ -44,7 +44,9 @@ export async function addAssignment(formData: FormData) {
   const userId = formData.get('user_id') as string
   const positionId = formData.get('position_id') as string || null
 
-  if (!userId) redirect(`/benevoles/admin/plans/${planId}`)
+  if (!userId || userId === '') redirect(`/benevoles/admin/plans/${planId}`)
+
+  const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
 
   await admin.from('plan_assignments').upsert({
     plan_id: planId,
@@ -52,6 +54,9 @@ export async function addAssignment(formData: FormData) {
     position_id: positionId,
     status: 'pending',
   })
+
+  // Pas d'email pour Invité (Ext)
+  if (userId === INVITE_EXT_ID) redirect(`/benevoles/admin/plans/${planId}`)
 
   // Email de notification au bénévole
   try {

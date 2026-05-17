@@ -161,12 +161,16 @@ export default async function PlanDetailPage({
                   ))}
                 </div>
 
-                {/* Formulaire d'ajout — uniquement les membres de l'équipe non encore affectés */}
+                {/* Formulaire d'ajout */}
                 {(() => {
-                  const teamProfiles = (allProfiles ?? []).filter(p =>
-                    !assignedUserIds.has(p.id) && membersByTeam[team.id]?.has(p.id)
-                  )
-                  if (teamProfiles.length === 0) return null
+                  const teamMemberIds = membersByTeam[team.id]
+                  // Si l'équipe a des membres définis → filtre ; sinon → tous les non-affectés
+                  const teamProfiles = (allProfiles ?? []).filter(p => {
+                    if (assignedUserIds.has(p.id)) return false
+                    if (!teamMemberIds || teamMemberIds.size === 0) return true
+                    return teamMemberIds.has(p.id)
+                  })
+                  const isPredicateurs = team.name === 'Prédicateurs'
                   return (
                     <div className="px-4 py-3 border-t border-teal/10 bg-teal-50/20">
                       <form action={addAssignment} className="flex gap-2 items-center">
@@ -176,15 +180,18 @@ export default async function PlanDetailPage({
                           className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-teal/30 bg-white text-dark font-sans text-xs focus:outline-none focus:ring-1 focus:ring-teal/40"
                         >
                           <option value="">— Bénévole —</option>
+                          {isPredicateurs && (
+                            <option value="00000000-0000-0000-0000-000000000001">Invité (Ext)</option>
+                          )}
                           {teamProfiles.map(p => (
                             <option key={p.id} value={p.id}>{p.first_name} {p.last_name}</option>
                           ))}
                         </select>
-                        {/* Poste : masqué si un seul (auto-sélectionné), affiché si plusieurs */}
-                        {teamPositions.length === 1 && (
+                        {/* Poste masqué si Prédicateurs ou si un seul poste */}
+                        {!isPredicateurs && teamPositions.length === 1 && (
                           <input type="hidden" name="position_id" value={teamPositions[0].id} />
                         )}
-                        {teamPositions.length > 1 && (
+                        {!isPredicateurs && teamPositions.length > 1 && (
                           <select
                             name="position_id"
                             className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-teal/30 bg-white text-dark font-sans text-xs focus:outline-none focus:ring-1 focus:ring-teal/40"
