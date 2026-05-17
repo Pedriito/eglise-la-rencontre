@@ -55,6 +55,32 @@ export async function inviteBenevole(formData: FormData) {
   redirect('/benevoles/admin?success=invited')
 }
 
+export async function resendInvite(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/benevoles/login')
+
+  const { data: me } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
+  if (me?.permission !== 'admin') redirect('/benevoles/dashboard')
+
+  const targetId = formData.get('user_id') as string
+  const admin = createAdminClient()
+
+  const { data: authUser } = await admin.auth.admin.getUserById(targetId)
+  const email = authUser?.user?.email
+  if (!email) redirect(`/benevoles/admin/benevoles/${targetId}?error=Email+introuvable`)
+
+  const { data: profile } = await supabase.from('profiles').select('first_name, last_name').eq('id', targetId).single()
+
+  const { error } = await admin.auth.admin.inviteUserByEmail(email, {
+    data: { first_name: profile?.first_name, last_name: profile?.last_name },
+    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/benevoles/auth/confirm`,
+  })
+
+  if (error) redirect(`/benevoles/admin/benevoles/${targetId}?error=${encodeURIComponent(error.message)}`)
+  redirect(`/benevoles/admin/benevoles/${targetId}?sent=1`)
+}
+
 export async function deleteBenevole(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

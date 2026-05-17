@@ -3,13 +3,17 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { permissionLabels, statusLabels, roleLabels, frequencyLabels } from '@/lib/labels'
+import { resendInvite } from '../../actions'
 
 export default async function BenevoleProfilePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ error?: string; sent?: string }>
 }) {
   const { id } = await params
+  const { error: flashError, sent: flashSent } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/benevoles/login')
@@ -70,22 +74,43 @@ export default async function BenevoleProfilePage({
 
   return (
     <div className="min-h-screen bg-teal-50">
-      <header className="bg-white border-b border-teal/20 px-6 py-4 flex items-center gap-4">
-        <Link
-          href="/benevoles/admin"
-          className="text-dark/40 hover:text-dark transition-colors font-sans text-sm"
-        >
-          ← Bénévoles
-        </Link>
-        <h1 className="font-display text-2xl text-dark font-light">
-          {p.first_name} {p.last_name}
-        </h1>
-        <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-sans font-medium ${st.color}`}>
-          {st.label}
-        </span>
+      <header className="bg-white border-b border-teal/20 px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link
+            href="/benevoles/admin"
+            className="text-dark/40 hover:text-dark transition-colors font-sans text-sm"
+          >
+            ← Bénévoles
+          </Link>
+          <h1 className="font-display text-2xl text-dark font-light">
+            {p.first_name} {p.last_name}
+          </h1>
+          <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-sans font-medium ${st.color}`}>
+            {st.label}
+          </span>
+        </div>
+        <form action={resendInvite}>
+          <input type="hidden" name="user_id" value={id} />
+          <button
+            type="submit"
+            className="px-4 py-2 rounded-lg border border-teal/30 text-teal font-sans text-xs font-medium hover:bg-teal-50 transition-colors"
+          >
+            ✉ Renvoyer l'invitation
+          </button>
+        </form>
       </header>
 
       <main className="max-w-3xl mx-auto px-6 py-8 space-y-6">
+        {flashError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-3 font-sans text-sm text-red-600">
+            Erreur : {flashError}
+          </div>
+        )}
+        {flashSent && (
+          <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-3 font-sans text-sm text-green-700">
+            Invitation envoyée à {email}.
+          </div>
+        )}
 
         {/* Coordonnées */}
         <section className="bg-white rounded-2xl border border-teal/20 p-6">
