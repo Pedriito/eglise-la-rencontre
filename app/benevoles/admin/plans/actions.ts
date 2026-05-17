@@ -75,7 +75,7 @@ export async function sendSingleInvitation(formData: FormData) {
 
   const { data: a, error } = await admin
     .from('plan_assignments')
-    .select('id, user_id, plans(title, service_date), positions(name)')
+    .select('id, user_id, team_id, plans(title, service_date), positions(name), teams(name)')
     .eq('id', assignmentId)
     .single()
 
@@ -90,6 +90,7 @@ export async function sendSingleInvitation(formData: FormData) {
   const email = authData?.user?.email
   const plan = a.plans as any
   const position = a.positions as any
+  const team = a.teams as any
 
   if (!email || !plan || !profile) {
     redirect(`/benevoles/admin/plans/${planId}?error=Données+manquantes`)
@@ -102,6 +103,7 @@ export async function sendSingleInvitation(formData: FormData) {
       planTitle: plan.title,
       serviceDate: plan.service_date,
       positionName: position?.name ?? null,
+      teamName: team?.name ?? null,
       assignmentId,
     })
   } catch (err: any) {

@@ -46,6 +46,7 @@ export async function sendPlanAssignmentEmail({
   planTitle,
   serviceDate,
   positionName,
+  teamName,
   assignmentId,
 }: {
   to: string
@@ -53,6 +54,7 @@ export async function sendPlanAssignmentEmail({
   planTitle: string
   serviceDate: string
   positionName: string | null
+  teamName: string | null
   assignmentId: string
 }) {
   const date = new Date(serviceDate).toLocaleDateString('fr-FR', {
@@ -76,7 +78,8 @@ export async function sendPlanAssignmentEmail({
         <div style="background:#f0faf9;border-radius:10px;padding:18px 20px;margin-bottom:20px;border-left:4px solid #0d9488;">
           <p style="margin:0;font-size:16px;font-weight:600;">${planTitle}</p>
           <p style="margin:6px 0 0;color:#555;font-size:14px;text-transform:capitalize;">${date} à ${time}</p>
-          ${positionName ? `<p style="margin:6px 0 0;color:#0d9488;font-size:14px;">Rôle : ${positionName}</p>` : ''}
+          ${teamName ? `<p style="margin:6px 0 0;color:#0d9488;font-size:14px;">Équipe : ${teamName}</p>` : ''}
+          ${positionName ? `<p style="margin:6px 0 0;color:#0d9488;font-size:14px;">Poste : ${positionName}</p>` : ''}
         </div>
 
         <p style="margin-bottom:20px;">
