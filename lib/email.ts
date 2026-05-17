@@ -1,5 +1,11 @@
 import { Resend } from 'resend'
 
+function getResend() {
+  const key = process.env.RESEND_API_KEY?.trim()
+  if (!key) throw new Error(`RESEND_API_KEY manquante ou vide (env: ${Object.keys(process.env).filter(k => k.includes('RESEND')).join(', ') || 'aucune clé RESEND trouvée'})`)
+  return new Resend(key)
+}
+
 export async function sendInviteEmail({
   to,
   firstName,
@@ -9,7 +15,7 @@ export async function sendInviteEmail({
   firstName: string
   inviteLink: string
 }) {
-  const resend = new Resend(process.env.RESEND_API_KEY)
+  const resend = getResend()
   await resend.emails.send({
     from: 'Église La Rencontre <no-reply@egliselarencontre.fr>',
     to,
@@ -54,7 +60,7 @@ export async function sendPlanAssignmentEmail({
     hour: '2-digit', minute: '2-digit',
   })
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.egliselarencontre.fr'
-  const resend = new Resend(process.env.RESEND_API_KEY)
+  const resend = getResend()
 
   await resend.emails.send({
     from: 'Église La Rencontre <no-reply@egliselarencontre.fr>',
