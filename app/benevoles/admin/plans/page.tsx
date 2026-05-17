@@ -1,0 +1,121 @@
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import Link from 'next/link'
+
+export default async function PlansPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/benevoles/login')
+
+  const { data: me } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
+  if (me?.permission !== 'admin' && me?.permission !== 'editor') redirect('/benevoles/dashboard')
+
+  const { data: upcoming } = await supabase
+    .from('plans')
+    .select('id, title, service_date, teams(name)')
+    .gte('service_date', new Date().toISOString())
+    .order('service_date')
+
+  const { data: past } = await supabase
+    .from('plans')
+    .select('id, title, service_date, teams(name)')
+    .lt('service_date', new Date().toISOString())
+    .order('service_date', { ascending: false })
+    .limit(5)
+
+  // Compte des affectations par plan
+  const allPlanIds = [...(upcoming ?? []), ...(past ?? [])].map(p => p.id)
+  const { data: counts } = await supabase
+    .from('plan_assignments')
+    .select('plan_id')
+    .in('plan_id', allPlanIds.length ? allPlanIds : [''])
+
+  const countByPlan: Record<string, number> = {}
+  counts?.forEach(c => { countByPlan[c.plan_id] = (countByPlan[c.plan_id] ?? 0) + 1 })
+
+  function PlanRow({ plan }: { plan: { id: string; title: string; service_date: string; teams: unknown } }) {
+    const team = plan.teams as { name: string } | null
+    const date = new Date(plan.service_date).toLocaleDateString('fr-FR', {
+      weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+    })
+    const n = countByPlan[plan.id] ?? 0
+    return (
+      <tr className="border-b border-teal/10 last:border-0 hover:bg-teal-50/40 transition-colors">
+        <td className="px-6 py-4 font-sans text-sm text-dark/50 capitalize">{date}</td>
+        <td className="px-6 py-4 font-sans text-sm text-dark font-medium">{plan.title}</td>
+        <td className="px-6 py-4 font-sans text-sm text-dark/50">{team?.name ?? 'Toutes'}</td>
+        <td className="px-6 py-4 font-sans text-sm text-dark/50">{n} affecté{n > 1 ? 's' : ''}</td>
+        <td className="px-6 py-4 text-right">
+          <Link href={`/benevoles/admin/plans/${plan.id}`} className="text-teal font-sans text-sm hover:underline">
+            Gérer →
+          </Link>
+        </td>
+      </tr>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-teal-50">
+      <header className="bg-white border-b border-teal/20 px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link href="/benevoles/admin" className="text-dark/40 hover:text-dark transition-colors font-sans text-sm">
+            ← Administration
+          </Link>
+          <h1 className="font-display text-2xl text-dark font-light">Planification</h1>
+        </div>
+        <Link
+          href="/benevoles/admin/plans/nouveau"
+          className="px-4 py-2 bg-teal text-white rounded-lg font-sans text-sm font-medium hover:bg-teal-dark transition-colors"
+        >
+          + Nouveau service
+        </Link>
+      </header>
+
+      <main className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+        {/* À venir */}
+        <section>
+          <h2 className="font-display text-xl text-dark font-light mb-3">À venir</h2>
+          <div className="bg-white rounded-2xl border border-teal/20 overflow-hidden">
+            {upcoming && upcoming.length > 0 ? (
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-teal/10">
+                    <th className="text-left px-6 py-3 text-xs font-sans text-dark/40 uppercase tracking-widest font-medium">Date</th>
+                    <th className="text-left px-6 py-3 text-xs font-sans text-dark/40 uppercase tracking-widest font-medium">Titre</th>
+                    <th className="text-left px-6 py-3 text-xs font-sans text-dark/40 uppercase tracking-widest font-medium">Équipe</th>
+                    <th className="text-left px-6 py-3 text-xs font-sans text-dark/40 uppercase tracking-widest font-medium">Bénévoles</th>
+                    <th className="px-6 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {upcoming.map(p => <PlanRow key={p.id} plan={p} />)}
+                </tbody>
+              </table>
+            ) : (
+              <div className="px-6 py-10 text-center">
+                <p className="font-sans text-sm text-dark/40 mb-3">Aucun service planifié.</p>
+                <Link href="/benevoles/admin/plans/nouveau" className="text-teal font-sans text-sm hover:underline">
+                  Créer le premier service →
+                </Link>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Passés */}
+        {past && past.length > 0 && (
+          <section>
+            <h2 className="font-display text-xl text-dark font-light mb-3 text-dark/50">Passés</h2>
+            <div className="bg-white rounded-2xl border border-teal/20 overflow-hidden opacity-60">
+              <table className="w-full">
+                <tbody>
+                  {past.map(p => <PlanRow key={p.id} plan={p} />)}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+      </main>
+    </div>
+  )
+}
