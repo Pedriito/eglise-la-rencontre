@@ -1,0 +1,56 @@
+import { Resend } from 'resend'
+
+export async function sendPlanAssignmentEmail({
+  to,
+  firstName,
+  planTitle,
+  serviceDate,
+  positionName,
+}: {
+  to: string
+  firstName: string
+  planTitle: string
+  serviceDate: string
+  positionName: string | null
+}) {
+  const date = new Date(serviceDate).toLocaleDateString('fr-FR', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  })
+  const time = new Date(serviceDate).toLocaleTimeString('fr-FR', {
+    hour: '2-digit', minute: '2-digit',
+  })
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.egliselarencontre.fr'
+  const resend = new Resend(process.env.RESEND_API_KEY)
+
+  await resend.emails.send({
+    from: 'Église La Rencontre <no-reply@egliselarencontre.fr>',
+    to,
+    subject: `Tu es planifié(e) : ${planTitle}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1a2e2e;">
+        <p style="margin-bottom:8px;">Bonjour ${firstName},</p>
+        <p style="margin-bottom:16px;">Tu as été planifié(e) pour le service suivant :</p>
+
+        <div style="background:#f0faf9;border-radius:10px;padding:18px 20px;margin-bottom:20px;border-left:4px solid #0d9488;">
+          <p style="margin:0;font-size:16px;font-weight:600;">${planTitle}</p>
+          <p style="margin:6px 0 0;color:#555;font-size:14px;text-transform:capitalize;">${date} à ${time}</p>
+          ${positionName ? `<p style="margin:6px 0 0;color:#0d9488;font-size:14px;">Rôle : ${positionName}</p>` : ''}
+        </div>
+
+        <p style="margin-bottom:20px;">
+          Merci de confirmer ou décliner ta disponibilité depuis ton espace bénévole.
+        </p>
+
+        <a href="${siteUrl}/benevoles/dashboard"
+           style="display:inline-block;background:#0d9488;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
+          Accéder à mon espace →
+        </a>
+
+        <p style="margin-top:32px;font-size:12px;color:#999;">
+          Église La Rencontre · Lieusaint<br>
+          Si tu n'es pas concerné(e) par ce message, ignore-le.
+        </p>
+      </div>
+    `,
+  })
+}

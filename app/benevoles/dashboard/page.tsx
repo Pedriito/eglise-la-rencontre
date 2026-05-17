@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { respondAssignment } from '../admin/plans/actions'
 import { permissionLabels } from '@/lib/labels'
+import { StatusDot } from '../_components/StatusDot'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -123,7 +124,7 @@ export default async function DashboardPage() {
                         <td className="px-6 py-4 font-sans text-sm text-dark/60 capitalize">{date}</td>
                         <td className="px-6 py-4 font-sans text-sm text-dark font-medium">{plan?.title ?? '—'}</td>
                         <td className="px-6 py-4 font-sans text-sm text-dark/70">{pos?.name ?? '—'}</td>
-                        <td className="px-6 py-4"><StatusBadge status={a.status} /></td>
+                        <td className="px-6 py-4"><StatusDot status={a.status} /></td>
                       </tr>
                     )
                   })}
@@ -176,20 +177,3 @@ export default async function DashboardPage() {
   )
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    confirmed: 'bg-green-100 text-green-700',
-    declined:  'bg-red-100 text-red-600',
-    pending:   'bg-amber-100 text-amber-700',
-  }
-  const labels: Record<string, string> = {
-    confirmed: 'Confirmé',
-    declined:  'Décliné',
-    pending:   'En attente',
-  }
-  return (
-    <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-sans font-medium ${styles[status] ?? 'bg-gray-100 text-gray-500'}`}>
-      {labels[status] ?? status}
-    </span>
-  )
-}

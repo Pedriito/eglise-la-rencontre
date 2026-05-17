@@ -2,17 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { addAssignment, removeAssignment, deletePlan } from '../actions'
-
-const statusStyles: Record<string, string> = {
-  confirmed: 'bg-green-100 text-green-700',
-  declined:  'bg-red-100 text-red-600',
-  pending:   'bg-amber-100 text-amber-700',
-}
-const statusLabels: Record<string, string> = {
-  confirmed: 'Confirmé',
-  declined:  'Décliné',
-  pending:   'En attente',
-}
+import { StatusDot } from '../../../_components/StatusDot'
 
 type TeamPosition = { id: string; name: string }
 type AssignmentRow = {
@@ -153,9 +143,7 @@ export default async function PlanDetailPage({
                         {unavailableIds.has(a.user_id) && (
                           <span className="text-xs text-red-400 font-sans" title="Indisponible ce jour-là">⚠</span>
                         )}
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-sans font-medium ${statusStyles[a.status] ?? ''}`}>
-                          {statusLabels[a.status] ?? a.status}
-                        </span>
+                        <StatusDot status={a.status} />
                         <form action={removeAssignment}>
                           <input type="hidden" name="plan_id" value={id} />
                           <input type="hidden" name="assignment_id" value={a.id} />
@@ -220,9 +208,7 @@ export default async function PlanDetailPage({
                     {a.profiles?.first_name} {a.profiles?.last_name}
                   </p>
                   <div className="flex gap-2 items-center">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-sans font-medium ${statusStyles[a.status] ?? ''}`}>
-                      {statusLabels[a.status] ?? a.status}
-                    </span>
+                    <StatusDot status={a.status} />
                     <form action={removeAssignment}>
                       <input type="hidden" name="plan_id" value={id} />
                       <input type="hidden" name="assignment_id" value={a.id} />

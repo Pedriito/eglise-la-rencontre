@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
+import { sendPlanAssignmentEmail } from '@/lib/email'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -51,6 +52,31 @@ export async function addAssignment(formData: FormData) {
     position_id: positionId,
     status: 'pending',
   })
+
+  // Email de notification au bénévole
+  try {
+    const [{ data: plan }, { data: profile }, { data: authData }, { data: position }] = await Promise.all([
+      admin.from('plans').select('title, service_date').eq('id', planId).single(),
+      admin.from('profiles').select('first_name').eq('id', userId).single(),
+      admin.auth.admin.getUserById(userId),
+      positionId
+        ? admin.from('positions').select('name').eq('id', positionId).single()
+        : Promise.resolve({ data: null }),
+    ])
+    const email = authData?.user?.email
+    if (email && plan && profile) {
+      await sendPlanAssignmentEmail({
+        to: email,
+        firstName: profile.first_name,
+        planTitle: plan.title,
+        serviceDate: plan.service_date,
+        positionName: (position as any)?.name ?? null,
+      })
+    }
+  } catch {
+    // Ne pas bloquer la redirection si l'email échoue
+  }
+
   redirect(`/benevoles/admin/plans/${planId}`)
 }
 
