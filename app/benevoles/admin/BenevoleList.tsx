@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { deleteBenevole } from './actions'
 import { permissionLabels, statusLabels } from '@/lib/labels'
 
@@ -47,7 +48,12 @@ export function BenevoleList({ benevoles }: { benevoles: Benevole[] }) {
               return (
                 <tr key={b.id} className={i % 2 === 0 ? 'bg-white' : 'bg-teal-50/40'}>
                   <td className="px-6 py-4 font-sans text-sm text-dark font-medium">
-                    {b.first_name} {b.last_name}
+                    <Link
+                      href={`/benevoles/admin/benevoles/${b.id}`}
+                      className="hover:text-teal transition-colors"
+                    >
+                      {b.first_name} {b.last_name}
+                    </Link>
                   </td>
                   <td className="px-6 py-4 font-sans text-xs text-dark/60">
                     {permissionLabels[b.permission] ?? b.permission}

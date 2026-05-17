@@ -47,5 +47,5 @@ export async function setPassword(formData: FormData) {
       .eq('id', user.id)
   }
 
-  redirect('/benevoles/dashboard')
+  redirect('/benevoles/profil')
 }
