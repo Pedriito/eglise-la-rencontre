@@ -69,11 +69,8 @@ export default async function PlanDetailPage({
     }
   })
 
-  // Uniquement les équipes avec des postes ou des affectations
-  const activeTeams = (teams ?? []).filter(t => {
-    const positions = t.positions as unknown as TeamPosition[]
-    return positions.length > 0 || (assignmentsByTeam[t.id]?.length ?? 0) > 0
-  })
+  // Toutes les équipes (même sans postes définis)
+  const activeTeams = teams ?? []
 
   const date = new Date(plan.service_date).toLocaleDateString('fr-FR', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
