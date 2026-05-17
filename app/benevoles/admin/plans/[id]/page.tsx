@@ -33,6 +33,7 @@ export default async function PlanDetailPage({
     { data: teams },
     { data: allProfiles },
     { data: blockouts },
+    { data: teamMemberships },
   ] = await Promise.all([
     supabase.from('plans').select('id, title, service_date, notes').eq('id', id).single(),
     supabase
@@ -42,6 +43,7 @@ export default async function PlanDetailPage({
     supabase.from('teams').select('id, name, positions(id, name)').order('name'),
     supabase.from('profiles').select('id, first_name, last_name').order('last_name'),
     supabase.from('blockout_dates').select('user_id, start_date, end_date'),
+    supabase.from('team_members').select('user_id, team_id'),
   ])
 
   if (!plan) redirect('/benevoles/admin/plans')
@@ -54,7 +56,13 @@ export default async function PlanDetailPage({
   )
 
   const assignedUserIds = new Set(assignments.map(a => a.user_id))
-  const availableProfiles = allProfiles?.filter(p => !assignedUserIds.has(p.id)) ?? []
+
+  // Membres par équipe (pour filtrer le sélecteur de bénévoles)
+  const membersByTeam: Record<string, Set<string>> = {}
+  teamMemberships?.forEach(tm => {
+    if (!membersByTeam[tm.team_id]) membersByTeam[tm.team_id] = new Set()
+    membersByTeam[tm.team_id].add(tm.user_id)
+  })
 
   // Grouper les affectations par team_id
   const assignmentsByTeam: Record<string, AssignmentRow[]> = {}
@@ -153,40 +161,50 @@ export default async function PlanDetailPage({
                   ))}
                 </div>
 
-                {/* Formulaire d'ajout par équipe */}
-                {availableProfiles.length > 0 && (
-                  <div className="px-4 py-3 border-t border-teal/10 bg-teal-50/20">
-                    <form action={addAssignment} className="flex gap-2 items-center">
-                      <input type="hidden" name="plan_id" value={id} />
-                      <select
-                        name="user_id"
-                        className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-teal/30 bg-white text-dark font-sans text-xs focus:outline-none focus:ring-1 focus:ring-teal/40"
-                      >
-                        <option value="">— Bénévole —</option>
-                        {availableProfiles.map(p => (
-                          <option key={p.id} value={p.id}>{p.first_name} {p.last_name}</option>
-                        ))}
-                      </select>
-                      {teamPositions.length > 0 && (
+                {/* Formulaire d'ajout — uniquement les membres de l'équipe non encore affectés */}
+                {(() => {
+                  const teamProfiles = (allProfiles ?? []).filter(p =>
+                    !assignedUserIds.has(p.id) && membersByTeam[team.id]?.has(p.id)
+                  )
+                  if (teamProfiles.length === 0) return null
+                  return (
+                    <div className="px-4 py-3 border-t border-teal/10 bg-teal-50/20">
+                      <form action={addAssignment} className="flex gap-2 items-center">
+                        <input type="hidden" name="plan_id" value={id} />
                         <select
-                          name="position_id"
+                          name="user_id"
                           className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-teal/30 bg-white text-dark font-sans text-xs focus:outline-none focus:ring-1 focus:ring-teal/40"
                         >
-                          <option value="">— Poste —</option>
-                          {teamPositions.map(pos => (
-                            <option key={pos.id} value={pos.id}>{pos.name}</option>
+                          <option value="">— Bénévole —</option>
+                          {teamProfiles.map(p => (
+                            <option key={p.id} value={p.id}>{p.first_name} {p.last_name}</option>
                           ))}
                         </select>
-                      )}
-                      <button
-                        type="submit"
-                        className="px-3 py-1.5 bg-teal text-white rounded-lg font-sans text-xs font-medium hover:bg-teal-dark transition-colors shrink-0"
-                      >
-                        +
-                      </button>
-                    </form>
-                  </div>
-                )}
+                        {/* Poste : masqué si un seul (auto-sélectionné), affiché si plusieurs */}
+                        {teamPositions.length === 1 && (
+                          <input type="hidden" name="position_id" value={teamPositions[0].id} />
+                        )}
+                        {teamPositions.length > 1 && (
+                          <select
+                            name="position_id"
+                            className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-teal/30 bg-white text-dark font-sans text-xs focus:outline-none focus:ring-1 focus:ring-teal/40"
+                          >
+                            <option value="">— Poste —</option>
+                            {teamPositions.map(pos => (
+                              <option key={pos.id} value={pos.id}>{pos.name}</option>
+                            ))}
+                          </select>
+                        )}
+                        <button
+                          type="submit"
+                          className="px-3 py-1.5 bg-teal text-white rounded-lg font-sans text-xs font-medium hover:bg-teal-dark transition-colors shrink-0"
+                        >
+                          +
+                        </button>
+                      </form>
+                    </div>
+                  )
+                })()}
               </div>
             )
           })}
