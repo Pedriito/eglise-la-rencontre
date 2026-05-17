@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { sendInviteEmail } from '@/lib/email'
 
 export async function inviteBenevole(formData: FormData) {
   const supabase = await createClient()
@@ -70,14 +71,28 @@ export async function resendInvite(formData: FormData) {
   const email = authUser?.user?.email
   if (!email) redirect(`/benevoles/admin/benevoles/${targetId}?error=Email+introuvable`)
 
-  const { data: profile } = await supabase.from('profiles').select('first_name, last_name').eq('id', targetId).single()
+  const { data: profile } = await supabase.from('profiles').select('first_name').eq('id', targetId).single()
 
-  const { error } = await admin.auth.admin.inviteUserByEmail(email, {
-    data: { first_name: profile?.first_name, last_name: profile?.last_name },
-    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/benevoles/auth/confirm`,
+  const { data: linkData, error } = await admin.auth.admin.generateLink({
+    type: 'recovery',
+    email,
+    options: {
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/benevoles/auth/confirm`,
+    },
   })
 
-  if (error) redirect(`/benevoles/admin/benevoles/${targetId}?error=${encodeURIComponent(error.message)}`)
+  if (error || !linkData) redirect(`/benevoles/admin/benevoles/${targetId}?error=${encodeURIComponent(error?.message ?? 'Lien non généré')}`)
+
+  try {
+    await sendInviteEmail({
+      to: email,
+      firstName: profile?.first_name ?? '',
+      inviteLink: linkData.properties.action_link,
+    })
+  } catch (err: any) {
+    redirect(`/benevoles/admin/benevoles/${targetId}?error=${encodeURIComponent(err?.message ?? 'Erreur envoi email')}`)
+  }
+
   redirect(`/benevoles/admin/benevoles/${targetId}?sent=1`)
 }
 

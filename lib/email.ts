@@ -1,5 +1,39 @@
 import { Resend } from 'resend'
 
+export async function sendInviteEmail({
+  to,
+  firstName,
+  inviteLink,
+}: {
+  to: string
+  firstName: string
+  inviteLink: string
+}) {
+  const resend = new Resend(process.env.RESEND_API_KEY)
+  await resend.emails.send({
+    from: 'Église La Rencontre <no-reply@egliselarencontre.fr>',
+    to,
+    subject: 'Tu es invité(e) — Église La Rencontre',
+    html: `
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1a2e2e;">
+        <p style="margin-bottom:8px;">Bonjour ${firstName},</p>
+        <p style="margin-bottom:24px;">
+          Tu as été invité(e) à rejoindre l'espace bénévoles de l'<strong>Église La Rencontre</strong>.
+          Clique sur le bouton ci-dessous pour créer ton mot de passe et accéder à ton espace.
+        </p>
+        <a href="${inviteLink}"
+           style="display:inline-block;background:#3D7D85;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;">
+          Créer mon mot de passe →
+        </a>
+        <p style="margin-top:32px;font-size:12px;color:#999;">
+          Église La Rencontre · Lieusaint<br>
+          Si tu n'es pas concerné(e) par ce message, ignore-le.
+        </p>
+      </div>
+    `,
+  })
+}
+
 export async function sendPlanAssignmentEmail({
   to,
   firstName,
