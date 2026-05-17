@@ -40,11 +40,19 @@ export default async function PlansPage() {
     })
     const n = countByPlan[plan.id] ?? 0
     return (
-      <tr className="border-b border-teal/10 last:border-0 hover:bg-teal-50/40 transition-colors">
-        <td className="px-6 py-4 font-sans text-sm text-dark/50 capitalize">{date}</td>
-        <td className="px-6 py-4 font-sans text-sm text-dark font-medium">{plan.title}</td>
-        <td className="px-6 py-4 font-sans text-sm text-dark/50">{team?.name ?? 'Toutes'}</td>
-        <td className="px-6 py-4 font-sans text-sm text-dark/50">{n} affecté{n > 1 ? 's' : ''}</td>
+      <tr className="border-b border-teal/10 last:border-0 hover:bg-teal-50/40 transition-colors cursor-pointer group">
+        <td className="px-6 py-4 font-sans text-sm text-dark/50 capitalize">
+          <Link href={`/benevoles/admin/plans/${plan.id}`} className="block">{date}</Link>
+        </td>
+        <td className="px-6 py-4 font-sans text-sm text-dark font-medium">
+          <Link href={`/benevoles/admin/plans/${plan.id}`} className="block">{plan.title}</Link>
+        </td>
+        <td className="px-6 py-4 font-sans text-sm text-dark/50">
+          <Link href={`/benevoles/admin/plans/${plan.id}`} className="block">{team?.name ?? 'Toutes'}</Link>
+        </td>
+        <td className="px-6 py-4 font-sans text-sm text-dark/50">
+          <Link href={`/benevoles/admin/plans/${plan.id}`} className="block">{n} affecté{n > 1 ? 's' : ''}</Link>
+        </td>
         <td className="px-6 py-4 text-right">
           <Link href={`/benevoles/admin/plans/${plan.id}`} className="text-teal font-sans text-sm hover:underline">
             Gérer →

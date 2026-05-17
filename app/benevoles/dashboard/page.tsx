@@ -15,7 +15,7 @@ export default async function DashboardPage() {
     supabase.from('team_members').select('role, teams(name)').eq('user_id', user.id),
     supabase
       .from('plan_assignments')
-      .select('id, status, plans(title, service_date), positions(name)')
+      .select('id, status, plans(title, service_date), positions(name), teams(name)')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(10),
@@ -116,6 +116,7 @@ export default async function DashboardPage() {
                   {upcoming.map((a, i) => {
                     const plan = a.plans as unknown as { title: string; service_date: string } | null
                     const pos = a.positions as unknown as { name: string } | null
+                    const team = a.teams as unknown as { name: string } | null
                     const date = plan ? new Date(plan.service_date).toLocaleDateString('fr-FR', {
                       weekday: 'short', day: 'numeric', month: 'short',
                     }) : '—'
@@ -123,7 +124,7 @@ export default async function DashboardPage() {
                       <tr key={a.id} className={i % 2 === 0 ? '' : 'bg-teal-50/40'}>
                         <td className="px-6 py-4 font-sans text-sm text-dark/60 capitalize">{date}</td>
                         <td className="px-6 py-4 font-sans text-sm text-dark font-medium">{plan?.title ?? '—'}</td>
-                        <td className="px-6 py-4 font-sans text-sm text-dark/70">{pos?.name ?? '—'}</td>
+                        <td className="px-6 py-4 font-sans text-sm text-dark/70">{pos?.name ?? team?.name ?? '—'}</td>
                         <td className="px-6 py-4"><StatusDot status={a.status} /></td>
                       </tr>
                     )
