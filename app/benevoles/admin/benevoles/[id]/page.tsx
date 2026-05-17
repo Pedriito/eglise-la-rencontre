@@ -27,9 +27,20 @@ export default async function BenevoleProfilePage({
   ] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, first_name, last_name, phone, email, birthdate, city, permission, status, created_at')
+      .select('id, first_name, last_name, phone, permission, status, created_at, email, birthdate, city')
       .eq('id', id)
-      .single(),
+      .single()
+      .then(res => {
+        // Si les nouvelles colonnes n'existent pas encore, on retente sans elles
+        if (res.error?.code === '42703') {
+          return supabase
+            .from('profiles')
+            .select('id, first_name, last_name, phone, permission, status, created_at')
+            .eq('id', id)
+            .single()
+        }
+        return res
+      }),
     admin.auth.admin.getUserById(id),
     supabase
       .from('team_members')
