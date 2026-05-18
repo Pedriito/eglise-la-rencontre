@@ -60,20 +60,6 @@ export async function inviteBenevole(formData: FormData) {
     )
   }
 
-  // Envoie l'email via Resend pour plus de fiabilité
-  try {
-    const { data: linkData } = await admin.auth.admin.generateLink({
-      type: 'invite',
-      email,
-      options: { redirectTo: `${siteUrl}/benevoles/auth/confirm` },
-    })
-    if (linkData?.properties?.action_link) {
-      await sendInviteEmail({ to: email, firstName, inviteLink: linkData.properties.action_link })
-    }
-  } catch {
-    // L'email Resend est best-effort, l'invite Supabase a déjà été créée
-  }
-
   redirect('/benevoles/admin?success=invited')
 }
 
