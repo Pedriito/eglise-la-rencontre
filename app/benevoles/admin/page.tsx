@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
 import { BenevoleList } from './BenevoleList'
+import { FlashMessage } from '../_components/FlashMessage'
 
 
 export default async function AdminPage({
@@ -46,9 +47,7 @@ export default async function AdminPage({
 
       <main className="max-w-4xl mx-auto px-4 md:px-6 py-6 md:py-8 space-y-6">
         {params.success === 'invited' && (
-          <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 font-sans text-sm">
-            Invitation envoyée avec succès.
-          </div>
+          <FlashMessage message="Invitation envoyée avec succès." type="success" />
         )}
 
         {/* Stats */}

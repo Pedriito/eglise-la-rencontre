@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { addAssignment, removeAssignment, deletePlan, sendSingleInvitation } from '../actions'
 import { StatusDot } from '../../../_components/StatusDot'
+import { FlashMessage } from '../../../_components/FlashMessage'
 
 const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
 const TEAMS_WITH_INVITE = new Set(['Prédicateurs', 'Louange'])
@@ -115,16 +116,8 @@ export default async function PlanDetailPage({
       </header>
 
       <main className="max-w-6xl mx-auto px-6 py-8 space-y-6">
-        {flashError && (
-          <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-3 font-sans text-sm text-red-600">
-            Erreur : {flashError}
-          </div>
-        )}
-        {flashSent && (
-          <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-3 font-sans text-sm text-green-700">
-            Invitation envoyée avec succès.
-          </div>
-        )}
+        {flashError && <FlashMessage message={`Erreur : ${flashError}`} type="error" />}
+        {flashSent && <FlashMessage message="Invitation envoyée avec succès." type="success" />}
         {plan.notes && (
           <div className="bg-teal/10 rounded-xl px-5 py-3 font-sans text-sm text-dark/70">
             {plan.notes}

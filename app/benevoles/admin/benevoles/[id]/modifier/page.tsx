@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { updateBenevoleAdmin } from '../../../actions'
+import { FlashMessage } from '../../../../../_components/FlashMessage'
 
 export default async function ModifierBenevolePage({
   params,
@@ -48,11 +49,7 @@ export default async function ModifierBenevolePage({
       </header>
 
       <main className="max-w-xl mx-auto px-6 py-8">
-        {flashError && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-xl px-5 py-3 font-sans text-sm text-red-600">
-            Erreur : {flashError}
-          </div>
-        )}
+        {flashError && <FlashMessage message={`Erreur : ${flashError}`} type="error" />}
 
         <div className="bg-white rounded-2xl border border-teal/20 p-6">
           <form action={updateBenevoleAdmin} className="space-y-5">

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { saveProfile } from './actions'
+import { FlashMessage } from '../_components/FlashMessage'
 
 const errors: Record<string, string> = {
   failed: 'Une erreur est survenue. Réessaie.',
@@ -49,8 +50,11 @@ export default async function ProfilPage({
               : 'Mets à jour tes informations personnelles.'}
           </p>
           {emailSent && (
-            <div className="mb-5 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 font-sans text-sm text-blue-700">
-              Un email de confirmation a été envoyé à ta nouvelle adresse. Clique sur le lien pour valider le changement.
+            <div className="mb-5">
+              <FlashMessage
+                message="Un email de confirmation a été envoyé à ta nouvelle adresse. Clique sur le lien pour valider le changement."
+                type="info"
+              />
             </div>
           )}
 

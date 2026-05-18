@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { permissionLabels, statusLabels, roleLabels, frequencyLabels } from '@/lib/labels'
 import { resendInvite } from '../../actions'
+import { FlashMessage } from '../../../_components/FlashMessage'
 
 export default async function BenevoleProfilePage({
   params,
@@ -109,21 +110,9 @@ export default async function BenevoleProfilePage({
       </header>
 
       <main className="max-w-3xl mx-auto px-6 py-8 space-y-6">
-        {flashError && (
-          <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-3 font-sans text-sm text-red-600">
-            Erreur : {flashError}
-          </div>
-        )}
-        {flashSent && (
-          <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-3 font-sans text-sm text-green-700">
-            Invitation envoyée à {email}.
-          </div>
-        )}
-        {flashUpdated && (
-          <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-3 font-sans text-sm text-green-700">
-            Fiche mise à jour.
-          </div>
-        )}
+        {flashError && <FlashMessage message={`Erreur : ${flashError}`} type="error" />}
+        {flashSent && <FlashMessage message={`Invitation envoyée à ${email}.`} type="success" />}
+        {flashUpdated && <FlashMessage message="Fiche mise à jour." type="success" />}
 
         {/* Coordonnées */}
         <section className="bg-white rounded-2xl border border-teal/20 p-6">
