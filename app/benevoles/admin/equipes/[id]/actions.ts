@@ -22,6 +22,15 @@ async function requireAdminOrLeader(teamId: string) {
   redirect('/benevoles/dashboard')
 }
 
+async function requireAdmin() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/benevoles/login')
+  const { data: profile } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
+  if (profile?.permission !== 'admin') redirect('/benevoles/dashboard')
+  return createAdminClient()
+}
+
 export async function addTeamMember(formData: FormData) {
   const teamId = formData.get('team_id') as string
   const admin = await requireAdminOrLeader(teamId)
@@ -45,6 +54,21 @@ export async function removeTeamMember(formData: FormData) {
   if (positions?.length) {
     await admin.from('member_positions').delete().eq('user_id', userId).in('position_id', positions.map(p => p.id))
   }
+  redirect(`/benevoles/admin/equipes/${teamId}`)
+}
+
+export async function updateMemberRole(formData: FormData) {
+  const teamId = formData.get('team_id') as string
+  const admin = await requireAdmin()
+  const userId = formData.get('user_id') as string
+  const role = formData.get('role') as string
+
+  await admin
+    .from('team_members')
+    .update({ role })
+    .eq('user_id', userId)
+    .eq('team_id', teamId)
+
   redirect(`/benevoles/admin/equipes/${teamId}`)
 }
 

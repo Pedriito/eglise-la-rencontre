@@ -92,6 +92,7 @@ export default async function TeamPage({
             positions={positions ?? []}
             memberPositions={memberPositions}
             readOnly={!canEdit}
+            canEditRoles={isAdmin}
           />
         </section>
 

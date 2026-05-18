@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { removeTeamMember, toggleMemberPosition } from './actions'
+import { removeTeamMember, toggleMemberPosition, updateMemberRole } from './actions'
 import { frequencyLabels } from '@/lib/labels'
 
 type Position = { id: string; name: string }
@@ -18,12 +18,14 @@ export function MemberList({
   positions,
   memberPositions,
   readOnly = false,
+  canEditRoles = false,
 }: {
   teamId: string
   members: Member[]
   positions: Position[]
   memberPositions: Record<string, Set<string>>
   readOnly?: boolean
+  canEditRoles?: boolean
 }) {
   const [query, setQuery] = useState('')
 
@@ -51,13 +53,30 @@ export function MemberList({
             <div key={m.user_id} className="px-6 py-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
                     <span className="font-sans text-sm text-dark font-medium">
                       {m.profiles?.first_name} {m.profiles?.last_name}
                     </span>
-                    {m.role === 'leader' && (
+                    {canEditRoles ? (
+                      <form action={updateMemberRole}>
+                        <input type="hidden" name="team_id" value={teamId} />
+                        <input type="hidden" name="user_id" value={m.user_id} />
+                        <input type="hidden" name="role" value={m.role === 'leader' ? 'member' : 'leader'} />
+                        <button
+                          type="submit"
+                          title={m.role === 'leader' ? 'Rétrograder en membre' : 'Promouvoir en responsable'}
+                          className={`text-xs px-2 py-0.5 rounded-full font-sans transition-colors cursor-pointer ${
+                            m.role === 'leader'
+                              ? 'bg-teal/10 text-teal hover:bg-red-50 hover:text-red-400'
+                              : 'bg-teal/5 text-dark/40 hover:bg-teal/10 hover:text-teal'
+                          }`}
+                        >
+                          {m.role === 'leader' ? 'Responsable ↓' : 'Membre ↑'}
+                        </button>
+                      </form>
+                    ) : m.role === 'leader' ? (
                       <span className="text-xs bg-teal/10 text-teal px-2 py-0.5 rounded-full font-sans">Responsable</span>
-                    )}
+                    ) : null}
                     {m.frequency && (
                       <span className="text-xs text-dark/40 font-sans">{frequencyLabels[m.frequency] ?? m.frequency}</span>
                     )}
