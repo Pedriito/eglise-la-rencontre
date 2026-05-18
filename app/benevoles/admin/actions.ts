@@ -39,8 +39,7 @@ export async function inviteBenevole(formData: FormData) {
 
   await admin
     .from('profiles')
-    .update({ permission, first_name: firstName, last_name: lastName })
-    .eq('id', userId)
+    .upsert({ id: userId, permission, first_name: firstName, last_name: lastName })
 
   if (teamIds.length > 0) {
     await admin.from('team_members').insert(
