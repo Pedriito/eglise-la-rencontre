@@ -40,6 +40,65 @@ export async function sendInviteEmail({
   })
 }
 
+export async function sendCancellationNotificationEmail({
+  to,
+  volunteerName,
+  planTitle,
+  serviceDate,
+  positionName,
+  teamName,
+}: {
+  to: string
+  volunteerName: string
+  planTitle: string
+  serviceDate: string
+  positionName: string | null
+  teamName: string | null
+}) {
+  const date = new Date(serviceDate).toLocaleDateString('fr-FR', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  })
+  const time = new Date(serviceDate).toLocaleTimeString('fr-FR', {
+    hour: '2-digit', minute: '2-digit',
+  })
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.egliselarencontre.fr'
+  const resend = getResend()
+
+  await resend.emails.send({
+    from: 'Église La Rencontre <no-reply@egliselarencontre.fr>',
+    to,
+    subject: `Désistement : ${volunteerName} — ${planTitle}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1a2e2e;">
+        <p style="margin-bottom:8px;">Bonjour,</p>
+        <p style="margin-bottom:16px;">
+          <strong>${volunteerName}</strong> s'est désisté(e) pour le service suivant :
+        </p>
+
+        <div style="background:#fff7ed;border-radius:10px;padding:18px 20px;margin-bottom:20px;border-left:4px solid #f97316;">
+          <p style="margin:0;font-size:16px;font-weight:600;">${planTitle}</p>
+          <p style="margin:6px 0 0;color:#555;font-size:14px;text-transform:capitalize;">${date} à ${time}</p>
+          ${teamName ? `<p style="margin:6px 0 0;color:#0d9488;font-size:14px;">Équipe : ${teamName}</p>` : ''}
+          ${positionName ? `<p style="margin:6px 0 0;color:#0d9488;font-size:14px;">Poste : ${positionName}</p>` : ''}
+        </div>
+
+        <p style="margin-bottom:20px;color:#555;font-size:14px;">
+          Il faudra prévoir un remplaçant pour ce poste.
+        </p>
+
+        <a href="${siteUrl}/benevoles/admin/plans"
+           style="display:inline-block;background:#3D7D85;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
+          Gérer la planification →
+        </a>
+
+        <p style="margin-top:32px;font-size:12px;color:#999;">
+          Église La Rencontre · Lieusaint
+        </p>
+      </div>
+    `,
+  })
+}
+
 export async function sendPlanAssignmentEmail({
   to,
   firstName,

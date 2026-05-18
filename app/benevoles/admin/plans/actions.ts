@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
-import { sendPlanAssignmentEmail } from '@/lib/email'
+import { sendPlanAssignmentEmail, sendCancellationNotificationEmail } from '@/lib/email'
 
 const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
 
@@ -127,6 +127,71 @@ export async function respondAssignment(formData: FormData) {
     .update({ status })
     .eq('id', assignmentId)
     .eq('user_id', user.id)
+
+  redirect('/benevoles/dashboard')
+}
+
+export async function cancelAssignment(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/benevoles/login')
+
+  const assignmentId = formData.get('assignment_id') as string
+
+  // Récupère l'affectation + plan + poste + équipe
+  const { data: assignment } = await supabase
+    .from('plan_assignments')
+    .select('id, user_id, plans(id, title, service_date), positions(name), teams(name)')
+    .eq('id', assignmentId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!assignment) redirect('/benevoles/dashboard')
+
+  const plan = assignment.plans as unknown as { id: string; title: string; service_date: string } | null
+  if (!plan || new Date(plan.service_date) <= new Date()) redirect('/benevoles/dashboard')
+
+  // Met à jour le statut
+  await supabase
+    .from('plan_assignments')
+    .update({ status: 'declined' })
+    .eq('id', assignmentId)
+    .eq('user_id', user.id)
+
+  // Récupère le prénom/nom de l'utilisateur
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('first_name, last_name')
+    .eq('id', user.id)
+    .single()
+
+  const volunteerName = `${profile?.first_name ?? ''} ${profile?.last_name ?? ''}`.trim()
+  const position = assignment.positions as unknown as { name: string } | null
+  const team = assignment.teams as unknown as { name: string } | null
+
+  // Notifie les admins/éditeurs par email (via leur email dans profiles)
+  const adminClient = createAdminClient()
+  const { data: responsibles } = await adminClient
+    .from('profiles')
+    .select('email')
+    .in('permission', ['admin', 'editor'])
+    .not('email', 'is', null)
+
+  for (const r of responsibles ?? []) {
+    if (!r.email) continue
+    try {
+      await sendCancellationNotificationEmail({
+        to: r.email,
+        volunteerName,
+        planTitle: plan.title,
+        serviceDate: plan.service_date,
+        positionName: position?.name ?? null,
+        teamName: team?.name ?? null,
+      })
+    } catch {
+      // On continue même si un email échoue
+    }
+  }
 
   redirect('/benevoles/dashboard')
 }

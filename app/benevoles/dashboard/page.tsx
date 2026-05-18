@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { respondAssignment } from '../admin/plans/actions'
 import { permissionLabels } from '@/lib/labels'
 import { StatusDot } from '../_components/StatusDot'
+import { CancelAssignmentButton } from './CancelAssignmentButton'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -158,6 +159,7 @@ export default async function DashboardPage() {
                     <th className="text-left px-6 py-3 text-xs font-sans text-dark/40 uppercase tracking-widest font-medium">Service</th>
                     <th className="text-left px-6 py-3 text-xs font-sans text-dark/40 uppercase tracking-widest font-medium">Poste</th>
                     <th className="text-left px-6 py-3 text-xs font-sans text-dark/40 uppercase tracking-widest font-medium">Statut</th>
+                    <th className="px-6 py-3" />
                   </tr>
                 </thead>
                 <tbody>
@@ -174,6 +176,11 @@ export default async function DashboardPage() {
                         <td className="px-6 py-4 font-sans text-sm text-dark font-medium">{plan?.title ?? '—'}</td>
                         <td className="px-6 py-4 font-sans text-sm text-dark/70">{pos?.name ?? team?.name ?? '—'}</td>
                         <td className="px-6 py-4"><StatusDot status={a.status} /></td>
+                        <td className="px-6 py-4 text-right">
+                          {a.status === 'confirmed' && (
+                            <CancelAssignmentButton assignmentId={a.id} />
+                          )}
+                        </td>
                       </tr>
                     )
                   })}
