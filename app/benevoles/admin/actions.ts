@@ -63,18 +63,26 @@ export async function inviteBenevole(formData: FormData) {
   }
 
   // Génère un lien d'invitation et envoie via Resend
-  const { data: linkData } = await admin.auth.admin.generateLink({
+  const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
     type: 'recovery',
     email,
     options: { redirectTo: `${siteUrl}/benevoles/auth/confirm` },
   })
 
+  if (linkError) {
+    console.error('[inviteBenevole] generateLink error:', linkError.message, { email, userId })
+  }
+
   if (linkData?.properties?.action_link) {
+    console.log('[inviteBenevole] sending invite email to', email, 'userId:', userId)
     try {
       await sendInviteEmail({ to: email, firstName, inviteLink: linkData.properties.action_link })
-    } catch {
-      // Email échoué mais le compte est créé — renvoyer depuis la fiche
+      console.log('[inviteBenevole] email sent OK to', email)
+    } catch (err: any) {
+      console.error('[inviteBenevole] Resend error:', err?.message, { email, userId })
     }
+  } else {
+    console.error('[inviteBenevole] no action_link generated for', email)
   }
 
   redirect('/benevoles/admin?success=invited')
@@ -89,8 +97,9 @@ export async function resendInviteFromList(_: unknown, formData: FormData): Prom
 
   const targetId = formData.get('user_id') as string
   const admin = createAdminClient()
-  const { data: authUser } = await admin.auth.admin.getUserById(targetId)
+  const { data: authUser, error: authErr } = await admin.auth.admin.getUserById(targetId)
   const email = authUser?.user?.email
+  console.log('[resendInviteFromList] targetId:', targetId, 'email:', email ?? 'INTROUVABLE', authErr?.message ?? '')
   if (!email) return { ok: false, error: 'Email introuvable' }
 
   const { data: profile } = await supabase.from('profiles').select('first_name').eq('id', targetId).single()
@@ -98,17 +107,23 @@ export async function resendInviteFromList(_: unknown, formData: FormData): Prom
     ? 'https://www.egliselarencontre.fr'
     : (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.egliselarencontre.fr')
 
-  const { data: linkData } = await admin.auth.admin.generateLink({
+  const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
     type: 'recovery',
     email,
     options: { redirectTo: `${siteUrl}/benevoles/auth/confirm` },
   })
 
-  if (!linkData?.properties?.action_link) return { ok: false, error: 'Lien non généré' }
+  if (!linkData?.properties?.action_link) {
+    console.error('[resendInviteFromList] generateLink failed:', linkErr?.message, { email, targetId })
+    return { ok: false, error: 'Lien non généré' }
+  }
 
   try {
+    console.log('[resendInviteFromList] sending email to', email)
     await sendInviteEmail({ to: email, firstName: profile?.first_name ?? '', inviteLink: linkData.properties.action_link })
+    console.log('[resendInviteFromList] email sent OK to', email)
   } catch (err: any) {
+    console.error('[resendInviteFromList] Resend error:', err?.message, { email, targetId })
     return { ok: false, error: err?.message ?? 'Erreur envoi email' }
   }
 
@@ -126,8 +141,9 @@ export async function resendInvite(formData: FormData) {
   const targetId = formData.get('user_id') as string
   const admin = createAdminClient()
 
-  const { data: authUser } = await admin.auth.admin.getUserById(targetId)
+  const { data: authUser, error: authErr } = await admin.auth.admin.getUserById(targetId)
   const email = authUser?.user?.email
+  console.log('[resendInvite] targetId:', targetId, 'email:', email ?? 'INTROUVABLE', authErr?.message ?? '')
   if (!email) redirect(`/benevoles/admin/benevoles/${targetId}?error=Email+introuvable`)
 
   const { data: profile } = await supabase.from('profiles').select('first_name').eq('id', targetId).single()
@@ -144,15 +160,21 @@ export async function resendInvite(formData: FormData) {
     },
   })
 
-  if (error || !linkData) redirect(`/benevoles/admin/benevoles/${targetId}?error=${encodeURIComponent(error?.message ?? 'Lien non généré')}`)
+  if (error || !linkData) {
+    console.error('[resendInvite] generateLink failed:', error?.message, { email, targetId })
+    redirect(`/benevoles/admin/benevoles/${targetId}?error=${encodeURIComponent(error?.message ?? 'Lien non généré')}`)
+  }
 
   try {
+    console.log('[resendInvite] sending email to', email)
     await sendInviteEmail({
       to: email,
       firstName: profile?.first_name ?? '',
       inviteLink: linkData.properties.action_link,
     })
+    console.log('[resendInvite] email sent OK to', email)
   } catch (err: any) {
+    console.error('[resendInvite] Resend error:', err?.message, { email, targetId })
     redirect(`/benevoles/admin/benevoles/${targetId}?error=${encodeURIComponent(err?.message ?? 'Erreur envoi email')}`)
   }
 

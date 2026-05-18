@@ -93,11 +93,15 @@ export async function sendSingleInvitation(formData: FormData) {
   const position = a.positions as any
   const team = a.teams as any
 
+  console.log('[sendSingleInvitation] assignmentId:', assignmentId, 'userId:', a.user_id, 'email:', email ?? 'INTROUVABLE')
+
   if (!email || !plan || !profile) {
+    console.error('[sendSingleInvitation] données manquantes', { email, plan: !!plan, profile: !!profile })
     redirect(`/benevoles/admin/plans/${planId}?error=Données+manquantes`)
   }
 
   try {
+    console.log('[sendSingleInvitation] sending plan email to', email, 'plan:', plan.title)
     await sendPlanAssignmentEmail({
       to: email,
       firstName: profile.first_name,
@@ -107,7 +111,9 @@ export async function sendSingleInvitation(formData: FormData) {
       teamName: team?.name ?? null,
       assignmentId,
     })
+    console.log('[sendSingleInvitation] email sent OK to', email)
   } catch (err: any) {
+    console.error('[sendSingleInvitation] Resend error:', err?.message, { email, assignmentId })
     redirect(`/benevoles/admin/plans/${planId}?error=${encodeURIComponent(err?.message ?? 'Erreur envoi email')}`)
   }
 
@@ -177,6 +183,9 @@ export async function cancelAssignment(formData: FormData) {
     .in('permission', ['admin', 'editor'])
     .not('email', 'is', null)
 
+  console.log('[cancelAssignment] assignmentId:', assignmentId, 'volunteer:', volunteerName, 'plan:', plan.title)
+  console.log('[cancelAssignment] notifying', responsibles?.length ?? 0, 'responsibles')
+
   for (const r of responsibles ?? []) {
     if (!r.email) continue
     try {
@@ -188,8 +197,9 @@ export async function cancelAssignment(formData: FormData) {
         positionName: position?.name ?? null,
         teamName: team?.name ?? null,
       })
-    } catch {
-      // On continue même si un email échoue
+      console.log('[cancelAssignment] notification sent to', r.email)
+    } catch (err: any) {
+      console.error('[cancelAssignment] Resend error for', r.email, ':', err?.message)
     }
   }
 
