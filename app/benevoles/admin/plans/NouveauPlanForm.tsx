@@ -37,8 +37,8 @@ type PlanType = keyof typeof TYPES
 
 export function NouveauPlanForm({ teams, error }: { teams: Team[]; error?: string }) {
   const [planType, setPlanType] = useState<PlanType>('sunday_service')
-  const [title, setTitle] = useState(TYPES.sunday_service.defaultTitle)
-  const [date, setDate] = useState(TYPES.sunday_service.defaultDate())
+  const [title, setTitle] = useState<string>(TYPES.sunday_service.defaultTitle)
+  const [date, setDate] = useState<string>(TYPES.sunday_service.defaultDate())
 
   function handleTypeChange(t: PlanType) {
     setPlanType(t)
