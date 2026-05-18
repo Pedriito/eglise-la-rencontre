@@ -30,9 +30,11 @@ export async function inviteBenevole(formData: FormData) {
     ? 'https://www.egliselarencontre.fr'
     : (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.egliselarencontre.fr')
 
-  const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-    data: { first_name: firstName, last_name: lastName },
-    redirectTo: `${siteUrl}/benevoles/auth/confirm`,
+  // Crée l'utilisateur sans envoyer l'email Supabase (plan gratuit limité)
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    email_confirm: false,
+    user_metadata: { first_name: firstName, last_name: lastName },
   })
 
   if (error) {
@@ -58,6 +60,21 @@ export async function inviteBenevole(formData: FormData) {
         frequency: (formData.get(`frequency_${teamId}`) as string) || null,
       }))
     )
+  }
+
+  // Génère un lien d'invitation et envoie via Resend
+  const { data: linkData } = await admin.auth.admin.generateLink({
+    type: 'recovery',
+    email,
+    options: { redirectTo: `${siteUrl}/benevoles/auth/confirm` },
+  })
+
+  if (linkData?.properties?.action_link) {
+    try {
+      await sendInviteEmail({ to: email, firstName, inviteLink: linkData.properties.action_link })
+    } catch {
+      // Email échoué mais le compte est créé — renvoyer depuis la fiche
+    }
   }
 
   redirect('/benevoles/admin?success=invited')
