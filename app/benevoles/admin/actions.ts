@@ -41,9 +41,13 @@ export async function inviteBenevole(formData: FormData) {
 
   const userId = data.user.id
 
-  await admin
+  const { error: upsertError } = await admin
     .from('profiles')
-    .upsert({ id: userId, permission, first_name: firstName, last_name: lastName })
+    .upsert({ id: userId, permission, first_name: firstName, last_name: lastName, status: 'invited' })
+
+  if (upsertError) {
+    redirect(`/benevoles/admin/inviter?error=${encodeURIComponent(upsertError.message)}`)
+  }
 
   if (teamIds.length > 0) {
     await admin.from('team_members').insert(
@@ -54,6 +58,20 @@ export async function inviteBenevole(formData: FormData) {
         frequency: (formData.get(`frequency_${teamId}`) as string) || null,
       }))
     )
+  }
+
+  // Envoie l'email via Resend pour plus de fiabilité
+  try {
+    const { data: linkData } = await admin.auth.admin.generateLink({
+      type: 'invite',
+      email,
+      options: { redirectTo: `${siteUrl}/benevoles/auth/confirm` },
+    })
+    if (linkData?.properties?.action_link) {
+      await sendInviteEmail({ to: email, firstName, inviteLink: linkData.properties.action_link })
+    }
+  } catch {
+    // L'email Resend est best-effort, l'invite Supabase a déjà été créée
   }
 
   redirect('/benevoles/admin?success=invited')
