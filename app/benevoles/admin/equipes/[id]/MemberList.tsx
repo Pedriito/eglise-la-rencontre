@@ -17,11 +17,13 @@ export function MemberList({
   members,
   positions,
   memberPositions,
+  readOnly = false,
 }: {
   teamId: string
   members: Member[]
   positions: Position[]
   memberPositions: Record<string, Set<string>>
+  readOnly?: boolean
 }) {
   const [query, setQuery] = useState('')
 
@@ -63,8 +65,15 @@ export function MemberList({
 
                   {positions.length > 0 && (
                     <div className="flex flex-wrap gap-1.5">
-                      {positions.map(pos => {
+                      {positions.filter(pos => readOnly ? posIds.has(pos.id) : true).map(pos => {
                         const hasPos = posIds.has(pos.id)
+                        if (readOnly) {
+                          return (
+                            <span key={pos.id} className="px-2.5 py-1 rounded-full text-xs font-sans bg-teal text-white">
+                              {pos.name}
+                            </span>
+                          )
+                        }
                         return (
                           <form key={pos.id} action={toggleMemberPosition}>
                             <input type="hidden" name="team_id" value={teamId} />
@@ -84,13 +93,15 @@ export function MemberList({
                   )}
                 </div>
 
-                <form action={removeTeamMember}>
-                  <input type="hidden" name="team_id" value={teamId} />
-                  <input type="hidden" name="user_id" value={m.user_id} />
-                  <button type="submit" className="text-xs text-dark/30 hover:text-red-400 transition-colors font-sans">
-                    Retirer
-                  </button>
-                </form>
+                {!readOnly && (
+                  <form action={removeTeamMember}>
+                    <input type="hidden" name="team_id" value={teamId} />
+                    <input type="hidden" name="user_id" value={m.user_id} />
+                    <button type="submit" className="text-xs text-dark/30 hover:text-red-400 transition-colors font-sans">
+                      Retirer
+                    </button>
+                  </form>
+                )}
               </div>
             </div>
           )

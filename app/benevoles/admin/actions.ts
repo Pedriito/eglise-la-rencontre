@@ -80,6 +80,41 @@ export async function inviteBenevole(formData: FormData) {
   redirect('/benevoles/admin?success=invited')
 }
 
+export async function resendInviteFromList(_: unknown, formData: FormData): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Non authentifié' }
+  const { data: me } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
+  if (me?.permission !== 'admin') return { ok: false, error: 'Accès refusé' }
+
+  const targetId = formData.get('user_id') as string
+  const admin = createAdminClient()
+  const { data: authUser } = await admin.auth.admin.getUserById(targetId)
+  const email = authUser?.user?.email
+  if (!email) return { ok: false, error: 'Email introuvable' }
+
+  const { data: profile } = await supabase.from('profiles').select('first_name').eq('id', targetId).single()
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.startsWith('http://localhost')
+    ? 'https://www.egliselarencontre.fr'
+    : (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.egliselarencontre.fr')
+
+  const { data: linkData } = await admin.auth.admin.generateLink({
+    type: 'recovery',
+    email,
+    options: { redirectTo: `${siteUrl}/benevoles/auth/confirm` },
+  })
+
+  if (!linkData?.properties?.action_link) return { ok: false, error: 'Lien non généré' }
+
+  try {
+    await sendInviteEmail({ to: email, firstName: profile?.first_name ?? '', inviteLink: linkData.properties.action_link })
+  } catch (err: any) {
+    return { ok: false, error: err?.message ?? 'Erreur envoi email' }
+  }
+
+  return { ok: true }
+}
+
 export async function resendInvite(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -97,11 +132,15 @@ export async function resendInvite(formData: FormData) {
 
   const { data: profile } = await supabase.from('profiles').select('first_name').eq('id', targetId).single()
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.startsWith('http://localhost')
+    ? 'https://www.egliselarencontre.fr'
+    : (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.egliselarencontre.fr')
+
   const { data: linkData, error } = await admin.auth.admin.generateLink({
     type: 'recovery',
     email,
     options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/benevoles/auth/confirm`,
+      redirectTo: `${siteUrl}/benevoles/auth/confirm`,
     },
   })
 
@@ -118,6 +157,43 @@ export async function resendInvite(formData: FormData) {
   }
 
   redirect(`/benevoles/admin/benevoles/${targetId}?sent=1`)
+}
+
+export async function updateBenevoleAdmin(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/benevoles/login')
+
+  const { data: me } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
+  if (me?.permission !== 'admin') redirect('/benevoles/dashboard')
+
+  const userId     = formData.get('user_id') as string
+  const firstName  = (formData.get('first_name') as string)?.trim()
+  const lastName   = (formData.get('last_name') as string)?.trim()
+  const email      = (formData.get('email') as string)?.trim()
+  const phone      = (formData.get('phone') as string)?.trim() || null
+  const city       = (formData.get('city') as string)?.trim() || null
+  const birthdate  = (formData.get('birthdate') as string) || null
+  const permission = formData.get('permission') as string
+  const status     = formData.get('status') as string
+
+  const admin = createAdminClient()
+
+  const { error: authError } = await admin.auth.admin.updateUserById(userId, { email })
+  if (authError) {
+    redirect(`/benevoles/admin/benevoles/${userId}/modifier?error=${encodeURIComponent(authError.message)}`)
+  }
+
+  const { error: profileError } = await admin
+    .from('profiles')
+    .update({ first_name: firstName, last_name: lastName, phone, city, birthdate, permission, status, email })
+    .eq('id', userId)
+
+  if (profileError) {
+    redirect(`/benevoles/admin/benevoles/${userId}/modifier?error=${encodeURIComponent(profileError.message)}`)
+  }
+
+  redirect(`/benevoles/admin/benevoles/${userId}?updated=1`)
 }
 
 export async function deleteBenevole(formData: FormData) {

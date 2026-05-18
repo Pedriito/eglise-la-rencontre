@@ -4,12 +4,13 @@ import { saveProfile } from './actions'
 
 const errors: Record<string, string> = {
   failed: 'Une erreur est survenue. Réessaie.',
+  email_taken: 'Cet email est déjà utilisé par un autre compte.',
 }
 
 export default async function ProfilPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; from?: string }>
+  searchParams: Promise<{ error?: string; from?: string; email_sent?: string }>
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -23,6 +24,7 @@ export default async function ProfilPage({
 
   const params = await searchParams
   const errorMsg = params.error ? errors[params.error] : null
+  const emailSent = !!params.email_sent
   const isFirstTime = !profile?.profile_complete
 
   return (
@@ -46,35 +48,47 @@ export default async function ProfilPage({
               ? "Ces informations permettent à l'équipe de te contacter."
               : 'Mets à jour tes informations personnelles.'}
           </p>
+          {emailSent && (
+            <div className="mb-5 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 font-sans text-sm text-blue-700">
+              Un email de confirmation a été envoyé à ta nouvelle adresse. Clique sur le lien pour valider le changement.
+            </div>
+          )}
 
           <form action={saveProfile} className="space-y-5">
-            {/* Nom (lecture seule) */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-sans text-dark/70 mb-1.5">Prénom</label>
+                <label htmlFor="first_name" className="block text-sm font-sans text-dark/70 mb-1.5">Prénom</label>
                 <input
-                  value={profile?.first_name ?? ''}
-                  readOnly
-                  className="w-full px-4 py-2.5 rounded-lg border border-teal/20 bg-teal-50/40 text-dark/60 font-sans text-sm"
+                  id="first_name"
+                  name="first_name"
+                  type="text"
+                  defaultValue={profile?.first_name ?? ''}
+                  required
+                  className="w-full px-4 py-2.5 rounded-lg border border-teal/30 bg-teal-50 text-dark focus:outline-none focus:ring-2 focus:ring-teal/40 font-sans text-sm"
                 />
               </div>
               <div>
-                <label className="block text-sm font-sans text-dark/70 mb-1.5">Nom</label>
+                <label htmlFor="last_name" className="block text-sm font-sans text-dark/70 mb-1.5">Nom</label>
                 <input
-                  value={profile?.last_name ?? ''}
-                  readOnly
-                  className="w-full px-4 py-2.5 rounded-lg border border-teal/20 bg-teal-50/40 text-dark/60 font-sans text-sm"
+                  id="last_name"
+                  name="last_name"
+                  type="text"
+                  defaultValue={profile?.last_name ?? ''}
+                  required
+                  className="w-full px-4 py-2.5 rounded-lg border border-teal/30 bg-teal-50 text-dark focus:outline-none focus:ring-2 focus:ring-teal/40 font-sans text-sm"
                 />
               </div>
             </div>
 
-            {/* Email (lecture seule) */}
             <div>
-              <label className="block text-sm font-sans text-dark/70 mb-1.5">Email</label>
+              <label htmlFor="email" className="block text-sm font-sans text-dark/70 mb-1.5">Email</label>
               <input
-                value={user.email ?? ''}
-                readOnly
-                className="w-full px-4 py-2.5 rounded-lg border border-teal/20 bg-teal-50/40 text-dark/60 font-sans text-sm"
+                id="email"
+                name="email"
+                type="email"
+                defaultValue={user.email ?? ''}
+                required
+                className="w-full px-4 py-2.5 rounded-lg border border-teal/30 bg-teal-50 text-dark focus:outline-none focus:ring-2 focus:ring-teal/40 font-sans text-sm"
               />
             </div>
 

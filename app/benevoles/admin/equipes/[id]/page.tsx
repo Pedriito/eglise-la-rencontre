@@ -18,7 +18,22 @@ export default async function TeamPage({
   if (!user) redirect('/benevoles/login')
 
   const { data: me } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
-  if (me?.permission !== 'admin') redirect('/benevoles/dashboard')
+  const isAdmin = me?.permission === 'admin'
+  const isEditor = me?.permission === 'editor'
+
+  // Tous les membres de l'équipe peuvent voir la page en lecture seule
+  const { data: myMembership } = await supabase
+    .from('team_members')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('team_id', id)
+    .single()
+
+  const isMember = !!myMembership
+  const isLeader = myMembership?.role === 'leader'
+  const canEdit = isAdmin || (isEditor && isLeader)
+
+  if (!isAdmin && !isEditor && !isMember) redirect('/benevoles/dashboard')
 
   const [{ data: team }, { data: positions }, { data: members }, { data: allProfiles }] = await Promise.all([
     supabase.from('teams').select('id, name').eq('id', id).single(),
@@ -52,8 +67,11 @@ export default async function TeamPage({
   return (
     <div className="min-h-screen bg-teal-50">
       <header className="bg-white border-b border-teal/20 px-6 py-4 flex items-center gap-4">
-        <Link href="/benevoles/admin/equipes" className="text-dark/40 hover:text-dark transition-colors font-sans text-sm">
-          ← Équipes
+        <Link
+          href={canEdit ? '/benevoles/admin/equipes' : '/benevoles/dashboard'}
+          className="text-dark/40 hover:text-dark transition-colors font-sans text-sm"
+        >
+          ←
         </Link>
         <h1 className="font-display text-2xl text-dark font-light">{team.name}</h1>
         <span className="text-dark/40 font-sans text-sm">{members?.length ?? 0} membre{(members?.length ?? 0) > 1 ? 's' : ''}</span>
@@ -74,11 +92,12 @@ export default async function TeamPage({
             members={(members ?? []) as any}
             positions={positions ?? []}
             memberPositions={memberPositions}
+            readOnly={!canEdit}
           />
         </section>
 
-        {/* Ajouter un membre */}
-        {nonMembers.length > 0 && (
+        {/* Ajouter un membre — uniquement pour les éditeurs/admins */}
+        {canEdit && nonMembers.length > 0 && (
           <section>
             <h2 className="font-display text-xl text-dark font-light mb-3">Ajouter un membre</h2>
             <MemberSearch teamId={id} profiles={nonMembers} />

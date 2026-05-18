@@ -4,19 +4,27 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 
-async function requireAdmin() {
+async function requireAdminOrLeader(teamId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/benevoles/login')
   const { data: profile } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
-  if (profile?.permission !== 'admin') redirect('/benevoles/dashboard')
-  // Retourne le client admin (service role) pour bypasser RLS sur les écritures
-  return createAdminClient()
+  if (profile?.permission === 'admin') return createAdminClient()
+  if (profile?.permission === 'editor') {
+    const { data: membership } = await supabase
+      .from('team_members')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('team_id', teamId)
+      .single()
+    if (membership?.role === 'leader') return createAdminClient()
+  }
+  redirect('/benevoles/dashboard')
 }
 
 export async function addTeamMember(formData: FormData) {
-  const admin = await requireAdmin()
   const teamId = formData.get('team_id') as string
+  const admin = await requireAdminOrLeader(teamId)
   const userId = formData.get('user_id') as string
   const role = formData.get('role') as string
   const frequency = formData.get('frequency') as string
@@ -27,8 +35,8 @@ export async function addTeamMember(formData: FormData) {
 }
 
 export async function removeTeamMember(formData: FormData) {
-  const admin = await requireAdmin()
   const teamId = formData.get('team_id') as string
+  const admin = await requireAdminOrLeader(teamId)
   const userId = formData.get('user_id') as string
 
   await admin.from('team_members').delete().eq('user_id', userId).eq('team_id', teamId)
@@ -41,8 +49,8 @@ export async function removeTeamMember(formData: FormData) {
 }
 
 export async function toggleMemberPosition(formData: FormData) {
-  const admin = await requireAdmin()
   const teamId = formData.get('team_id') as string
+  const admin = await requireAdminOrLeader(teamId)
   const userId = formData.get('user_id') as string
   const positionId = formData.get('position_id') as string
   const action = formData.get('action') as string

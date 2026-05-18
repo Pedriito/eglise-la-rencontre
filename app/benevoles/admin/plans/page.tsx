@@ -64,28 +64,29 @@ export default async function PlansPage() {
 
   return (
     <div className="min-h-screen bg-teal-50">
-      <header className="bg-white border-b border-teal/20 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/benevoles/admin" className="text-dark/40 hover:text-dark transition-colors font-sans text-sm">
-            ← Administration
+      <header className="bg-white border-b border-teal/20 px-4 md:px-6 py-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link href="/benevoles/dashboard" className="text-dark/40 hover:text-dark transition-colors font-sans text-sm shrink-0">
+            ←
           </Link>
-          <h1 className="font-display text-2xl text-dark font-light">Planification</h1>
+          <h1 className="font-display text-xl md:text-2xl text-dark font-light truncate">Planification</h1>
         </div>
         <Link
           href="/benevoles/admin/plans/nouveau"
-          className="px-4 py-2 bg-teal text-white rounded-lg font-sans text-sm font-medium hover:bg-teal-dark transition-colors"
+          className="shrink-0 px-3 md:px-4 py-2 bg-teal text-white rounded-lg font-sans text-sm font-medium hover:bg-teal-dark transition-colors"
         >
-          + Nouveau service
+          + Nouveau
         </Link>
       </header>
 
-      <main className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+      <main className="max-w-4xl mx-auto px-4 md:px-6 py-6 md:py-8 space-y-6">
         {/* À venir */}
         <section>
           <h2 className="font-display text-xl text-dark font-light mb-3">À venir</h2>
           <div className="bg-white rounded-2xl border border-teal/20 overflow-hidden">
             {upcoming && upcoming.length > 0 ? (
-              <table className="w-full">
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[480px]">
                 <thead>
                   <tr className="border-b border-teal/10">
                     <th className="text-left px-6 py-3 text-xs font-sans text-dark/40 uppercase tracking-widest font-medium">Date</th>
@@ -99,6 +100,7 @@ export default async function PlansPage() {
                   {upcoming.map(p => <PlanRow key={p.id} plan={p} />)}
                 </tbody>
               </table>
+              </div>
             ) : (
               <div className="px-6 py-10 text-center">
                 <p className="font-sans text-sm text-dark/40 mb-3">Aucun service planifié.</p>
@@ -115,11 +117,13 @@ export default async function PlansPage() {
           <section>
             <h2 className="font-display text-xl text-dark font-light mb-3 text-dark/50">Passés</h2>
             <div className="bg-white rounded-2xl border border-teal/20 overflow-hidden opacity-60">
-              <table className="w-full">
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[480px]">
                 <tbody>
                   {past.map(p => <PlanRow key={p.id} plan={p} />)}
                 </tbody>
               </table>
+              </div>
             </div>
           </section>
         )}

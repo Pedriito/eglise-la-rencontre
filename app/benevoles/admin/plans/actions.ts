@@ -22,10 +22,11 @@ export async function createPlan(formData: FormData) {
   const serviceDate = formData.get('service_date') as string
   const teamId = formData.get('team_id') as string || null
   const notes = formData.get('notes') as string || null
+  const planType = (formData.get('plan_type') as string) || 'sunday_service'
 
   const { data, error } = await admin
     .from('plans')
-    .insert({ title, service_date: serviceDate, team_id: teamId, notes })
+    .insert({ title, service_date: serviceDate, team_id: teamId, notes, plan_type: planType })
     .select('id')
     .single()
 

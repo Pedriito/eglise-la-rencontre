@@ -25,3 +25,7 @@ body {
 html {
   scroll-behavior: smooth;
 }
+
+a, button, [role="button"], select, label[for] {
+  cursor: pointer;
+}

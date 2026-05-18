@@ -6,6 +6,7 @@ import { StatusDot } from '../../../_components/StatusDot'
 
 const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
 const TEAMS_WITH_INVITE = new Set(['Prédicateurs', 'Louange'])
+const PRAYER_MEETING_TEAMS = new Set(['Prédicateurs', 'Louange', 'Production'])
 
 type TeamPosition = { id: string; name: string }
 type AssignmentRow = {
@@ -42,7 +43,7 @@ export default async function PlanDetailPage({
     { data: blockouts },
     { data: teamMemberships },
   ] = await Promise.all([
-    supabase.from('plans').select('id, title, service_date, notes').eq('id', id).single(),
+    supabase.from('plans').select('id, title, service_date, notes, plan_type').eq('id', id).single(),
     supabase
       .from('plan_assignments')
       .select('id, status, user_id, position_id, team_id, profiles(first_name, last_name), positions(id, name, team_id)')
@@ -131,7 +132,10 @@ export default async function PlanDetailPage({
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {(teams ?? []).map(team => {
+          {((plan as any).plan_type === 'prayer_meeting'
+            ? (teams ?? []).filter(t => PRAYER_MEETING_TEAMS.has(t.name))
+            : (teams ?? [])
+          ).map(team => {
             const teamPositions = team.positions as unknown as TeamPosition[]
             const teamAssignments = assignmentsByTeam[team.id] ?? []
             const isInviteTeam = TEAMS_WITH_INVITE.has(team.name)

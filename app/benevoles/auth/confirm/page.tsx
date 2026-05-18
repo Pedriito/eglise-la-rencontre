@@ -23,16 +23,32 @@ export default function ConfirmPage() {
     }
 
     supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
-      .then(({ error }) => {
+      .then(async ({ data, error }) => {
         if (error) {
           router.replace('/benevoles/login?error=auth')
           return
         }
+
+        // Vérification par type ET par statut profil (fallback si Supabase renvoie un type inattendu)
         if (type === 'recovery' || type === 'invite') {
           router.replace('/benevoles/set-password')
-        } else {
-          router.replace('/benevoles/dashboard')
+          return
         }
+
+        const userId = data.session?.user?.id
+        if (userId) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('status')
+            .eq('id', userId)
+            .single()
+          if (profile?.status === 'invited') {
+            router.replace('/benevoles/set-password')
+            return
+          }
+        }
+
+        router.replace('/benevoles/dashboard')
       })
   }, [router])
 

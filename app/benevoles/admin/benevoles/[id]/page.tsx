@@ -10,10 +10,10 @@ export default async function BenevoleProfilePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ error?: string; sent?: string }>
+  searchParams: Promise<{ error?: string; sent?: string; updated?: string }>
 }) {
   const { id } = await params
-  const { error: flashError, sent: flashSent } = await searchParams
+  const { error: flashError, sent: flashSent, updated: flashUpdated } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/benevoles/login')
@@ -89,15 +89,23 @@ export default async function BenevoleProfilePage({
             {st.label}
           </span>
         </div>
-        <form action={resendInvite}>
-          <input type="hidden" name="user_id" value={id} />
-          <button
-            type="submit"
-            className="px-4 py-2 rounded-lg border border-teal/30 text-teal font-sans text-xs font-medium hover:bg-teal-50 transition-colors"
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/benevoles/admin/benevoles/${id}/modifier`}
+            className="px-4 py-2 rounded-lg bg-teal text-white font-sans text-xs font-medium hover:bg-teal-dark transition-colors"
           >
-            ✉ Renvoyer l'invitation
-          </button>
-        </form>
+            Modifier
+          </Link>
+          <form action={resendInvite}>
+            <input type="hidden" name="user_id" value={id} />
+            <button
+              type="submit"
+              className="px-4 py-2 rounded-lg border border-teal/30 text-teal font-sans text-xs font-medium hover:bg-teal-50 transition-colors"
+            >
+              ✉ Renvoyer l'invitation
+            </button>
+          </form>
+        </div>
       </header>
 
       <main className="max-w-3xl mx-auto px-6 py-8 space-y-6">
@@ -109,6 +117,11 @@ export default async function BenevoleProfilePage({
         {flashSent && (
           <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-3 font-sans text-sm text-green-700">
             Invitation envoyée à {email}.
+          </div>
+        )}
+        {flashUpdated && (
+          <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-3 font-sans text-sm text-green-700">
+            Fiche mise à jour.
           </div>
         )}
 
