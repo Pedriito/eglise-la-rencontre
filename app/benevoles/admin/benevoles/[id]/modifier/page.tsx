@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { updateBenevoleAdmin } from '../../../actions'
-import { FlashMessage } from '../../../../../_components/FlashMessage'
+import { FlashMessage } from '../../../../_components/FlashMessage'
 
 export default async function ModifierBenevolePage({
   params,
