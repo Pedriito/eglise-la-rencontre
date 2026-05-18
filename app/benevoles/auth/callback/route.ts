@@ -27,8 +27,7 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
-      // Flux de récupération → définir le mot de passe
-      if (type === 'recovery') {
+      if (type === 'recovery' || type === 'invite') {
         return NextResponse.redirect(`${origin}/benevoles/set-password`)
       }
       return NextResponse.redirect(`${origin}/benevoles/dashboard`)

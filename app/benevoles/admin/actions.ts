@@ -26,9 +26,13 @@ export async function inviteBenevole(formData: FormData) {
 
   const admin = createAdminClient()
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.startsWith('http://localhost')
+    ? 'https://www.egliselarencontre.fr'
+    : (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.egliselarencontre.fr')
+
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
     data: { first_name: firstName, last_name: lastName },
-    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/benevoles/auth/confirm`,
+    redirectTo: `${siteUrl}/benevoles/auth/confirm`,
   })
 
   if (error) {
