@@ -16,7 +16,7 @@ export async function sendInviteEmail({
   inviteLink: string
 }) {
   const resend = getResend()
-  await resend.emails.send({
+  const { error } = await resend.emails.send({
     from: 'Église La Rencontre <no-reply@egliselarencontre.fr>',
     to,
     subject: 'Tu es invité(e) — Église La Rencontre',
@@ -38,6 +38,7 @@ export async function sendInviteEmail({
       </div>
     `,
   })
+  if (error) throw new Error(`Resend sendInviteEmail: ${error.message} (to: ${to})`)
 }
 
 export async function sendCancellationNotificationEmail({
@@ -64,7 +65,7 @@ export async function sendCancellationNotificationEmail({
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.egliselarencontre.fr'
   const resend = getResend()
 
-  await resend.emails.send({
+  const { error: errCancel } = await resend.emails.send({
     from: 'Église La Rencontre <no-reply@egliselarencontre.fr>',
     to,
     subject: `Désistement : ${volunteerName} — ${planTitle}`,
@@ -97,6 +98,7 @@ export async function sendCancellationNotificationEmail({
       </div>
     `,
   })
+  if (errCancel) throw new Error(`Resend sendCancellationEmail: ${errCancel.message} (to: ${to})`)
 }
 
 export async function sendPlanAssignmentEmail({
@@ -125,7 +127,7 @@ export async function sendPlanAssignmentEmail({
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.egliselarencontre.fr'
   const resend = getResend()
 
-  await resend.emails.send({
+  const { error: errPlan } = await resend.emails.send({
     from: 'Église La Rencontre <no-reply@egliselarencontre.fr>',
     to,
     subject: `Tu es planifié(e) : ${planTitle}`,
@@ -168,4 +170,5 @@ export async function sendPlanAssignmentEmail({
       </div>
     `,
   })
+  if (errPlan) throw new Error(`Resend sendPlanAssignmentEmail: ${errPlan.message} (to: ${to})`)
 }
