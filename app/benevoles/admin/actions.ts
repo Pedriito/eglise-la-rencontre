@@ -74,12 +74,23 @@ export async function inviteBenevole(formData: FormData) {
   }
 
   if (linkData?.properties?.action_link) {
-    console.log('[inviteBenevole] sending invite email to', email, 'userId:', userId)
-    try {
-      await sendInviteEmail({ to: email, firstName, inviteLink: linkData.properties.action_link })
-      console.log('[inviteBenevole] email sent OK to', email)
-    } catch (err: any) {
-      console.error('[inviteBenevole] Resend error:', err?.message, { email, userId })
+    console.log('[inviteBenevole] storing pending invite for', email, 'userId:', userId)
+    const { data: invite, error: inviteError } = await admin
+      .from('pending_invites')
+      .insert({ action_link: linkData.properties.action_link })
+      .select('token')
+      .single()
+
+    if (inviteError || !invite) {
+      console.error('[inviteBenevole] pending_invites insert error:', inviteError?.message)
+    } else {
+      const activateUrl = `${siteUrl}/benevoles/activer/${invite.token}`
+      try {
+        await sendInviteEmail({ to: email, firstName, inviteLink: activateUrl })
+        console.log('[inviteBenevole] email sent OK to', email)
+      } catch (err: any) {
+        console.error('[inviteBenevole] Resend error:', err?.message, { email, userId })
+      }
     }
   } else {
     console.error('[inviteBenevole] no action_link generated for', email)
@@ -118,9 +129,22 @@ export async function resendInviteFromList(_: unknown, formData: FormData): Prom
     return { ok: false, error: 'Lien non généré' }
   }
 
+  const { data: invite, error: inviteError } = await admin
+    .from('pending_invites')
+    .insert({ action_link: linkData.properties.action_link })
+    .select('token')
+    .single()
+
+  if (inviteError || !invite) {
+    console.error('[resendInviteFromList] pending_invites error:', inviteError?.message)
+    return { ok: false, error: 'Erreur serveur' }
+  }
+
+  const activateUrl = `${siteUrl}/benevoles/activer/${invite.token}`
+
   try {
     console.log('[resendInviteFromList] sending email to', email)
-    await sendInviteEmail({ to: email, firstName: profile?.first_name ?? '', inviteLink: linkData.properties.action_link })
+    await sendInviteEmail({ to: email, firstName: profile?.first_name ?? '', inviteLink: activateUrl })
     console.log('[resendInviteFromList] email sent OK to', email)
   } catch (err: any) {
     console.error('[resendInviteFromList] Resend error:', err?.message, { email, targetId })
@@ -165,12 +189,25 @@ export async function resendInvite(formData: FormData) {
     redirect(`/benevoles/admin/benevoles/${targetId}?error=${encodeURIComponent(error?.message ?? 'Lien non généré')}`)
   }
 
+  const { data: invite, error: inviteError } = await admin
+    .from('pending_invites')
+    .insert({ action_link: linkData.properties.action_link })
+    .select('token')
+    .single()
+
+  if (inviteError || !invite) {
+    console.error('[resendInvite] pending_invites error:', inviteError?.message, { email, targetId })
+    redirect(`/benevoles/admin/benevoles/${targetId}?error=Erreur+serveur`)
+  }
+
+  const activateUrl = `${siteUrl}/benevoles/activer/${invite.token}`
+
   try {
     console.log('[resendInvite] sending email to', email)
     await sendInviteEmail({
       to: email,
       firstName: profile?.first_name ?? '',
-      inviteLink: linkData.properties.action_link,
+      inviteLink: activateUrl,
     })
     console.log('[resendInvite] email sent OK to', email)
   } catch (err: any) {
