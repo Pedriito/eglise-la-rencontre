@@ -3,6 +3,31 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 
+export async function changePassword(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/benevoles/login')
+
+  const currentPassword = formData.get('current_password') as string
+  const newPassword     = formData.get('new_password') as string
+  const confirmPassword = formData.get('confirm_password') as string
+
+  if (newPassword.length < 8) redirect('/benevoles/profil?pwd_error=short')
+  if (newPassword !== confirmPassword) redirect('/benevoles/profil?pwd_error=mismatch')
+
+  // Vérifie le mot de passe actuel
+  const { error: signInError } = await supabase.auth.signInWithPassword({
+    email: user.email!,
+    password: currentPassword,
+  })
+  if (signInError) redirect('/benevoles/profil?pwd_error=wrong_current')
+
+  const { error } = await supabase.auth.updateUser({ password: newPassword })
+  if (error) redirect('/benevoles/profil?pwd_error=failed')
+
+  redirect('/benevoles/profil?pwd_success=1')
+}
+
 export async function saveProfile(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
