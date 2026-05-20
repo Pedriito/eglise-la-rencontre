@@ -3,6 +3,7 @@ import Hero from "./components/sections/Hero";
 import Horaires from "./components/sections/Horaires";
 import Cultes from "./components/sections/Cultes";
 import Pasteurs from "./components/sections/Pasteurs";
+import Don from "./components/sections/Don";
 import Contact from "./components/sections/Contact";
 import Footer from "./components/sections/Footer";
 
@@ -15,6 +16,7 @@ export default function Home() {
         <Horaires />
         <Cultes />
         <Pasteurs />
+        <Don />
         <Contact />
       </main>
       <Footer />

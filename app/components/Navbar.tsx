@@ -9,6 +9,7 @@ const links = [
   { label: "Cultes", href: "#cultes" },
   { label: "Pasteurs", href: "#pasteurs" },
   { label: "Contact", href: "#contact" },
+  { label: "Don", href: "#don" },
 ];
 
 export default function Navbar() {
@@ -37,6 +38,12 @@ export default function Navbar() {
               {l.label}
             </a>
           ))}
+          <a
+            href="/don"
+            className="font-sans text-sm font-medium text-teal-dark bg-white hover:bg-white/90 transition-colors rounded-full px-4 py-1.5"
+          >
+            Faire un don
+          </a>
           <a
             href="/benevoles/dashboard"
             className="font-sans text-xs tracking-wide text-white/50 hover:text-white/80 transition-colors border border-white/20 rounded-full px-3 py-1"
@@ -68,6 +75,13 @@ export default function Navbar() {
               {l.label}
             </a>
           ))}
+          <a
+            href="/don"
+            onClick={() => setOpen(false)}
+            className="font-sans text-sm font-medium text-teal-dark bg-white hover:bg-white/90 transition-colors rounded-full px-4 py-2 text-center"
+          >
+            Faire un don
+          </a>
           <a
             href="/benevoles/dashboard"
             onClick={() => setOpen(false)}
