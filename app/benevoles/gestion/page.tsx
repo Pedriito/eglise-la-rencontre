@@ -1,6 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { InboxCard } from './InboxAssignForm'
+
+type InboxDecision = {
+  id: string
+  title: string
+  context: string | null
+  source: string | null
+  created_at: string
+}
 
 export default async function GestionPage() {
   const supabase = await createClient()
@@ -47,22 +56,37 @@ export default async function GestionPage() {
 
   const teamIds = teams.map(t => t.id)
 
-  const [{ data: pendingDecisions }, { data: todoTasks }] = await Promise.all([
+  const [
+    { data: pendingDecisions },
+    { data: todoTasks },
+    { data: rawInbox },
+  ] = await Promise.all([
     supabase.from('decisions').select('id, team_id').eq('status', 'pending').in('team_id', teamIds),
     supabase.from('tasks').select('id, team_id').eq('status', 'todo').in('team_id', teamIds),
+    // Inbox WhatsApp : décisions sans team_id (admins seulement, RLS gère ça)
+    isAdmin
+      ? supabase
+          .from('decisions')
+          .select('id, title, context, source, created_at')
+          .is('team_id', null)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false })
+      : Promise.resolve({ data: [] }),
   ])
+
+  const inbox = (rawInbox ?? []) as InboxDecision[]
 
   const decisionsByTeam: Record<string, number> = {}
   pendingDecisions?.forEach(d => {
-    decisionsByTeam[d.team_id] = (decisionsByTeam[d.team_id] ?? 0) + 1
+    if (d.team_id) decisionsByTeam[d.team_id] = (decisionsByTeam[d.team_id] ?? 0) + 1
   })
 
   const tasksByTeam: Record<string, number> = {}
   todoTasks?.forEach(t => {
-    tasksByTeam[t.team_id] = (tasksByTeam[t.team_id] ?? 0) + 1
+    if (t.team_id) tasksByTeam[t.team_id] = (tasksByTeam[t.team_id] ?? 0) + 1
   })
 
-  const totalPending = pendingDecisions?.length ?? 0
+  const totalPending = (pendingDecisions?.length ?? 0) + inbox.length
 
   return (
     <div className="min-h-screen bg-teal-50">
@@ -80,36 +104,61 @@ export default async function GestionPage() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 md:px-6 py-6 md:py-8 space-y-3">
-        {teams.map(team => {
-          const nDecisions = decisionsByTeam[team.id] ?? 0
-          const nTasks = tasksByTeam[team.id] ?? 0
+      <main className="max-w-2xl mx-auto px-4 md:px-6 py-6 md:py-8 space-y-6">
 
-          return (
-            <Link
-              key={team.id}
-              href={`/benevoles/gestion/${team.id}`}
-              className="flex items-center justify-between bg-white rounded-2xl border border-teal/20 px-5 py-4 hover:border-teal/40 transition-colors group"
-            >
-              <div>
-                <p className="font-sans text-base text-dark font-medium">{team.name}</p>
-                <p className="font-sans text-xs text-dark/40 mt-0.5">
-                  {nTasks > 0
-                    ? `${nTasks} tâche${nTasks > 1 ? 's' : ''} à faire`
-                    : 'Aucune tâche en cours'}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                {nDecisions > 0 && (
-                  <span className="bg-amber-100 text-amber-700 font-sans text-xs font-semibold px-2.5 py-1 rounded-full">
-                    {nDecisions} à décider
-                  </span>
-                )}
-                <span className="text-teal font-sans text-sm group-hover:translate-x-0.5 transition-transform">→</span>
-              </div>
-            </Link>
-          )
-        })}
+        {/* ── Inbox WhatsApp ────────────────────────────────────── */}
+        {isAdmin && inbox.length > 0 && (
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <h2 className="font-display text-lg text-dark font-light">Inbox WhatsApp</h2>
+              <span className="w-5 h-5 rounded-full bg-green-500 text-white text-xs font-bold flex items-center justify-center font-sans leading-none">
+                {inbox.length}
+              </span>
+            </div>
+            <div className="space-y-2">
+              {inbox.map(d => (
+                <InboxCard key={d.id} decision={d} teams={teams} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── Équipes ───────────────────────────────────────────── */}
+        <section className="space-y-3">
+          {inbox.length > 0 && isAdmin && (
+            <h2 className="font-display text-lg text-dark/40 font-light">Équipes</h2>
+          )}
+          {teams.map(team => {
+            const nDecisions = decisionsByTeam[team.id] ?? 0
+            const nTasks = tasksByTeam[team.id] ?? 0
+
+            return (
+              <Link
+                key={team.id}
+                href={`/benevoles/gestion/${team.id}`}
+                className="flex items-center justify-between bg-white rounded-2xl border border-teal/20 px-5 py-4 hover:border-teal/40 transition-colors group"
+              >
+                <div>
+                  <p className="font-sans text-base text-dark font-medium">{team.name}</p>
+                  <p className="font-sans text-xs text-dark/40 mt-0.5">
+                    {nTasks > 0
+                      ? `${nTasks} tâche${nTasks > 1 ? 's' : ''} à faire`
+                      : 'Aucune tâche en cours'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {nDecisions > 0 && (
+                    <span className="bg-amber-100 text-amber-700 font-sans text-xs font-semibold px-2.5 py-1 rounded-full">
+                      {nDecisions} à décider
+                    </span>
+                  )}
+                  <span className="text-teal font-sans text-sm group-hover:translate-x-0.5 transition-transform">→</span>
+                </div>
+              </Link>
+            )
+          })}
+        </section>
+
       </main>
     </div>
   )

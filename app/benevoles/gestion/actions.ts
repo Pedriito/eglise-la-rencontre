@@ -100,9 +100,23 @@ export async function resolveDecision(formData: FormData) {
 export async function deleteDecision(formData: FormData) {
   const { supabase } = await getUser()
   const decisionId = formData.get('decision_id') as string
-  const teamId = formData.get('team_id') as string
+  const teamId = formData.get('team_id') as string | null
 
   await supabase.from('decisions').delete().eq('id', decisionId)
 
-  revalidatePath(`/benevoles/gestion/${teamId}`)
+  if (teamId) revalidatePath(`/benevoles/gestion/${teamId}`)
+  revalidatePath('/benevoles/gestion')
+}
+
+export async function assignDecision(formData: FormData) {
+  const { supabase } = await getUser()
+  const decisionId = formData.get('decision_id') as string
+  const teamId = formData.get('team_id') as string
+
+  await supabase
+    .from('decisions')
+    .update({ team_id: teamId })
+    .eq('id', decisionId)
+
+  revalidatePath('/benevoles/gestion')
 }
