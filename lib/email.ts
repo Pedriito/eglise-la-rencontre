@@ -1,5 +1,20 @@
 import { Resend } from 'resend'
 
+/** "25 mai", "3 décembre", etc. — format court pour les objets d'email */
+function shortDate(serviceDate: string): string {
+  return new Date(serviceDate).toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+  })
+}
+
+/** Construit l'objet email : "Culte du dimanche · 25 mai — Présidence" */
+function buildSubject(planTitle: string, serviceDate: string, positionName: string | null): string {
+  const date = shortDate(serviceDate)
+  const position = positionName ? ` — ${positionName}` : ''
+  return `${planTitle} · ${date}${position}`
+}
+
 function getResend() {
   const key = process.env.RESEND_API_KEY?.trim()
   if (!key) throw new Error(`RESEND_API_KEY manquante ou vide (env: ${Object.keys(process.env).filter(k => k.includes('RESEND')).join(', ') || 'aucune clé RESEND trouvée'})`)
@@ -178,7 +193,7 @@ export async function sendReminderEmail({
   const { error } = await resend.emails.send({
     from: 'Église La Rencontre <no-reply@egliselarencontre.fr>',
     to,
-    subject: `Rappel (${label}) : ${planTitle}`,
+    subject: `Rappel (${label}) · ${buildSubject(planTitle, serviceDate, positionName)}`,
     html: `
       <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1a2e2e;">
         <p style="margin-bottom:8px;">Bonjour ${firstName},</p>
@@ -237,7 +252,7 @@ export async function sendExternalGuestInvitationEmail({
   const { error } = await resend.emails.send({
     from: 'Église La Rencontre <no-reply@egliselarencontre.fr>',
     to,
-    subject: `Invitation à servir : ${planTitle}`,
+    subject: buildSubject(planTitle, serviceDate, positionName),
     html: `
       <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1a2e2e;">
         <p style="margin-bottom:8px;">Bonjour ${guestName},</p>
@@ -300,7 +315,7 @@ export async function sendPlanAssignmentEmail({
   const { error: errPlan } = await resend.emails.send({
     from: 'Église La Rencontre <no-reply@egliselarencontre.fr>',
     to,
-    subject: `Tu es planifié(e) : ${planTitle}`,
+    subject: buildSubject(planTitle, serviceDate, positionName),
     html: `
       <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1a2e2e;">
         <p style="margin-bottom:8px;">Bonjour ${firstName},</p>
