@@ -1,19 +1,25 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { transposeChart, getSemitones, isSectionHeader, isChordLine, ALL_KEYS } from '@/lib/transpose'
+import { useParams } from 'next/navigation'
+import { transposeChart, getSemitones, isSectionHeader, isChordLine } from '@/lib/transpose'
 
 type Props = {
   chart: string
   originalKey: string | null
+  arrangementId: string
 }
 
-// Tonalités courantes affichées en priorité dans le sélecteur
+// Tonalités courantes affichées dans le sélecteur
 const COMMON_KEYS = ['C', 'D', 'E', 'F', 'G', 'A', 'Bb', 'Eb', 'Ab', 'Db', 'F#', 'B']
 
-export function ChordChart({ chart, originalKey }: Props) {
+export function ChordChart({ chart, originalKey, arrangementId }: Props) {
+  const params = useParams()
+  const songId = params?.id as string
+
   const defaultKey = originalKey ?? 'C'
   const [selectedKey, setSelectedKey] = useState(defaultKey)
+  const [showChords, setShowChords] = useState(true)
 
   const transposed = useMemo(
     () => transposeChart(chart, defaultKey, selectedKey),
@@ -22,26 +28,59 @@ export function ChordChart({ chart, originalKey }: Props) {
 
   const semitones = getSemitones(defaultKey, selectedKey)
 
+  function openPrint() {
+    const url = `/benevoles/chants/${songId}/print?key=${selectedKey}&arr=${arrangementId}&chords=${showChords}`
+    window.open(url, '_blank', 'width=900,height=700')
+  }
+
   return (
-    <div className="space-y-4">
-      {/* Sélecteur de tonalité */}
-      <div className="bg-white rounded-2xl border border-teal/20 p-4">
-        <div className="flex items-center gap-2 mb-3">
+    <div className="space-y-3">
+      {/* Barre d'outils */}
+      <div className="bg-white rounded-2xl border border-teal/20 p-4 space-y-3">
+        {/* Ligne : tonalité + actions */}
+        <div className="flex items-center gap-2">
           <span className="font-sans text-xs text-dark/40 uppercase tracking-wide">Tonalité</span>
           {semitones !== 0 && (
             <span className="font-sans text-xs text-teal bg-teal/10 px-2 py-0.5 rounded-full">
               {semitones > 6 ? `−${12 - semitones}` : `+${semitones}`} demi-tons
             </span>
           )}
-          {semitones !== 0 && (
+
+          <div className="ml-auto flex items-center gap-2">
+            {/* Masquer accords */}
             <button
-              onClick={() => setSelectedKey(defaultKey)}
-              className="font-sans text-xs text-dark/30 hover:text-dark ml-auto"
+              onClick={() => setShowChords(v => !v)}
+              className={`
+                font-sans text-xs px-3 py-1.5 rounded-lg border transition-colors
+                ${showChords
+                  ? 'border-teal/20 text-dark/50 hover:border-teal/40 hover:text-dark'
+                  : 'border-teal bg-teal/10 text-teal font-medium'}
+              `}
             >
-              Réinitialiser
+              {showChords ? '♩ Accords visibles' : '♩ Accords masqués'}
             </button>
-          )}
+
+            {/* PDF */}
+            <button
+              onClick={openPrint}
+              className="font-sans text-xs px-3 py-1.5 rounded-lg border border-teal/20 text-dark/50 hover:border-teal/40 hover:text-dark transition-colors"
+            >
+              PDF
+            </button>
+
+            {/* Réinitialiser tonalité */}
+            {semitones !== 0 && (
+              <button
+                onClick={() => setSelectedKey(defaultKey)}
+                className="font-sans text-xs text-dark/30 hover:text-dark transition-colors"
+              >
+                ↺
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* Boutons de tonalité */}
         <div className="flex flex-wrap gap-1.5">
           {COMMON_KEYS.map(key => (
             <button
@@ -75,6 +114,7 @@ export function ChordChart({ chart, originalKey }: Props) {
             }
 
             if (isChordLine(line)) {
+              if (!showChords) return null
               return (
                 <span key={i} className="block text-teal font-semibold">
                   {line}
