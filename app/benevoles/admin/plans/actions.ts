@@ -242,3 +242,77 @@ export async function cancelAssignment(formData: FormData) {
 
   redirect('/benevoles/dashboard')
 }
+
+// ── CHANTS DU PLAN ─────────────────────────────────────────────────────────
+
+export async function addPlanSong(formData: FormData) {
+  const admin = await requireAdmin()
+  const planId     = formData.get('plan_id') as string
+  const songId     = parseInt(formData.get('song_id') as string, 10)
+  const arrId      = (formData.get('arrangement_id') as string) || null
+  const keySelected = (formData.get('key_selected') as string) || null
+
+  // Dernier order_index existant
+  const { data: existing } = await admin
+    .from('plan_songs')
+    .select('order_index')
+    .eq('plan_id', planId)
+    .order('order_index', { ascending: false })
+    .limit(1)
+    .single()
+
+  const nextIndex = (existing?.order_index ?? -1) + 1
+
+  await admin.from('plan_songs').insert({
+    plan_id:        planId,
+    song_id:        songId,
+    arrangement_id: arrId,
+    key_selected:   keySelected,
+    order_index:    nextIndex,
+  })
+
+  const { revalidatePath } = await import('next/cache')
+  revalidatePath(`/benevoles/admin/plans/${planId}`)
+}
+
+export async function removePlanSong(formData: FormData) {
+  const admin = await requireAdmin()
+  const planSongId = formData.get('plan_song_id') as string
+  const planId     = formData.get('plan_id') as string
+
+  await admin.from('plan_songs').delete().eq('id', planSongId)
+
+  const { revalidatePath } = await import('next/cache')
+  revalidatePath(`/benevoles/admin/plans/${planId}`)
+}
+
+export async function movePlanSong(formData: FormData) {
+  const admin = await requireAdmin()
+  const planSongId = formData.get('plan_song_id') as string
+  const planId     = formData.get('plan_id') as string
+  const direction  = formData.get('direction') as 'up' | 'down'
+
+  const { data: songs } = await admin
+    .from('plan_songs')
+    .select('id, order_index')
+    .eq('plan_id', planId)
+    .order('order_index')
+
+  if (!songs || songs.length < 2) return
+
+  const idx = songs.findIndex(s => s.id === planSongId)
+  if (idx === -1) return
+  const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+  if (swapIdx < 0 || swapIdx >= songs.length) return
+
+  const a = songs[idx]
+  const b = songs[swapIdx]
+
+  await Promise.all([
+    admin.from('plan_songs').update({ order_index: b.order_index }).eq('id', a.id),
+    admin.from('plan_songs').update({ order_index: a.order_index }).eq('id', b.id),
+  ])
+
+  const { revalidatePath } = await import('next/cache')
+  revalidatePath(`/benevoles/admin/plans/${planId}`)
+}
