@@ -44,21 +44,31 @@ function transposeNote(note: string, delta: number, useFlats: boolean): string {
   return useFlats ? CHROMATIC_FLAT[newIdx] : CHROMATIC_SHARP[newIdx]
 }
 
-// Regex qui capture une note (A-G, optionnel #/b) suivie éventuellement d'un suffixe d'accord
-// Exclut les lettres isolées dans un mot (ex "Am" = note + suffix, pas un mot)
-const CHORD_RE = /\b([A-G][#b]?)((?:maj|min|m|M|sus|add|aug|dim|[0-9\/])*)\b/g
+// ── Détection des accords ─────────────────────────────────────────────────
+//
+// Qualité d'accord reconnue :
+//   maj7, Maj7, min7, Min7, m7, M7, sus4, sus2, add9, aug, dim7...
+//   Accords de basse : C/E, G/B, D/F#, Am/G
+//
+// Patterns intentionnellement EXCLUS des paroles :
+//   Les tokens contenant des lettres autres que la note + qualité
+//   (ex: "Gloire", "Dieu", "majesté" ne passent pas le test)
 
-/** Transpose toutes les notes d'un token d'accord */
-function transposeChord(chord: string, delta: number, useFlats: boolean): string {
-  return chord.replace(CHORD_RE, (_, note, suffix) => {
-    return transposeNote(note, delta, useFlats) + suffix
-  })
+const QUALITY = '(?:maj|Maj|min|Min|sus|add|aug|dim|[mM])?[0-9]*'
+const NOTE    = '[A-G][#b]?'
+const SLASH   = `(?:\\/${NOTE}${QUALITY})?`
+
+// Pattern complet pour un token d'accord (avec ancres ^ et $)
+const CHORD_TOKEN_RE = new RegExp(`^${NOTE}${QUALITY}${SLASH}$`)
+
+/** Détecte si un token isolé ressemble à un accord musical */
+function isChordToken(token: string): boolean {
+  return CHORD_TOKEN_RE.test(token)
 }
 
 /**
  * Détecte si une ligne est une ligne d'accords.
- * Heuristique : ≥ 50 % des tokens non-vides commencent par [A-G][#b]?
- * et la ligne ne ressemble pas à du texte normal (peu de petits mots).
+ * Heuristique : ≥ 50 % des tokens non-vides sont des accords reconnus.
  */
 export function isChordLine(line: string): boolean {
   const trimmed = line.trim()
@@ -67,16 +77,12 @@ export function isChordLine(line: string): boolean {
   const tokens = trimmed.split(/\s+/)
   if (tokens.length === 0) return false
 
-  const chordCount = tokens.filter(t => /^[A-G][#b]?(maj|min|m|M|sus|add|aug|dim|[0-9\/])*$/.test(t)).length
-  const ratio = chordCount / tokens.length
-
-  // Une ligne d'accords a majoritairement des tokens qui ressemblent à des accords
-  return ratio >= 0.5 && chordCount >= 1
+  const chordCount = tokens.filter(isChordToken).length
+  return chordCount / tokens.length >= 0.5 && chordCount >= 1
 }
 
 /**
  * Détecte si une ligne est un en-tête de section (ex: [Verse 1], CHORUS, Intro)
- * Heuristique : ligne courte, entre crochets ou tout en majuscules ou mot clé connu.
  */
 export function isSectionHeader(line: string): boolean {
   const t = line.trim()
@@ -90,21 +96,33 @@ export function isSectionHeader(line: string): boolean {
 
 /**
  * Transpose toute une grille d'accords.
- * Les lignes détectées comme "lignes d'accords" sont transposées token par token.
- * Les autres lignes sont laissées intactes.
+ *
+ * Pour chaque ligne d'accords, on remplace chaque accord (racine + qualité + basse)
+ * en un seul passage regex, ce qui gère correctement les accords slash :
+ *   C/E  →  D/F#   (les deux notes sont transposées)
  */
 export function transposeChart(chart: string, fromKey: string, toKey: string): string {
   if (fromKey === toKey) return chart
   const delta = getSemitones(fromKey, toKey)
   const useFlats = !SHARP_KEYS.has(toKey)
 
+  // Capture : (note_racine)(qualité)[/(note_basse)]
+  // Le lookahead négatif (?![a-zA-Z]) évite les faux positifs dans les mots
+  const TRANSPOSE_RE = new RegExp(
+    `\\b(${NOTE})((?:maj|Maj|min|Min|sus|add|aug|dim|[mM])?[0-9]*)` +
+    `(?:\\/(${NOTE}))?(?![a-zA-Z])`,
+    'g'
+  )
+
   return chart
     .split('\n')
     .map(line => {
       if (!isChordLine(line)) return line
-      // Transpose token par token pour préserver l'espacement
-      return line.replace(/[A-G][#b]?(?:maj|min|m|M|sus|add|aug|dim|[0-9\/])*/g, chord => {
-        return transposeChord(chord, delta, useFlats)
+
+      return line.replace(TRANSPOSE_RE, (_, root, quality, bass) => {
+        const newRoot = transposeNote(root, delta, useFlats)
+        const newBass = bass !== undefined ? '/' + transposeNote(bass, delta, useFlats) : ''
+        return newRoot + quality + newBass
       })
     })
     .join('\n')
