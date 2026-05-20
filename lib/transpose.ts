@@ -87,10 +87,14 @@ export function isChordLine(line: string): boolean {
 export function isSectionHeader(line: string): boolean {
   const t = line.trim()
   if (!t) return false
+  // Entre crochets : [Verse 1], [Chorus]
   if (/^\[.+\]$/.test(t)) return true
+  // Mots-clés connus
   const KNOWN = /^(intro|verse|chorus|pre-chorus|bridge|outro|tag|coda|refrain|couplet|pont|verset)/i
   if (KNOWN.test(t) && t.length < 40) return true
-  if (t === t.toUpperCase() && t.length < 30 && /[A-Z]/.test(t)) return true
+  // Tout en majuscules — MAIS on exclut les lignes qui sont des accords valides
+  // (F, G, Am, Bm… seraient sinon confondus avec des titres de section)
+  if (t === t.toUpperCase() && t.length < 30 && /[A-Z]/.test(t) && !isChordLine(t)) return true
   return false
 }
 

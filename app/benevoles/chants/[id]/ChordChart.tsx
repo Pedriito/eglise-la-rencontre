@@ -105,18 +105,19 @@ export function ChordChart({ chart, originalKey, arrangementId }: Props) {
           {transposed.split('\n').map((line, i) => {
             if (!line.trim()) return <span key={i}>{'\n'}</span>
 
-            if (isSectionHeader(line)) {
+            // Accords en priorité — évite que F, G, A… soient pris pour des titres de section
+            if (isChordLine(line)) {
+              if (!showChords) return null
               return (
-                <span key={i} className="block text-xs font-sans font-semibold uppercase tracking-widest text-dark/30 mt-3 mb-1">
+                <span key={i} className="block text-teal font-semibold">
                   {line}
                 </span>
               )
             }
 
-            if (isChordLine(line)) {
-              if (!showChords) return null
+            if (isSectionHeader(line)) {
               return (
-                <span key={i} className="block text-teal font-semibold">
+                <span key={i} className="block text-xs font-sans font-semibold uppercase tracking-widest text-dark/30 mt-3 mb-1">
                   {line}
                 </span>
               )

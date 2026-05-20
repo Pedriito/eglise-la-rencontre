@@ -171,16 +171,14 @@ export default async function PrintPage({
         {transposed.split('\n').map((line, i) => {
           if (!line.trim()) return <span key={i}>{'\n'}</span>
 
-          if (isSectionHeader(line)) {
-            return <span key={i} className="line-section">{line}</span>
-          }
-
-          if (showChords && isChordLine(line)) {
+          // Accords en priorité (avant isSectionHeader — évite que F, G… soient pris pour des titres)
+          if (isChordLine(line)) {
+            if (!showChords) return null
             return <span key={i} className="line-chord">{line}{'\n'}</span>
           }
 
-          if (!showChords && isChordLine(line)) {
-            return null // masque les accords
+          if (isSectionHeader(line)) {
+            return <span key={i} className="line-section">{line}</span>
           }
 
           return <span key={i} className="line-lyric">{line}{'\n'}</span>
