@@ -41,6 +41,41 @@ export async function sendInviteEmail({
   if (error) throw new Error(`Resend sendInviteEmail: ${error.message} (to: ${to})`)
 }
 
+export async function sendPasswordResetEmail({
+  to,
+  firstName,
+  resetLink,
+}: {
+  to: string
+  firstName: string
+  resetLink: string
+}) {
+  const resend = getResend()
+  const { error } = await resend.emails.send({
+    from: 'Église La Rencontre <no-reply@egliselarencontre.fr>',
+    to,
+    subject: 'Réinitialisation de ton mot de passe — Église La Rencontre',
+    html: `
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1a2e2e;">
+        <p style="margin-bottom:8px;">Bonjour ${firstName},</p>
+        <p style="margin-bottom:24px;">
+          Tu as demandé à réinitialiser ton mot de passe pour l'<strong>Église La Rencontre</strong>.
+          Clique sur le bouton ci-dessous pour choisir un nouveau mot de passe.
+        </p>
+        <a href="${resetLink}"
+           style="display:inline-block;background:#3D7D85;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;">
+          Réinitialiser mon mot de passe →
+        </a>
+        <p style="margin-top:32px;font-size:12px;color:#999;">
+          Église La Rencontre · Lieusaint<br>
+          Si tu n'es pas à l'origine de cette demande, ignore ce message.
+        </p>
+      </div>
+    `,
+  })
+  if (error) throw new Error(`Resend sendPasswordResetEmail: ${error.message} (to: ${to})`)
+}
+
 export async function sendCancellationNotificationEmail({
   to,
   volunteerName,

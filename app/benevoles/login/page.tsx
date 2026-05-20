@@ -1,4 +1,5 @@
 import { login } from './actions'
+import Link from 'next/link'
 
 export default function LoginPage({
   searchParams,
@@ -41,9 +42,17 @@ export default function LoginPage({
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-sans text-dark/70 mb-1.5">
-                Mot de passe
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="password" className="block text-sm font-sans text-dark/70">
+                  Mot de passe
+                </label>
+                <Link
+                  href="/benevoles/mot-de-passe-oublie"
+                  className="text-xs text-teal font-sans hover:underline"
+                >
+                  Mot de passe oublié ?
+                </Link>
+              </div>
               <input
                 id="password"
                 name="password"
