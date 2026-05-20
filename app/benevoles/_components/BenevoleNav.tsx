@@ -64,6 +64,14 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
   }
 
   items.push({
+    label: 'Chants',
+    shortLabel: 'Chants',
+    href: '/benevoles/chants',
+    match: p => p.startsWith('/benevoles/chants'),
+    icon: '♩',
+  })
+
+  items.push({
     label: 'Gestion',
     shortLabel: 'Gestion',
     href: '/benevoles/gestion',
