@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
-import { sendPlanAssignmentEmail, sendCancellationNotificationEmail } from '@/lib/email'
+import { sendPlanAssignmentEmail, sendCancellationNotificationEmail, sendExternalGuestInvitationEmail } from '@/lib/email'
 
 const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
 
@@ -50,13 +50,27 @@ export async function addAssignment(formData: FormData) {
 
   if (!userId || userId === '') redirect(`/benevoles/admin/plans/${planId}`)
 
-  await admin.from('plan_assignments').upsert({
-    plan_id: planId,
-    user_id: userId,
-    position_id: positionId,
-    team_id: teamId,
-    status: 'pending',
-  })
+  if (userId === INVITE_EXT_ID) {
+    const externalName = (formData.get('external_name') as string)?.trim() || null
+    const externalEmail = (formData.get('external_email') as string)?.trim() || null
+    await admin.from('plan_assignments').insert({
+      plan_id: planId,
+      user_id: userId,
+      position_id: positionId,
+      team_id: teamId,
+      status: 'pending',
+      external_name: externalName,
+      external_email: externalEmail,
+    })
+  } else {
+    await admin.from('plan_assignments').upsert({
+      plan_id: planId,
+      user_id: userId,
+      position_id: positionId,
+      team_id: teamId,
+      status: 'pending',
+    })
+  }
 
   redirect(`/benevoles/admin/plans/${planId}`)
 }
@@ -76,22 +90,45 @@ export async function sendSingleInvitation(formData: FormData) {
 
   const { data: a, error } = await admin
     .from('plan_assignments')
-    .select('id, user_id, team_id, plans(title, service_date), positions(name), teams(name)')
+    .select('id, user_id, team_id, external_name, external_email, plans(title, service_date), positions(name), teams(name)')
     .eq('id', assignmentId)
     .single()
 
   if (error || !a) redirect(`/benevoles/admin/plans/${planId}?error=Assignment+introuvable`)
-  if (a.user_id === INVITE_EXT_ID) redirect(`/benevoles/admin/plans/${planId}`)
 
+  const plan = a.plans as any
+  const position = a.positions as any
+  const team = a.teams as any
+
+  // Invité externe
+  if (a.user_id === INVITE_EXT_ID) {
+    if (!a.external_email) redirect(`/benevoles/admin/plans/${planId}?error=Email+invité+manquant`)
+    try {
+      console.log('[sendSingleInvitation] external guest email to', a.external_email, 'plan:', plan.title)
+      await sendExternalGuestInvitationEmail({
+        to: a.external_email as string,
+        guestName: a.external_name ?? 'Invité',
+        planTitle: plan.title,
+        serviceDate: plan.service_date,
+        positionName: position?.name ?? null,
+        teamName: team?.name ?? null,
+        assignmentId,
+      })
+      console.log('[sendSingleInvitation] external guest email sent OK to', a.external_email)
+    } catch (err: any) {
+      console.error('[sendSingleInvitation] Resend error (external):', err?.message, { email: a.external_email, assignmentId })
+      redirect(`/benevoles/admin/plans/${planId}?error=${encodeURIComponent(err?.message ?? 'Erreur envoi email')}`)
+    }
+    redirect(`/benevoles/admin/plans/${planId}?sent=1`)
+  }
+
+  // Bénévole interne
   const [{ data: profile }, { data: authData }] = await Promise.all([
     admin.from('profiles').select('first_name').eq('id', a.user_id).single(),
     admin.auth.admin.getUserById(a.user_id),
   ])
 
   const email = authData?.user?.email
-  const plan = a.plans as any
-  const position = a.positions as any
-  const team = a.teams as any
 
   console.log('[sendSingleInvitation] assignmentId:', assignmentId, 'userId:', a.user_id, 'email:', email ?? 'INTROUVABLE')
 

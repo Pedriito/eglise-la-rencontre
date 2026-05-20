@@ -103,6 +103,40 @@ export default async function DashboardPage() {
           </section>
         )}
 
+        {/* Raccourcis admin */}
+        {isEditorOrAdmin && (
+          <div className="grid grid-cols-2 gap-3">
+            <Link
+              href="/benevoles/admin"
+              className="flex items-center justify-between bg-white rounded-xl border border-teal/20 px-5 py-4 hover:border-teal/40 transition-colors group"
+            >
+              <p className="font-sans text-sm text-dark/70 font-medium">Bénévoles</p>
+              <span className="text-teal font-sans text-sm group-hover:translate-x-0.5 transition-transform">→</span>
+            </Link>
+            <Link
+              href="/benevoles/admin/stats"
+              className="flex items-center justify-between bg-white rounded-xl border border-teal/20 px-5 py-4 hover:border-teal/40 transition-colors group"
+            >
+              <p className="font-sans text-sm text-dark/70 font-medium">Statistiques</p>
+              <span className="text-teal font-sans text-sm group-hover:translate-x-0.5 transition-transform">→</span>
+            </Link>
+          </div>
+        )}
+
+        {/* Gestion — accessible à tous */}
+        <section>
+          <Link
+            href="/benevoles/gestion"
+            className="flex items-center justify-between bg-white rounded-2xl border border-teal/20 px-6 py-5 hover:border-teal/40 transition-colors group"
+          >
+            <div>
+              <p className="font-sans text-sm text-dark font-medium">Gestion des équipes</p>
+              <p className="font-sans text-xs text-dark/40 mt-0.5">Tâches et décisions en attente</p>
+            </div>
+            <span className="text-teal font-sans text-sm group-hover:translate-x-1 transition-transform">→</span>
+          </Link>
+        </section>
+
         {/* Services à venir — éditeurs/admins */}
         {isEditorOrAdmin && (
           <section>
@@ -193,6 +227,23 @@ export default async function DashboardPage() {
               </div>
             )}
           </div>
+        </section>
+
+        {/* Historique */}
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-display text-xl text-dark font-light">Historique</h2>
+            <Link href="/benevoles/historique" className="text-sm text-teal font-sans hover:underline">
+              Voir tout →
+            </Link>
+          </div>
+          <Link
+            href="/benevoles/historique"
+            className="flex items-center justify-between bg-white rounded-2xl border border-teal/20 px-6 py-5 hover:border-teal/40 transition-colors group"
+          >
+            <p className="font-sans text-sm text-dark/60">Services passés auxquels j'ai participé</p>
+            <span className="text-teal font-sans text-sm group-hover:translate-x-1 transition-transform">→</span>
+          </Link>
         </section>
 
         {/* Mes équipes + indisponibilités */}

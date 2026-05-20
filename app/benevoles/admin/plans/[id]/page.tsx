@@ -1,9 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { addAssignment, removeAssignment, deletePlan, sendSingleInvitation } from '../actions'
+import { removeAssignment, deletePlan, sendSingleInvitation } from '../actions'
 import { StatusDot } from '../../../_components/StatusDot'
 import { FlashMessage } from '../../../_components/FlashMessage'
+import { AddAssignmentForm } from './AddAssignmentForm'
 
 const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
 const TEAMS_WITH_INVITE = new Set(['Prédicateurs', 'Louange'])
@@ -16,6 +17,8 @@ type AssignmentRow = {
   user_id: string
   position_id: string | null
   team_id: string | null
+  external_name: string | null
+  external_email: string | null
   profiles: { first_name: string; last_name: string } | null
   positions: { id: string; name: string; team_id: string } | null
 }
@@ -47,7 +50,7 @@ export default async function PlanDetailPage({
     supabase.from('plans').select('id, title, service_date, notes, plan_type').eq('id', id).single(),
     supabase
       .from('plan_assignments')
-      .select('id, status, user_id, position_id, team_id, profiles(first_name, last_name), positions(id, name, team_id)')
+      .select('id, status, user_id, position_id, team_id, external_name, external_email, profiles(first_name, last_name), positions(id, name, team_id)')
       .eq('plan_id', id),
     supabase.from('teams').select('id, name, positions(id, name)').order('name'),
     supabase.from('profiles').select('id, first_name, last_name').order('last_name'),
@@ -158,6 +161,10 @@ export default async function PlanDetailPage({
                   )}
                   {teamAssignments.map(a => {
                     const isInvite = a.user_id === INVITE_EXT_ID
+                    const displayName = isInvite
+                      ? (a.external_name ?? 'Invité (Ext)')
+                      : `${a.profiles?.first_name} ${a.profiles?.last_name}`
+                    const canSendInvite = isInvite ? !!a.external_email : a.status === 'pending'
                     return (
                       <div key={a.id} className="px-5 py-3 flex items-center justify-between gap-3">
                         <div className="min-w-0">
@@ -167,15 +174,18 @@ export default async function PlanDetailPage({
                             </p>
                           )}
                           <p className="font-sans text-sm text-dark font-medium truncate">
-                            {isInvite ? 'Invité (Ext)' : `${a.profiles?.first_name} ${a.profiles?.last_name}`}
+                            {displayName}
                           </p>
+                          {isInvite && a.external_email && (
+                            <p className="text-xs text-dark/30 font-sans truncate">{a.external_email}</p>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           {!isInvite && unavailableIds.has(a.user_id) && (
                             <span className="text-xs text-red-400 font-sans" title="Indisponible ce jour-là">⚠</span>
                           )}
-                          {!isInvite && <StatusDot status={a.status} />}
-                          {!isInvite && a.status === 'pending' && (
+                          <StatusDot status={a.status} />
+                          {canSendInvite && (
                             <form action={sendSingleInvitation}>
                               <input type="hidden" name="assignment_id" value={a.id} />
                               <input type="hidden" name="plan_id" value={id} />
@@ -199,42 +209,14 @@ export default async function PlanDetailPage({
 
                 {/* Formulaire d'ajout */}
                 <div className="px-4 py-3 border-t border-teal/10 bg-teal-50/20">
-                  <form action={addAssignment} className="flex gap-2 items-center">
-                    <input type="hidden" name="plan_id" value={id} />
-                    <input type="hidden" name="team_id" value={team.id} />
-                    <select
-                      name="user_id"
-                      className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-teal/30 bg-white text-dark font-sans text-xs focus:outline-none focus:ring-1 focus:ring-teal/40"
-                    >
-                      <option value="">— Bénévole —</option>
-                      {isInviteTeam && (
-                        <option value={INVITE_EXT_ID}>Invité (Ext)</option>
-                      )}
-                      {teamProfiles.map(p => (
-                        <option key={p.id} value={p.id}>{p.first_name} {p.last_name}</option>
-                      ))}
-                    </select>
-                    {!hidePositions && teamPositions.length === 1 && (
-                      <input type="hidden" name="position_id" value={teamPositions[0].id} />
-                    )}
-                    {!hidePositions && teamPositions.length > 1 && (
-                      <select
-                        name="position_id"
-                        className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-teal/30 bg-white text-dark font-sans text-xs focus:outline-none focus:ring-1 focus:ring-teal/40"
-                      >
-                        <option value="">— Poste —</option>
-                        {teamPositions.map(pos => (
-                          <option key={pos.id} value={pos.id}>{pos.name}</option>
-                        ))}
-                      </select>
-                    )}
-                    <button
-                      type="submit"
-                      className="px-3 py-1.5 bg-teal text-white rounded-lg font-sans text-xs font-medium hover:bg-teal-dark transition-colors shrink-0"
-                    >
-                      +
-                    </button>
-                  </form>
+                  <AddAssignmentForm
+                    planId={id}
+                    teamId={team.id}
+                    teamPositions={teamPositions}
+                    teamProfiles={teamProfiles}
+                    isInviteTeam={isInviteTeam}
+                    hidePositions={hidePositions}
+                  />
                 </div>
               </div>
             )

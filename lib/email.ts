@@ -136,6 +136,141 @@ export async function sendCancellationNotificationEmail({
   if (errCancel) throw new Error(`Resend sendCancellationEmail: ${errCancel.message} (to: ${to})`)
 }
 
+export async function sendReminderEmail({
+  to,
+  firstName,
+  planTitle,
+  serviceDate,
+  positionName,
+  teamName,
+  assignmentId,
+  daysLeft,
+  isExternal = false,
+}: {
+  to: string
+  firstName: string
+  planTitle: string
+  serviceDate: string
+  positionName: string | null
+  teamName: string | null
+  assignmentId: string
+  daysLeft: 7 | 2
+  isExternal?: boolean
+}) {
+  const date = new Date(serviceDate).toLocaleDateString('fr-FR', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  })
+  const time = new Date(serviceDate).toLocaleTimeString('fr-FR', {
+    hour: '2-digit', minute: '2-digit',
+  })
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.egliselarencontre.fr'
+  const resend = getResend()
+
+  const responseUrl = isExternal
+    ? `${siteUrl}/benevoles/repondre-ext/${assignmentId}`
+    : `${siteUrl}/benevoles/dashboard`
+
+  const label = daysLeft === 7 ? 'dans 7 jours' : 'dans 2 jours'
+  const urgentStyle = daysLeft === 2
+    ? 'background:#fff7ed;border-left:4px solid #f97316;'
+    : 'background:#f0faf9;border-left:4px solid #0d9488;'
+
+  const { error } = await resend.emails.send({
+    from: 'Église La Rencontre <no-reply@egliselarencontre.fr>',
+    to,
+    subject: `Rappel (${label}) : ${planTitle}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1a2e2e;">
+        <p style="margin-bottom:8px;">Bonjour ${firstName},</p>
+        <p style="margin-bottom:16px;">
+          Rappel : tu es programmé(e) <strong>${label}</strong> pour le service suivant.
+        </p>
+
+        <div style="${urgentStyle}border-radius:10px;padding:18px 20px;margin-bottom:20px;">
+          <p style="margin:0;font-size:16px;font-weight:600;">${planTitle}</p>
+          <p style="margin:6px 0 0;color:#555;font-size:14px;text-transform:capitalize;">${date} à ${time}</p>
+          ${teamName ? `<p style="margin:6px 0 0;color:#0d9488;font-size:14px;">Équipe : ${teamName}</p>` : ''}
+          ${positionName ? `<p style="margin:6px 0 0;color:#0d9488;font-size:14px;">Poste : ${positionName}</p>` : ''}
+        </div>
+
+        <a href="${responseUrl}"
+           style="display:inline-block;background:#3D7D85;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
+          ${isExternal ? 'Voir les détails →' : 'Mon espace bénévole →'}
+        </a>
+
+        <p style="margin-top:32px;font-size:12px;color:#999;">
+          Église La Rencontre · Lieusaint<br>
+          Si tu n'es pas concerné(e) par ce message, ignore-le.
+        </p>
+      </div>
+    `,
+  })
+  if (error) throw new Error(`Resend sendReminderEmail: ${error.message} (to: ${to})`)
+}
+
+export async function sendExternalGuestInvitationEmail({
+  to,
+  guestName,
+  planTitle,
+  serviceDate,
+  positionName,
+  teamName,
+  assignmentId,
+}: {
+  to: string
+  guestName: string
+  planTitle: string
+  serviceDate: string
+  positionName: string | null
+  teamName: string | null
+  assignmentId: string
+}) {
+  const date = new Date(serviceDate).toLocaleDateString('fr-FR', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  })
+  const time = new Date(serviceDate).toLocaleTimeString('fr-FR', {
+    hour: '2-digit', minute: '2-digit',
+  })
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.egliselarencontre.fr'
+  const resend = getResend()
+
+  const { error } = await resend.emails.send({
+    from: 'Église La Rencontre <no-reply@egliselarencontre.fr>',
+    to,
+    subject: `Invitation à servir : ${planTitle}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1a2e2e;">
+        <p style="margin-bottom:8px;">Bonjour ${guestName},</p>
+        <p style="margin-bottom:16px;">
+          L'<strong>Église La Rencontre</strong> vous invite à participer au service suivant :
+        </p>
+
+        <div style="background:#f0faf9;border-radius:10px;padding:18px 20px;margin-bottom:20px;border-left:4px solid #0d9488;">
+          <p style="margin:0;font-size:16px;font-weight:600;">${planTitle}</p>
+          <p style="margin:6px 0 0;color:#555;font-size:14px;text-transform:capitalize;">${date} à ${time}</p>
+          ${teamName ? `<p style="margin:6px 0 0;color:#0d9488;font-size:14px;">Équipe : ${teamName}</p>` : ''}
+          ${positionName ? `<p style="margin:6px 0 0;color:#0d9488;font-size:14px;">Rôle : ${positionName}</p>` : ''}
+        </div>
+
+        <p style="margin-bottom:20px;">
+          Merci de nous indiquer si vous pouvez participer :
+        </p>
+
+        <a href="${siteUrl}/benevoles/repondre-ext/${assignmentId}"
+           style="display:inline-block;background:#3D7D85;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
+          Répondre à l'invitation →
+        </a>
+
+        <p style="margin-top:32px;font-size:12px;color:#999;">
+          Église La Rencontre · Lieusaint<br>
+          Si vous n'êtes pas concerné(e) par ce message, ignorez-le.
+        </p>
+      </div>
+    `,
+  })
+  if (error) throw new Error(`Resend sendExternalGuestInvitationEmail: ${error.message} (to: ${to})`)
+}
+
 export async function sendPlanAssignmentEmail({
   to,
   firstName,

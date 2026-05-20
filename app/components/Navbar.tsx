@@ -9,7 +9,6 @@ const links = [
   { label: "Cultes", href: "#cultes" },
   { label: "Pasteurs", href: "#pasteurs" },
   { label: "Contact", href: "#contact" },
-  { label: "Don", href: "/don" },
 ];
 
 export default function Navbar() {

@@ -23,9 +23,11 @@ export default async function AdminPage({
 
   if (me?.permission !== 'admin') redirect('/benevoles/dashboard')
 
+  const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
   const { data: benevoles } = await supabase
     .from('profiles')
     .select('id, first_name, last_name, permission, status, created_at')
+    .neq('id', INVITE_EXT_ID)
     .order('last_name')
 
   const params = await searchParams
