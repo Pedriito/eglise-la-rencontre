@@ -87,6 +87,8 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
   // Navigation clavier
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
         e.preventDefault()
         const nextInSong = currentSong?.slides[current.slideIdx + 1]
