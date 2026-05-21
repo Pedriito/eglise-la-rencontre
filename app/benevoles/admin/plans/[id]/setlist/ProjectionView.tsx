@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { isChordLine, isSectionHeader, transposeChart } from '@/lib/transpose'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { buildAllSlides, type Slide } from '@/lib/parseSlides'
 
 type Song = {
   planSongId: string
@@ -9,256 +9,262 @@ type Song = {
   keySelected: string | null
   song: { id: number; title: string }
   arrangement: {
-    id: string
-    name: string
-    chord_chart: string | null
-    chord_chart_key: string | null
+    id: string; name: string
+    chord_chart: string | null; chord_chart_key: string | null
   } | null
 }
 
-type Slide = {
-  section: string
-  lines: string[]
-}
-
 type Props = {
+  planId: string
   songs: Song[]
   initialSongIdx: number
   onClose: () => void
 }
 
-function parseSlides(chart: string, fromKey: string | null, toKey: string | null): Slide[] {
-  // Transposer si nécessaire
-  const text = fromKey && toKey && fromKey !== toKey
-    ? transposeChart(chart, fromKey, toKey)
-    : chart
+export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props) {
+  const [current, setCurrent] = useState({ songIdx: initialSongIdx, slideIdx: 0 })
+  const [projectorReady, setProjectorReady] = useState(false)
+  const [projectorWindow, setProjectorWindow] = useState<Window | null>(null)
+  const channelRef = useRef<BroadcastChannel | null>(null)
 
-  const rawLines = text.split('\n')
-  const slides: Slide[] = []
-  let currentSection = ''
-  let lyricBuffer: string[] = []
+  const songSlides = buildAllSlides(songs)
 
-  function flushBuffer() {
-    // Regroupe les lignes de paroles par 2 (max 2 lignes/diapo)
-    for (let i = 0; i < lyricBuffer.length; i += 2) {
-      const pair = lyricBuffer.slice(i, i + 2)
-      slides.push({ section: currentSection, lines: pair })
-    }
-    lyricBuffer = []
-  }
+  // Toutes les diapos à plat avec leur position
+  const allSlides: { songIdx: number; slideIdx: number; slide: Slide; songTitle: string }[] = []
+  songSlides.forEach((ss, si) => {
+    ss.slides.forEach((slide, di) => {
+      allSlides.push({ songIdx: si, slideIdx: di, slide, songTitle: ss.title })
+    })
+  })
 
-  for (const raw of rawLines) {
-    const line = raw.trimEnd()
+  const currentSong  = songSlides[current.songIdx]
+  const currentSlide = currentSong?.slides[current.slideIdx] ?? null
+  const nextSlide    = (() => {
+    const nextInSong = currentSong?.slides[current.slideIdx + 1]
+    if (nextInSong) return nextInSong
+    const nextSong = songSlides[current.songIdx + 1]
+    return nextSong?.slides[0] ?? null
+  })()
 
-    // Ligne vide → coupe naturelle : flush par 2 mais garde la section
-    if (line.trim() === '') {
-      flushBuffer()
-      continue
-    }
-
-    // Ligne d'accords → ignorée
-    if (isChordLine(line)) continue
-
-    // En-tête de section (COUPLET 1, REFRAIN…)
-    if (isSectionHeader(line)) {
-      flushBuffer()
-      currentSection = line.trim().replace(/^\[|\]$/g, '').trim()
-      continue
-    }
-
-    // Ligne de paroles
-    lyricBuffer.push(line.trim())
-  }
-
-  flushBuffer()
-
-  // Filtrer les diapos vides
-  return slides.filter(s => s.lines.length > 0)
-}
-
-export function ProjectionView({ songs, initialSongIdx, onClose }: Props) {
-  const [songIdx, setSongIdx] = useState(initialSongIdx)
-  const [slideIdx, setSlideIdx] = useState(0)
-  const [showControls, setShowControls] = useState(true)
-
-  const song = songs[songIdx]
-  const chart = song?.arrangement?.chord_chart ?? ''
-  const fromKey = song?.arrangement?.chord_chart_key ?? null
-  const toKey = song?.keySelected ?? fromKey
-
-  const slides = chart ? parseSlides(chart, fromKey, toKey) : []
-  const totalSlides = slides.length
-  const currentSlide = slides[slideIdx] ?? null
-
-  // Auto-hide controls après 3 secondes
+  // Ouvrir / fermer le BroadcastChannel
   useEffect(() => {
-    setShowControls(true)
-    const t = setTimeout(() => setShowControls(false), 3000)
-    return () => clearTimeout(t)
-  }, [slideIdx, songIdx])
-
-  const goNext = useCallback(() => {
-    if (slideIdx < totalSlides - 1) {
-      setSlideIdx(s => s + 1)
-    } else if (songIdx < songs.length - 1) {
-      setSongIdx(s => s + 1)
-      setSlideIdx(0)
+    const ch = new BroadcastChannel(`projection-${planId}`)
+    channelRef.current = ch
+    ch.onmessage = (e) => {
+      if (e.data?.type === 'READY') setProjectorReady(true)
     }
-  }, [slideIdx, totalSlides, songIdx, songs.length])
+    return () => ch.close()
+  }, [planId])
 
-  const goPrev = useCallback(() => {
-    if (slideIdx > 0) {
-      setSlideIdx(s => s - 1)
-    } else if (songIdx > 0) {
-      const prevSong = songs[songIdx - 1]
-      const prevChart = prevSong?.arrangement?.chord_chart ?? ''
-      const prevFrom = prevSong?.arrangement?.chord_chart_key ?? null
-      const prevTo = prevSong?.keySelected ?? prevFrom
-      const prevSlides = prevChart ? parseSlides(prevChart, prevFrom, prevTo) : []
-      setSongIdx(s => s - 1)
-      setSlideIdx(Math.max(0, prevSlides.length - 1))
-    }
-  }, [slideIdx, songIdx, songs])
+  // Ouvrir la fenêtre projecteur
+  useEffect(() => {
+    const url = `/benevoles/admin/plans/${planId}/setlist/projector`
+    const win = window.open(url, `projector-${planId}`, 'noopener')
+    if (win) setProjectorWindow(win)
+    return () => { win?.close() }
+  }, [planId])
+
+  // Envoyer la commande au projecteur
+  const goto = useCallback((songIdx: number, slideIdx: number) => {
+    setCurrent({ songIdx, slideIdx })
+    channelRef.current?.postMessage({ type: 'GOTO', songIdx, slideIdx })
+  }, [])
 
   // Navigation clavier
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
         e.preventDefault()
-        goNext()
+        const nextInSong = currentSong?.slides[current.slideIdx + 1]
+        if (nextInSong) {
+          goto(current.songIdx, current.slideIdx + 1)
+        } else if (current.songIdx < songs.length - 1) {
+          goto(current.songIdx + 1, 0)
+        }
       } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
         e.preventDefault()
-        goPrev()
+        if (current.slideIdx > 0) {
+          goto(current.songIdx, current.slideIdx - 1)
+        } else if (current.songIdx > 0) {
+          const prevSong = songSlides[current.songIdx - 1]
+          goto(current.songIdx - 1, Math.max(0, prevSong.slides.length - 1))
+        }
       } else if (e.key === 'Escape') {
         onClose()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [goNext, goPrev, onClose])
+  }, [current, currentSong, goto, onClose, songs.length, songSlides])
 
-  const isFirst = songIdx === 0 && slideIdx === 0
-  const isLast  = songIdx === songs.length - 1 && slideIdx === totalSlides - 1
+  // Scroll automatique vers la diapo active dans la grille
+  const activeRef = useRef<HTMLButtonElement | null>(null)
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [current])
+
+  const isFirst = current.songIdx === 0 && current.slideIdx === 0
+  const isLast  = current.songIdx === songs.length - 1 &&
+                  current.slideIdx === (currentSong?.slides.length ?? 1) - 1
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col select-none">
+    <div className="fixed inset-0 z-50 bg-gray-950 flex flex-col text-white">
 
-      {/* Zone de clic : moitié gauche = précédent, moitié droite = suivant */}
-      <div className="absolute inset-0 flex">
-        <button
-          onClick={goPrev}
-          disabled={isFirst}
-          className="flex-1 h-full cursor-pointer disabled:cursor-default"
-          aria-label="Diapo précédente"
-        />
-        <button
-          onClick={goNext}
-          disabled={isLast}
-          className="flex-1 h-full cursor-pointer disabled:cursor-default"
-          aria-label="Diapo suivante"
-        />
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-white/10 shrink-0">
+        <div>
+          <p className="font-sans text-xs text-white/40 uppercase tracking-widest">Tableau de bord opérateur</p>
+          <p className="font-display text-base font-light text-white/80">
+            {songSlides[current.songIdx]?.title}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {/* Statut projecteur */}
+          <div className="flex items-center gap-1.5">
+            <span className={`block w-2 h-2 rounded-full ${projectorReady ? 'bg-green-400' : 'bg-amber-400 animate-pulse'}`} />
+            <span className="font-sans text-xs text-white/40">
+              {projectorReady ? 'Projecteur connecté' : 'En attente du projecteur…'}
+            </span>
+          </div>
+          {projectorWindow && (
+            <button
+              onClick={() => projectorWindow.focus()}
+              className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg font-sans text-xs transition-colors"
+            >
+              ↗ Basculer sur l'écran
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="px-3 py-1.5 bg-white/10 hover:bg-red-500/40 rounded-lg font-sans text-xs transition-colors"
+          >
+            ✕ Quitter
+          </button>
+        </div>
       </div>
 
-      {/* Contenu central */}
-      <div className="flex-1 flex flex-col items-center justify-center px-12 pointer-events-none">
-        {currentSlide ? (
-          <>
-            {currentSlide.section && (
-              <p className="text-white/25 text-xs uppercase tracking-[0.3em] mb-8 font-sans">
-                {currentSlide.section}
-              </p>
-            )}
-            <div className="text-center space-y-4">
-              {currentSlide.lines.map((line, i) => (
-                <p
-                  key={i}
-                  className="text-white font-display font-light leading-tight"
-                  style={{ fontSize: 'clamp(1.8rem, 4.5vw, 3.5rem)' }}
-                >
-                  {line}
-                </p>
-              ))}
-            </div>
-          </>
-        ) : (
-          <p className="text-white/30 font-sans text-lg">Pas de paroles pour ce chant.</p>
-        )}
-      </div>
+      {/* ── Corps : prévisualisation + grille ── */}
+      <div className="flex flex-1 min-h-0 gap-0">
 
-      {/* Barre de contrôles (auto-hide) */}
-      <div className={`absolute bottom-0 left-0 right-0 transition-opacity duration-500 ${showControls ? 'opacity-100' : 'opacity-0'}`}
-        onMouseMove={() => setShowControls(true)}
-      >
-        <div className="bg-gradient-to-t from-black/80 to-transparent px-6 pb-6 pt-10">
-          <div className="flex items-end justify-between">
+        {/* Prévisualisation courante + suivante */}
+        <div className="w-80 shrink-0 flex flex-col gap-3 p-4 border-r border-white/10">
+          {/* Diapo courante */}
+          <div>
+            <p className="font-sans text-[10px] uppercase tracking-widest text-white/30 mb-2">En cours</p>
+            <SlidePreview slide={currentSlide} size="lg" />
+          </div>
+          {/* Diapo suivante */}
+          <div>
+            <p className="font-sans text-[10px] uppercase tracking-widest text-white/30 mb-2">Suivante</p>
+            <SlidePreview slide={nextSlide} size="sm" dim />
+          </div>
 
-            {/* Info chant + diapo */}
-            <div className="min-w-0">
-              <p className="text-white/50 text-xs font-sans uppercase tracking-widest mb-0.5">
-                {songIdx + 1} / {songs.length}
-              </p>
-              <p className="text-white font-display text-lg font-light truncate">
-                {song?.song.title}
-              </p>
-              {totalSlides > 0 && (
-                <p className="text-white/40 text-xs font-sans mt-0.5">
-                  Diapo {slideIdx + 1} / {totalSlides}
-                </p>
-              )}
-            </div>
-
-            {/* Boutons navigation + fermer */}
-            <div className="flex items-center gap-3 shrink-0">
-              <button
-                onClick={goPrev}
-                disabled={isFirst}
-                className="text-white/50 hover:text-white disabled:opacity-20 transition-colors font-sans text-sm px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 pointer-events-auto"
-              >
-                ←
-              </button>
-              <button
-                onClick={goNext}
-                disabled={isLast}
-                className="text-white/50 hover:text-white disabled:opacity-20 transition-colors font-sans text-sm px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 pointer-events-auto"
-              >
-                →
-              </button>
-
-              {/* Sélecteur de chant */}
-              <select
-                value={songIdx}
-                onChange={e => { setSongIdx(Number(e.target.value)); setSlideIdx(0) }}
-                className="bg-white/10 text-white text-sm font-sans rounded-lg px-3 py-1.5 border border-white/20 focus:outline-none pointer-events-auto"
-              >
-                {songs.map((s, i) => (
-                  <option key={s.planSongId} value={i} className="bg-black">
-                    {i + 1}. {s.song.title}
-                  </option>
-                ))}
-              </select>
-
-              <button
-                onClick={onClose}
-                className="text-white/50 hover:text-white transition-colors font-sans text-sm px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 pointer-events-auto"
-                title="Quitter (Échap)"
-              >
-                ✕ Quitter
-              </button>
-            </div>
+          {/* Boutons prev / next */}
+          <div className="mt-auto flex gap-2">
+            <button
+              onClick={() => {
+                if (current.slideIdx > 0) goto(current.songIdx, current.slideIdx - 1)
+                else if (current.songIdx > 0) {
+                  const prev = songSlides[current.songIdx - 1]
+                  goto(current.songIdx - 1, Math.max(0, prev.slides.length - 1))
+                }
+              }}
+              disabled={isFirst}
+              className="flex-1 py-2.5 bg-white/10 hover:bg-white/20 disabled:opacity-25 rounded-xl font-sans text-sm transition-colors"
+            >
+              ← Précédente
+            </button>
+            <button
+              onClick={() => {
+                const nextInSong = currentSong?.slides[current.slideIdx + 1]
+                if (nextInSong) goto(current.songIdx, current.slideIdx + 1)
+                else if (current.songIdx < songs.length - 1) goto(current.songIdx + 1, 0)
+              }}
+              disabled={isLast}
+              className="flex-1 py-2.5 bg-teal hover:bg-teal/80 disabled:opacity-25 rounded-xl font-sans text-sm font-semibold transition-colors"
+            >
+              Suivante →
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* Indicateur de progression (traits en bas) */}
-      {totalSlides > 1 && (
-        <div className="absolute bottom-0 left-0 right-0 flex gap-0.5 px-2 pb-1 pointer-events-none opacity-30">
-          {slides.map((_, i) => (
-            <div
-              key={i}
-              className={`h-0.5 flex-1 rounded-full transition-colors ${i === slideIdx ? 'bg-white' : 'bg-white/30'}`}
-            />
-          ))}
+        {/* Grille de toutes les diapos */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {songSlides.map((ss, si) => {
+            if (ss.slides.length === 0) return null
+            return (
+              <div key={si} className="mb-6">
+                {/* Titre du chant */}
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="font-sans text-xs text-white/30 tabular-nums w-4">{si + 1}</span>
+                  <p className="font-display text-sm text-white/60 font-light">{ss.title}</p>
+                  <div className="flex-1 h-px bg-white/10" />
+                </div>
+
+                {/* Diapos du chant */}
+                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 pl-7">
+                  {ss.slides.map((slide, di) => {
+                    const isActive = current.songIdx === si && current.slideIdx === di
+                    return (
+                      <button
+                        key={di}
+                        ref={isActive ? activeRef : null}
+                        onClick={() => goto(si, di)}
+                        className={`relative rounded-lg border-2 transition-all text-left overflow-hidden aspect-video flex flex-col items-center justify-center px-2 py-1.5 ${
+                          isActive
+                            ? 'border-teal bg-teal/10 ring-1 ring-teal/50'
+                            : 'border-white/10 bg-white/5 hover:border-white/30 hover:bg-white/10'
+                        }`}
+                      >
+                        {slide.section && (
+                          <p className="text-white/30 text-[8px] uppercase tracking-wider leading-none mb-1 text-center truncate w-full">
+                            {slide.section}
+                          </p>
+                        )}
+                        {slide.lines.map((line, li) => (
+                          <p key={li} className="text-white text-[9px] leading-tight text-center truncate w-full">
+                            {line}
+                          </p>
+                        ))}
+                        {isActive && (
+                          <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-teal" />
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
         </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Composant prévisualisation ── */
+function SlidePreview({ slide, size, dim }: { slide: Slide | null; size: 'lg' | 'sm'; dim?: boolean }) {
+  const padding = size === 'lg' ? 'px-4 py-5' : 'px-3 py-3'
+  const textSize = size === 'lg' ? 'text-sm' : 'text-xs'
+  const labelSize = size === 'lg' ? 'text-[9px]' : 'text-[8px]'
+
+  return (
+    <div className={`bg-black rounded-xl border border-white/10 aspect-video flex flex-col items-center justify-center ${padding} ${dim ? 'opacity-50' : ''}`}>
+      {slide ? (
+        <>
+          {slide.section && (
+            <p className={`text-white/30 ${labelSize} uppercase tracking-wider mb-2 text-center`}>
+              {slide.section}
+            </p>
+          )}
+          {slide.lines.map((line, i) => (
+            <p key={i} className={`text-white ${textSize} leading-snug text-center font-display font-light`}>
+              {line}
+            </p>
+          ))}
+        </>
+      ) : (
+        <p className="text-white/20 text-xs font-sans">—</p>
       )}
     </div>
   )

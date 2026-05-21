@@ -40,6 +40,7 @@ export function SetlistView({ planId, planTitle, songs }: Props) {
     <div className="flex h-screen bg-teal-50 overflow-hidden">
       {projecting && (
         <ProjectionView
+          planId={planId}
           songs={songs}
           initialSongIdx={activeIdx}
           onClose={() => setProjecting(false)}
