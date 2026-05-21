@@ -236,8 +236,9 @@ export default async function PlanDetailPage({
         </div>
 
         {/* ── Chants du plan ─────────────────────────────────────────── */}
-        <div className="bg-white rounded-2xl border border-teal/20 overflow-hidden">
-          <div className="px-5 py-3 border-b border-teal/10 bg-teal-50/50 flex items-center justify-between">
+        {/* Pas de overflow-hidden ici : le dropdown autocomplete doit pouvoir déborder */}
+        <div className="bg-white rounded-2xl border border-teal/20">
+          <div className="px-5 py-3 border-b border-teal/10 bg-teal-50/50 flex items-center justify-between rounded-t-2xl">
             <p className="font-sans text-xs text-dark/50 uppercase tracking-widest font-medium">Chants</p>
             {(planSongs ?? []).length > 0 && (
               <span className="text-xs text-dark/30 font-sans tabular-nums">{planSongs!.length}</span>

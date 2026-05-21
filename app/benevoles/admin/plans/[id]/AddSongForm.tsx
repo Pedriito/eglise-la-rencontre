@@ -69,7 +69,7 @@ export function AddSongForm({ planId, songs }: { planId: string; songs: Song[] }
           className="w-full bg-white border border-teal/20 rounded-xl px-3 py-2 font-sans text-sm text-dark placeholder:text-dark/30 focus:outline-none focus:ring-1 focus:ring-teal/30"
         />
         {open && query.length >= 0 && (
-          <div className="absolute z-20 mt-1 w-full bg-white border border-teal/20 rounded-xl shadow-lg overflow-hidden">
+          <div className="absolute z-50 bottom-full mb-1 w-full bg-white border border-teal/20 rounded-xl shadow-lg overflow-hidden">
             {filtered.length === 0 && (
               <p className="px-3 py-2 font-sans text-xs text-dark/40">Aucun résultat</p>
             )}
