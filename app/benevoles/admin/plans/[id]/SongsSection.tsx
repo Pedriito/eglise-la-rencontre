@@ -59,7 +59,10 @@ export function SongsSection({ planId, planSongs, allSongs }: Props) {
     <div className="bg-white rounded-2xl border border-teal/20 flex min-h-0">
 
       {/* ── Liste ─────────────────────────────────────────────────── */}
-      <div className={`flex flex-col min-w-0 transition-all duration-200 ${isOpen ? 'w-64 shrink-0 border-r border-teal/10' : 'flex-1'}`}>
+      {/* Mobile : cachée quand une partition est ouverte */}
+      <div className={`flex flex-col min-w-0 transition-all duration-200
+        ${isOpen ? 'hidden md:flex md:w-64 md:shrink-0 md:border-r md:border-teal/10' : 'flex-1'}
+      `}>
 
         {/* En-tête */}
         <div className="px-4 py-3 border-b border-teal/10 bg-teal-50/50 flex items-center justify-between rounded-tl-2xl">
@@ -154,7 +157,14 @@ export function SongsSection({ planId, planSongs, allSongs }: Props) {
 
       {/* ── Partition ─────────────────────────────────────────────── */}
       {isOpen && active && (
-        <div className="flex-1 overflow-y-auto px-5 py-5 min-w-0">
+        <div className="flex-1 overflow-y-auto px-4 py-4 min-w-0">
+          {/* Bouton retour mobile uniquement */}
+          <button
+            onClick={() => setActiveId(null)}
+            className="md:hidden mb-3 font-sans text-xs text-dark/40 hover:text-dark transition-colors"
+          >
+            ← {active.songs?.title ?? 'Retour'}
+          </button>
           {active.arrangements?.chord_chart ? (
             <ChordChart
               chart={active.arrangements.chord_chart}
