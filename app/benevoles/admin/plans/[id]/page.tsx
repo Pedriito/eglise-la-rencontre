@@ -121,6 +121,12 @@ export default async function PlanDetailPage({
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <Link
+            href={`/benevoles/admin/plans/${id}/setlist`}
+            className="font-sans text-xs font-semibold px-3 py-1.5 bg-teal text-white rounded-lg hover:bg-teal-dark transition-colors"
+          >
+            ♩ Mode live
+          </Link>
           <form action={deletePlan}>
             <input type="hidden" name="plan_id" value={id} />
             <button type="submit" className="text-xs text-dark/30 hover:text-red-400 transition-colors font-sans">

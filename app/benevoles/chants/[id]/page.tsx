@@ -138,6 +138,7 @@ export default async function SongPage({
                 chart={arr.chord_chart}
                 originalKey={arr.chord_chart_key}
                 arrangementId={arr.id}
+                songId={typedSong.id}
               />
             ) : (
               <div className="bg-white rounded-2xl border border-teal/20 px-5 py-6 text-center">

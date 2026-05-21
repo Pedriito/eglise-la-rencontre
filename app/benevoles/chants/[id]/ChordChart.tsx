@@ -1,24 +1,23 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { useParams } from 'next/navigation'
 import { transposeChart, getSemitones, isSectionHeader, isChordLine } from '@/lib/transpose'
 
 type Props = {
   chart: string
   originalKey: string | null
-  arrangementId: string
+  /** Pré-sélectionne une tonalité différente de l'originale (ex: depuis le plan) */
+  initialKey?: string
+  songId: number | string
+  arrangementId?: string
 }
 
 // Tonalités courantes affichées dans le sélecteur
 const COMMON_KEYS = ['C', 'D', 'E', 'F', 'G', 'A', 'Bb', 'Eb', 'Ab', 'Db', 'F#', 'B']
 
-export function ChordChart({ chart, originalKey, arrangementId }: Props) {
-  const params = useParams()
-  const songId = params?.id as string
-
+export function ChordChart({ chart, originalKey, initialKey, songId, arrangementId }: Props) {
   const defaultKey = originalKey ?? 'C'
-  const [selectedKey, setSelectedKey] = useState(defaultKey)
+  const [selectedKey, setSelectedKey] = useState(initialKey ?? defaultKey)
   const [showChords, setShowChords] = useState(true)
 
   const transposed = useMemo(
@@ -29,7 +28,8 @@ export function ChordChart({ chart, originalKey, arrangementId }: Props) {
   const semitones = getSemitones(defaultKey, selectedKey)
 
   function openPrint() {
-    const url = `/benevoles/chants/${songId}/print?key=${selectedKey}&arr=${arrangementId}&chords=${showChords}`
+    const arr = arrangementId ? `&arr=${arrangementId}` : ''
+    const url = `/benevoles/chants/${songId}/print?key=${selectedKey}${arr}&chords=${showChords}`
     window.open(url, '_blank', 'width=900,height=700')
   }
 
