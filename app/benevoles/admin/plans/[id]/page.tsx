@@ -1,8 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { removeAssignment, deletePlan, sendSingleInvitation, removePlanSong, movePlanSong } from '../actions'
-import { AddSongForm } from './AddSongForm'
+import { removeAssignment, deletePlan, sendSingleInvitation } from '../actions'
+import { SongsSection } from './SongsSection'
 import { StatusDot } from '../../../_components/StatusDot'
 import { FlashMessage } from '../../../_components/FlashMessage'
 import { AddAssignmentForm } from './AddAssignmentForm'
@@ -61,7 +61,7 @@ export default async function PlanDetailPage({
     supabase.from('team_members').select('user_id, team_id'),
     supabase
       .from('plan_songs')
-      .select('id, order_index, key_selected, songs(id, title), arrangements(id, name)')
+      .select('id, order_index, key_selected, songs(id, title), arrangements(id, name, chord_chart, chord_chart_key)')
       .eq('plan_id', id)
       .order('order_index'),
     supabase
@@ -242,97 +242,11 @@ export default async function PlanDetailPage({
         </div>
 
         {/* ── Chants du plan ─────────────────────────────────────────── */}
-        {/* Pas de overflow-hidden ici : le dropdown autocomplete doit pouvoir déborder */}
-        <div className="bg-white rounded-2xl border border-teal/20">
-          <div className="px-5 py-3 border-b border-teal/10 bg-teal-50/50 flex items-center justify-between rounded-t-2xl">
-            <p className="font-sans text-xs text-dark/50 uppercase tracking-widest font-medium">Chants</p>
-            {(planSongs ?? []).length > 0 && (
-              <span className="text-xs text-dark/30 font-sans tabular-nums">{planSongs!.length}</span>
-            )}
-          </div>
-
-          {/* Liste ordonnée */}
-          {(planSongs ?? []).length > 0 && (
-            <div className="divide-y divide-teal/10">
-              {(planSongs ?? []).map((ps, i) => {
-                const song = (ps as any).songs as { id: number; title: string } | null
-                const arr  = (ps as any).arrangements as { id: string; name: string } | null
-                const isFirst = i === 0
-                const isLast  = i === (planSongs!.length - 1)
-                return (
-                  <div key={ps.id} className="px-5 py-3 flex items-center gap-3">
-                    {/* Numéro */}
-                    <span className="font-sans text-xs text-dark/25 tabular-nums w-4 shrink-0">{i + 1}</span>
-
-                    {/* Info chant */}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-sans text-sm text-dark font-medium truncate">{song?.title}</p>
-                      <p className="font-sans text-xs text-dark/40 mt-0.5">
-                        {arr?.name && <span className="mr-2">{arr.name}</span>}
-                        {ps.key_selected && (
-                          <span className="text-teal font-medium">{ps.key_selected}</span>
-                        )}
-                      </p>
-                    </div>
-
-                    {/* Lien vers la grille */}
-                    {song && (
-                      <a
-                        href={`/benevoles/chants/${song.id}`}
-                        target="_blank"
-                        className="text-dark/25 hover:text-teal transition-colors font-sans text-xs"
-                        title="Voir le chant"
-                      >
-                        ♩
-                      </a>
-                    )}
-
-                    {/* Réordonnancement */}
-                    <div className="flex flex-col gap-0.5 shrink-0">
-                      <form action={movePlanSong}>
-                        <input type="hidden" name="plan_song_id" value={ps.id} />
-                        <input type="hidden" name="plan_id" value={id} />
-                        <input type="hidden" name="direction" value="up" />
-                        <button
-                          type="submit"
-                          disabled={isFirst}
-                          className="block text-dark/20 hover:text-teal disabled:opacity-0 transition-colors text-xs leading-none"
-                        >▲</button>
-                      </form>
-                      <form action={movePlanSong}>
-                        <input type="hidden" name="plan_song_id" value={ps.id} />
-                        <input type="hidden" name="plan_id" value={id} />
-                        <input type="hidden" name="direction" value="down" />
-                        <button
-                          type="submit"
-                          disabled={isLast}
-                          className="block text-dark/20 hover:text-teal disabled:opacity-0 transition-colors text-xs leading-none"
-                        >▼</button>
-                      </form>
-                    </div>
-
-                    {/* Supprimer */}
-                    <form action={removePlanSong}>
-                      <input type="hidden" name="plan_song_id" value={ps.id} />
-                      <input type="hidden" name="plan_id" value={id} />
-                      <button type="submit" className="text-dark/20 hover:text-red-400 transition-colors font-sans text-lg leading-none">
-                        ×
-                      </button>
-                    </form>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          {/* Formulaire d'ajout */}
-          <div className="px-5 py-4 border-t border-teal/10 bg-teal-50/20">
-            <AddSongForm
-              planId={id}
-              songs={(allSongs ?? []) as any}
-            />
-          </div>
-        </div>
+        <SongsSection
+          planId={id}
+          planSongs={(planSongs ?? []) as any}
+          allSongs={(allSongs ?? []) as any}
+        />
 
         {/* Affectations sans équipe (ancien format sans team_id) */}
         {noTeamAssignments.length > 0 && (
