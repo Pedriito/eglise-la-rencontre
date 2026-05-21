@@ -258,7 +258,7 @@ function SlidePreview({ slide, size, dim }: { slide: Slide | null; size: 'lg' | 
             </p>
           )}
           {slide.lines.map((line, i) => (
-            <p key={i} className={`text-white ${textSize} leading-snug text-center font-display font-light`}>
+            <p key={i} className={`text-white ${textSize} leading-snug text-center font-sans font-semibold`}>
               {line}
             </p>
           ))}

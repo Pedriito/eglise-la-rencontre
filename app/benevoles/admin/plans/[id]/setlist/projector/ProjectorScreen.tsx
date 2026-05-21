@@ -93,7 +93,7 @@ export function ProjectorScreen({ planId, songs }: Props) {
               {currentSlide.lines.map((line, i) => (
                 <p
                   key={i}
-                  className="text-white font-display font-light leading-tight"
+                  className="text-white font-sans font-semibold leading-tight"
                   style={{ fontSize: 'clamp(2rem, 5vw, 4rem)' }}
                 >
                   {line}
