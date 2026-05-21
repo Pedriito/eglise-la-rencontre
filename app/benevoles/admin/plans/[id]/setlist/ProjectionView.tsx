@@ -216,16 +216,22 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
                             : 'border-white/10 bg-white/5 hover:border-white/30 hover:bg-white/10'
                         }`}
                       >
-                        {slide.section && (
-                          <p className="text-white/30 text-[8px] uppercase tracking-wider leading-none mb-1 text-center truncate w-full">
-                            {slide.section}
-                          </p>
+                        {slide.isBlank ? (
+                          <span className="text-white/20 text-base">⬛</span>
+                        ) : (
+                          <>
+                            {slide.section && (
+                              <p className="text-white/30 text-[8px] uppercase tracking-wider leading-none mb-1 text-center truncate w-full">
+                                {slide.section}
+                              </p>
+                            )}
+                            {slide.lines.map((line, li) => (
+                              <p key={li} className="text-white text-[9px] leading-tight text-center truncate w-full">
+                                {line}
+                              </p>
+                            ))}
+                          </>
                         )}
-                        {slide.lines.map((line, li) => (
-                          <p key={li} className="text-white text-[9px] leading-tight text-center truncate w-full">
-                            {line}
-                          </p>
-                        ))}
                         {isActive && (
                           <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-teal" />
                         )}

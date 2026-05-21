@@ -81,29 +81,25 @@ export function ProjectorScreen({ planId, songs }: Props) {
       )}
 
       {/* Contenu de la diapo */}
-      {!showPrompt && (
-        currentSlide ? (
-          <div className="text-center px-16 max-w-5xl w-full">
-            {currentSlide.section && (
-              <p className="text-white/20 text-sm uppercase tracking-[0.35em] mb-10 font-sans">
-                {currentSlide.section}
+      {!showPrompt && currentSlide && !currentSlide.isBlank && (
+        <div className="text-center px-16 max-w-5xl w-full">
+          {currentSlide.section && (
+            <p className="text-white/20 text-sm uppercase tracking-[0.35em] mb-10 font-sans">
+              {currentSlide.section}
+            </p>
+          )}
+          <div className="space-y-5">
+            {currentSlide.lines.map((line, i) => (
+              <p
+                key={i}
+                className="text-white font-sans font-semibold leading-tight"
+                style={{ fontSize: 'clamp(2rem, 5vw, 4rem)' }}
+              >
+                {line}
               </p>
-            )}
-            <div className="space-y-5">
-              {currentSlide.lines.map((line, i) => (
-                <p
-                  key={i}
-                  className="text-white font-sans font-semibold leading-tight"
-                  style={{ fontSize: 'clamp(2rem, 5vw, 4rem)' }}
-                >
-                  {line}
-                </p>
-              ))}
-            </div>
+            ))}
           </div>
-        ) : (
-          <div /> // écran noir (entre deux diapos)
-        )
+        </div>
       )}
 
       {/* Titre discret en bas */}

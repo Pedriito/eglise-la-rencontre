@@ -5,6 +5,7 @@ export type Slide = {
   slideIdx: number
   section: string
   lines: string[]
+  isBlank?: boolean
 }
 
 export type SongSlides = {
@@ -61,6 +62,9 @@ export function buildAllSlides(songs: SongInput[]): SongSlides[] {
     const fromKey = s.arrangement?.chord_chart_key ?? null
     const toKey = s.keySelected ?? fromKey
     const slides = chart ? parseSongSlides(chart, fromKey, toKey, songIdx) : []
-    return { title: s.song.title, slides }
+    // Diapo noire de transition au début de chaque chant
+    const blankSlide: Slide = { songIdx, slideIdx: 0, section: '', lines: [], isBlank: true }
+    const numbered = [blankSlide, ...slides].map((sl, i) => ({ ...sl, slideIdx: i }))
+    return { title: s.song.title, slides: numbered }
   })
 }
