@@ -19,6 +19,7 @@ export function ProjectorScreen({ planId, songs }: Props) {
   const [current, setCurrent] = useState<{ songIdx: number; slideIdx: number }>({ songIdx: 0, slideIdx: 0 })
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showPrompt, setShowPrompt] = useState(true)
+  const [freeMessage, setFreeMessage] = useState<string | null>(null)
   const channelRef = useRef<BroadcastChannel | null>(null)
 
   const songSlides = buildAllSlides(songs)
@@ -32,7 +33,15 @@ export function ProjectorScreen({ planId, songs }: Props) {
     ch.onmessage = (e) => {
       if (e.data?.type === 'GOTO') {
         setCurrent({ songIdx: e.data.songIdx, slideIdx: e.data.slideIdx })
+        setFreeMessage(null)
         setShowPrompt(false)
+      }
+      if (e.data?.type === 'MESSAGE') {
+        setFreeMessage(e.data.text)
+        setShowPrompt(false)
+      }
+      if (e.data?.type === 'CLEAR_MESSAGE') {
+        setFreeMessage(null)
       }
     }
     ch.postMessage({ type: 'READY' })
@@ -80,8 +89,23 @@ export function ProjectorScreen({ planId, songs }: Props) {
         </button>
       )}
 
+      {/* Message libre */}
+      {!showPrompt && freeMessage && (
+        <div className="text-center px-16 max-w-4xl w-full">
+          {freeMessage.split('\n').map((line, i) => (
+            <p
+              key={i}
+              className="text-white font-sans font-semibold leading-tight"
+              style={{ fontSize: 'clamp(2rem, 5vw, 4rem)' }}
+            >
+              {line}
+            </p>
+          ))}
+        </div>
+      )}
+
       {/* Contenu de la diapo */}
-      {!showPrompt && currentSlide && !currentSlide.isBlank && (
+      {!showPrompt && !freeMessage && currentSlide && !currentSlide.isBlank && (
         <div className="text-center px-16 max-w-5xl w-full">
           {currentSlide.section && (
             <p className="text-white/20 text-sm uppercase tracking-[0.35em] mb-10 font-sans">

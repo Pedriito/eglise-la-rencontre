@@ -25,6 +25,8 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
   const [current, setCurrent] = useState({ songIdx: initialSongIdx, slideIdx: 0 })
   const [projectorReady, setProjectorReady] = useState(false)
   const [projectorWindow, setProjectorWindow] = useState<Window | null>(null)
+  const [freeMessage, setFreeMessage] = useState('')
+  const [isShowingMessage, setIsShowingMessage] = useState(false)
   const channelRef = useRef<BroadcastChannel | null>(null)
 
   const songSlides = buildAllSlides(songs)
@@ -67,8 +69,20 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
   // Envoyer la commande au projecteur
   const goto = useCallback((songIdx: number, slideIdx: number) => {
     setCurrent({ songIdx, slideIdx })
+    setIsShowingMessage(false)
     channelRef.current?.postMessage({ type: 'GOTO', songIdx, slideIdx })
   }, [])
+
+  function projectMessage() {
+    if (!freeMessage.trim()) return
+    setIsShowingMessage(true)
+    channelRef.current?.postMessage({ type: 'MESSAGE', text: freeMessage.trim() })
+  }
+
+  function clearMessage() {
+    setIsShowingMessage(false)
+    channelRef.current?.postMessage({ type: 'CLEAR_MESSAGE' })
+  }
 
   // Navigation clavier
   useEffect(() => {
@@ -159,8 +173,36 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
             <SlidePreview slide={nextSlide} size="sm" dim />
           </div>
 
+          {/* Message libre */}
+          <div className="border border-white/10 rounded-xl p-3 space-y-2">
+            <p className="font-sans text-[10px] uppercase tracking-widest text-white/30">Message libre</p>
+            <textarea
+              value={freeMessage}
+              onChange={e => setFreeMessage(e.target.value)}
+              placeholder="Voiture à déplacer, sujet de prière…"
+              rows={3}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 font-sans text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/30 resize-none"
+            />
+            {isShowingMessage ? (
+              <button
+                onClick={clearMessage}
+                className="w-full py-2 bg-amber-500/80 hover:bg-amber-500 rounded-lg font-sans text-xs font-semibold text-white transition-colors"
+              >
+                ✕ Effacer le message
+              </button>
+            ) : (
+              <button
+                onClick={projectMessage}
+                disabled={!freeMessage.trim()}
+                className="w-full py-2 bg-white/10 hover:bg-white/20 disabled:opacity-25 rounded-lg font-sans text-xs font-semibold text-white transition-colors"
+              >
+                ↑ Projeter ce message
+              </button>
+            )}
+          </div>
+
           {/* Boutons prev / next */}
-          <div className="mt-auto flex gap-2">
+          <div className="flex gap-2">
             <button
               onClick={() => {
                 if (current.slideIdx > 0) goto(current.songIdx, current.slideIdx - 1)
