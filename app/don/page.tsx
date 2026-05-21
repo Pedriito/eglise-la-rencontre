@@ -21,8 +21,8 @@ export default function DonPage() {
               Faire un don
             </h1>
             <p className="font-sans text-sm text-dark/50 max-w-xl mx-auto leading-relaxed">
-              Vos dons soutiennent le ministère de l'Église La Rencontre et permettent
-              d'organiser les cultes, les événements et d'aider les personnes dans le besoin.
+              Vos dons soutiennent le développement de l'Église La Rencontre et permettent
+              d'organiser les cultes et les événements.
               Ils sont déductibles des impôts à hauteur de <strong>66 %</strong>.
             </p>
           </div>

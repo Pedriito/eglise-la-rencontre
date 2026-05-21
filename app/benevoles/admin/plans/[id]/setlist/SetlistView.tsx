@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { ChordChart } from '@/app/benevoles/chants/[id]/ChordChart'
+import { ProjectionView } from './ProjectionView'
 
 type Song = {
   planSongId: string
@@ -25,8 +26,8 @@ type Props = {
 
 export function SetlistView({ planId, planTitle, songs }: Props) {
   const [activeIdx, setActiveIdx] = useState(0)
-  // Mobile : affiche la liste ou la partition
   const [mobileView, setMobileView] = useState<'list' | 'chart'>('list')
+  const [projecting, setProjecting] = useState(false)
 
   const active = songs[activeIdx] ?? null
 
@@ -37,6 +38,13 @@ export function SetlistView({ planId, planTitle, songs }: Props) {
 
   return (
     <div className="flex h-screen bg-teal-50 overflow-hidden">
+      {projecting && (
+        <ProjectionView
+          songs={songs}
+          initialSongIdx={activeIdx}
+          onClose={() => setProjecting(false)}
+        />
+      )}
 
       {/* ── Liste (gauche) ─────────────────────────────────────────── */}
       <aside className={`
@@ -56,6 +64,15 @@ export function SetlistView({ planId, planTitle, songs }: Props) {
             <p className="font-display text-base text-dark font-light truncate">{planTitle}</p>
             <p className="font-sans text-xs text-dark/40">{songs.length} chant{songs.length > 1 ? 's' : ''}</p>
           </div>
+          {songs.length > 0 && (
+            <button
+              onClick={() => setProjecting(true)}
+              title="Mode vidéoprojecteur"
+              className="shrink-0 px-2.5 py-1.5 bg-dark hover:bg-dark/80 text-white rounded-lg font-sans text-xs font-medium transition-colors"
+            >
+              ⬛ Projection
+            </button>
+          )}
         </div>
 
         {/* Songs list */}

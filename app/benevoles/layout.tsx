@@ -20,7 +20,7 @@ export default async function BenevoleLayout({ children }: { children: React.Rea
         firstName={profile?.first_name ?? ''}
         lastName={profile?.last_name ?? ''}
       />
-      <div className="flex-1 lg:ml-52 min-w-0 pb-16 lg:pb-0">
+      <div className="flex-1 lg:ml-52 min-w-0 pt-14 lg:pt-0">
         {children}
       </div>
     </div>
