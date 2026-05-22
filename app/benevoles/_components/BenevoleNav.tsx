@@ -42,6 +42,11 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
       href: '/benevoles/admin/equipes',
       match: p => p.startsWith('/benevoles/admin/equipes'),
     })
+    items.push({
+      label: 'Gérer les chants',
+      href: '/benevoles/admin/chants',
+      match: p => p.startsWith('/benevoles/admin/chants'),
+    })
   }
 
   if (isAdmin) {
