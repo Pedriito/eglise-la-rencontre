@@ -20,11 +20,16 @@ export function ProjectorScreen({ planId, songs }: Props) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showPrompt, setShowPrompt] = useState(true)
   const [freeMessage, setFreeMessage] = useState<string | null>(null)
+  const [slideOverrides, setSlideOverrides] = useState<Map<string, string[]>>(new Map())
   const channelRef = useRef<BroadcastChannel | null>(null)
 
   const songSlides = buildAllSlides(songs)
   const currentSong  = songSlides[current.songIdx]
   const currentSlide: Slide | null = currentSong?.slides[current.slideIdx] ?? null
+
+  // Lignes à afficher : override prioritaire sur les lignes originales
+  const slideKey    = `${current.songIdx}-${current.slideIdx}`
+  const displayLines = slideOverrides.get(slideKey) ?? currentSlide?.lines ?? []
 
   // Écouter les commandes de l'opérateur
   useEffect(() => {
@@ -42,6 +47,14 @@ export function ProjectorScreen({ planId, songs }: Props) {
       }
       if (e.data?.type === 'CLEAR_MESSAGE') {
         setFreeMessage(null)
+      }
+      if (e.data?.type === 'EDIT_SLIDE') {
+        const key = `${e.data.songIdx}-${e.data.slideIdx}`
+        setSlideOverrides(prev => {
+          const next = new Map(prev)
+          next.set(key, e.data.lines)
+          return next
+        })
       }
     }
     ch.postMessage({ type: 'READY' })
@@ -63,13 +76,12 @@ export function ProjectorScreen({ planId, songs }: Props) {
   }
 
   return (
-    // z-[9999] pour passer par-dessus la sidebar et tout le layout
     <div
       className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center select-none cursor-none"
       onClick={!isFullscreen ? enterFullscreen : undefined}
     >
 
-      {/* Invite plein écran — disparaît dès le premier clic */}
+      {/* Invite plein écran */}
       {showPrompt && (
         <div className="absolute inset-0 flex items-center justify-center z-10">
           <div className="text-center">
@@ -79,7 +91,7 @@ export function ProjectorScreen({ planId, songs }: Props) {
         </div>
       )}
 
-      {/* Bouton plein écran discret si pas encore en plein écran et prompt masqué */}
+      {/* Bouton plein écran discret */}
       {!isFullscreen && !showPrompt && (
         <button
           onClick={enterFullscreen}
@@ -96,7 +108,7 @@ export function ProjectorScreen({ planId, songs }: Props) {
             <p
               key={i}
               className="text-white font-sans font-semibold leading-tight"
-              style={{ fontSize: 'clamp(2rem, 5vw, 4rem)' }}
+              style={{ fontSize: 'clamp(2.5rem, 7vw, 5.5rem)', fontVariant: 'small-caps' }}
             >
               {line}
             </p>
@@ -108,16 +120,16 @@ export function ProjectorScreen({ planId, songs }: Props) {
       {!showPrompt && !freeMessage && currentSlide && !currentSlide.isBlank && (
         <div className="text-center px-16 max-w-5xl w-full">
           {currentSlide.section && (
-            <p className="text-white/20 text-sm uppercase tracking-[0.35em] mb-10 font-sans">
+            <p className="text-white/25 text-base uppercase tracking-[0.4em] mb-12 font-sans">
               {currentSlide.section}
             </p>
           )}
-          <div className="space-y-5">
-            {currentSlide.lines.map((line, i) => (
+          <div className="space-y-6">
+            {displayLines.map((line, i) => (
               <p
                 key={i}
                 className="text-white font-sans font-semibold leading-tight"
-                style={{ fontSize: 'clamp(2rem, 5vw, 4rem)' }}
+                style={{ fontSize: 'clamp(2.5rem, 7vw, 5.5rem)', fontVariant: 'small-caps' }}
               >
                 {line}
               </p>
