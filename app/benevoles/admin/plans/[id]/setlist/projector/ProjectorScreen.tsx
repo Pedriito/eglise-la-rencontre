@@ -160,8 +160,8 @@ export function ProjectorScreen({ planId, songs }: Props) {
           {freeMessage.split('\n').map((line, i) => (
             <p
               key={i}
-              className="text-white font-sans font-semibold leading-tight"
-              style={{ fontSize: 'clamp(2.5rem, 7vw, 5.5rem)', fontVariant: 'small-caps' }}
+              className="text-white font-sans font-semibold leading-tight uppercase"
+              style={{ fontSize: 'clamp(2.5rem, 7vw, 5.5rem)' }}
             >
               {line}
             </p>
@@ -181,8 +181,8 @@ export function ProjectorScreen({ planId, songs }: Props) {
             {displayLines.map((line, i) => (
               <p
                 key={i}
-                className="text-white font-sans font-semibold leading-tight"
-                style={{ fontSize: 'clamp(2.5rem, 7vw, 5.5rem)', fontVariant: 'small-caps' }}
+                className="text-white font-sans font-semibold leading-tight uppercase"
+                style={{ fontSize: 'clamp(2.5rem, 7vw, 5.5rem)' }}
               >
                 {line}
               </p>
