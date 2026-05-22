@@ -8,7 +8,7 @@ async function activate(formData: FormData) {
 
   const { data: invite } = await admin
     .from('pending_invites')
-    .select('action_link, expires_at')
+    .select('email, user_id, expires_at')
     .eq('token', token)
     .single()
 
@@ -16,8 +16,28 @@ async function activate(formData: FormData) {
     redirect('/benevoles/login?error=expired')
   }
 
+  // Supprimer l'invite avant de générer le nouveau lien
   await admin.from('pending_invites').delete().eq('token', token)
-  redirect(invite.action_link)
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.startsWith('http://localhost')
+    ? 'https://www.egliselarencontre.fr'
+    : (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.egliselarencontre.fr')
+
+  // Régénérer un lien frais à l'instant T (ne peut pas expirer entre l'envoi email et le clic)
+  if (invite.email) {
+    const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+      type: 'recovery',
+      email: invite.email,
+      options: { redirectTo: `${siteUrl}/benevoles/auth/confirm` },
+    })
+
+    if (linkData?.properties?.action_link) {
+      redirect(linkData.properties.action_link)
+    }
+    console.error('[activate] generateLink failed:', linkError?.message)
+  }
+
+  redirect('/benevoles/login?error=auth')
 }
 
 export default async function ActivatePage({

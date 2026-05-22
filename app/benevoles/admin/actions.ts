@@ -77,7 +77,7 @@ export async function inviteBenevole(formData: FormData) {
     console.log('[inviteBenevole] storing pending invite for', email, 'userId:', userId)
     const { data: invite, error: inviteError } = await admin
       .from('pending_invites')
-      .insert({ action_link: linkData.properties.action_link })
+      .insert({ action_link: linkData.properties.action_link, email, user_id: userId })
       .select('token')
       .single()
 
@@ -131,7 +131,7 @@ export async function resendInviteFromList(_: unknown, formData: FormData): Prom
 
   const { data: invite, error: inviteError } = await admin
     .from('pending_invites')
-    .insert({ action_link: linkData.properties.action_link })
+    .insert({ action_link: linkData.properties.action_link, email, user_id: targetId })
     .select('token')
     .single()
 
@@ -191,7 +191,7 @@ export async function resendInvite(formData: FormData) {
 
   const { data: invite, error: inviteError } = await admin
     .from('pending_invites')
-    .insert({ action_link: linkData.properties.action_link })
+    .insert({ action_link: linkData.properties.action_link, email, user_id: targetId })
     .select('token')
     .single()
 
