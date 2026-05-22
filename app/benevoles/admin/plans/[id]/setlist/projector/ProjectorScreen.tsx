@@ -29,6 +29,15 @@ export function ProjectorScreen({ planId, songs }: Props) {
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const channelRef = useRef<BroadcastChannel | null>(null)
+  const audioRef   = useRef<HTMLAudioElement | null>(null)
+
+  // Initialise l'audio au montage
+  useEffect(() => {
+    const audio = new Audio('/countdown-music.mp3')
+    audio.loop = true
+    audioRef.current = audio
+    return () => { audio.pause(); audio.src = '' }
+  }, [])
 
   const songSlides   = buildAllSlides(songs)
   const currentSong  = songSlides[current.songIdx]
@@ -41,6 +50,7 @@ export function ProjectorScreen({ planId, songs }: Props) {
     if (countdown === null) return
     if (countdown <= 0) {
       setCountdown(null)
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0 }
       return
     }
     countdownRef.current = setInterval(() => {
@@ -86,10 +96,12 @@ export function ProjectorScreen({ planId, songs }: Props) {
         setFreeMessage(null)
         setShowPrompt(false)
         setCountdown(COUNTDOWN_SECONDS)
+        audioRef.current?.play().catch(() => {})
       }
       if (e.data?.type === 'COUNTDOWN_STOP') {
         clearInterval(countdownRef.current!)
         setCountdown(null)
+        if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0 }
       }
     }
     ch.postMessage({ type: 'READY' })
@@ -106,6 +118,10 @@ export function ProjectorScreen({ planId, songs }: Props) {
   function enterFullscreen() {
     document.documentElement.requestFullscreen().catch(() => {})
     setShowPrompt(false)
+    // Déverrouille l'autoplay audio dès la première interaction
+    if (audioRef.current) {
+      audioRef.current.play().then(() => audioRef.current!.pause()).catch(() => {})
+    }
   }
 
   return (
