@@ -73,19 +73,20 @@ export default function LoginPage({
               Se connecter
             </button>
           </form>
+
+          <div className="mt-5 pt-5 border-t border-teal/10">
+            <a
+              href="/benevoles/mot-de-passe-oublie"
+              className="block w-full py-3 border border-teal/40 rounded-lg text-teal text-sm font-sans font-medium text-center cursor-pointer hover:bg-teal/5 transition-colors"
+            >
+              Première connexion ? Créer mon mot de passe
+            </a>
+          </div>
         </div>
 
-        <div className="text-center mt-6 space-y-3">
-          <p className="text-xs text-dark/40 font-sans">
-            Accès réservé aux bénévoles invités par l'équipe.
-          </p>
-          <Link
-            href="/benevoles/mot-de-passe-oublie"
-            className="block w-full py-3 border border-teal/40 rounded-lg text-teal text-sm font-sans font-medium hover:bg-teal/5 transition-colors"
-          >
-            Première connexion ? Créer mon mot de passe
-          </Link>
-        </div>
+        <p className="text-center mt-6 text-xs text-dark/40 font-sans">
+          Accès réservé aux bénévoles invités par l'équipe.
+        </p>
       </div>
     </div>
   )
