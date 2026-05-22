@@ -36,6 +36,9 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
   const [editingKey, setEditingKey]     = useState<string | null>(null)
   const [editText, setEditText]         = useState('')
   const [saveStatus, setSaveStatus]     = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  // Décompte
+  const [countdownActive, setCountdownActive] = useState(false)
+  const countdownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const channelRef = useRef<BroadcastChannel | null>(null)
 
   const songSlides = buildAllSlides(songs)
@@ -103,7 +106,10 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
     ch.onmessage = (e) => {
       if (e.data?.type === 'READY') setProjectorReady(true)
     }
-    return () => ch.close()
+    return () => {
+      ch.close()
+      if (countdownTimerRef.current) clearTimeout(countdownTimerRef.current)
+    }
   }, [planId])
 
   // Fenêtre projecteur
@@ -130,6 +136,20 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
   function clearMessage() {
     setIsShowingMessage(false)
     channelRef.current?.postMessage({ type: 'CLEAR_MESSAGE' })
+  }
+
+  function toggleCountdown() {
+    if (countdownActive) {
+      setCountdownActive(false)
+      if (countdownTimerRef.current) clearTimeout(countdownTimerRef.current)
+      channelRef.current?.postMessage({ type: 'COUNTDOWN_STOP' })
+    } else {
+      setCountdownActive(true)
+      setIsShowingMessage(false)
+      channelRef.current?.postMessage({ type: 'COUNTDOWN_START' })
+      // Réinitialise automatiquement après 5 min
+      countdownTimerRef.current = setTimeout(() => setCountdownActive(false), 5 * 60 * 1000)
+    }
   }
 
   // Navigation clavier
@@ -202,6 +222,17 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
                '✗ Erreur sauvegarde'}
             </span>
           )}
+          {/* Bouton décompte */}
+          <button
+            onClick={toggleCountdown}
+            className={`px-3 py-1.5 rounded-lg font-sans text-xs transition-colors ${
+              countdownActive
+                ? 'bg-red-500/70 hover:bg-red-500 text-white font-semibold'
+                : 'bg-white/10 hover:bg-white/20 text-white'
+            }`}
+          >
+            {countdownActive ? '⏹ Arrêter le décompte' : '⏱ Décompte 5 min'}
+          </button>
           {projectorWindow && (
             <button
               onClick={() => projectorWindow.focus()}

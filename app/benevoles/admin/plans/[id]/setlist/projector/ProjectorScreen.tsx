@@ -15,21 +15,45 @@ type Song = {
 
 type Props = { planId: string; songs: Song[] }
 
+const COUNTDOWN_SECONDS = 5 * 60
+
 export function ProjectorScreen({ planId, songs }: Props) {
-  const [current, setCurrent] = useState<{ songIdx: number; slideIdx: number }>({ songIdx: 0, slideIdx: 0 })
+  const [current, setCurrent]         = useState<{ songIdx: number; slideIdx: number }>({ songIdx: 0, slideIdx: 0 })
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [showPrompt, setShowPrompt] = useState(true)
+  const [showPrompt, setShowPrompt]   = useState(true)
   const [freeMessage, setFreeMessage] = useState<string | null>(null)
   const [slideOverrides, setSlideOverrides] = useState<Map<string, string[]>>(new Map())
+
+  // Countdown
+  const [countdown, setCountdown]     = useState<number | null>(null) // secondes restantes, null = inactif
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
   const channelRef = useRef<BroadcastChannel | null>(null)
 
-  const songSlides = buildAllSlides(songs)
+  const songSlides   = buildAllSlides(songs)
   const currentSong  = songSlides[current.songIdx]
   const currentSlide: Slide | null = currentSong?.slides[current.slideIdx] ?? null
-
-  // Lignes à afficher : override prioritaire sur les lignes originales
-  const slideKey    = `${current.songIdx}-${current.slideIdx}`
+  const slideKey     = `${current.songIdx}-${current.slideIdx}`
   const displayLines = slideOverrides.get(slideKey) ?? currentSlide?.lines ?? []
+
+  // Gestion du countdown (tick)
+  useEffect(() => {
+    if (countdown === null) return
+    if (countdown <= 0) {
+      setCountdown(null)
+      return
+    }
+    countdownRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev === null || prev <= 1) {
+          clearInterval(countdownRef.current!)
+          return null
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(countdownRef.current!)
+  }, [countdown === null ? null : 'running']) // redémarre seulement au start/stop
 
   // Écouter les commandes de l'opérateur
   useEffect(() => {
@@ -39,10 +63,12 @@ export function ProjectorScreen({ planId, songs }: Props) {
       if (e.data?.type === 'GOTO') {
         setCurrent({ songIdx: e.data.songIdx, slideIdx: e.data.slideIdx })
         setFreeMessage(null)
+        setCountdown(null)
         setShowPrompt(false)
       }
       if (e.data?.type === 'MESSAGE') {
         setFreeMessage(e.data.text)
+        setCountdown(null)
         setShowPrompt(false)
       }
       if (e.data?.type === 'CLEAR_MESSAGE') {
@@ -56,6 +82,15 @@ export function ProjectorScreen({ planId, songs }: Props) {
           return next
         })
       }
+      if (e.data?.type === 'COUNTDOWN_START') {
+        setFreeMessage(null)
+        setShowPrompt(false)
+        setCountdown(COUNTDOWN_SECONDS)
+      }
+      if (e.data?.type === 'COUNTDOWN_STOP') {
+        clearInterval(countdownRef.current!)
+        setCountdown(null)
+      }
     }
     ch.postMessage({ type: 'READY' })
     return () => ch.close()
@@ -63,9 +98,7 @@ export function ProjectorScreen({ planId, songs }: Props) {
 
   // Suivre l'état plein écran
   useEffect(() => {
-    function onFsChange() {
-      setIsFullscreen(!!document.fullscreenElement)
-    }
+    function onFsChange() { setIsFullscreen(!!document.fullscreenElement) }
     document.addEventListener('fullscreenchange', onFsChange)
     return () => document.removeEventListener('fullscreenchange', onFsChange)
   }, [])
@@ -80,7 +113,6 @@ export function ProjectorScreen({ planId, songs }: Props) {
       className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center select-none cursor-none"
       onClick={!isFullscreen ? enterFullscreen : undefined}
     >
-
       {/* Invite plein écran */}
       {showPrompt && (
         <div className="absolute inset-0 flex items-center justify-center z-10">
@@ -101,8 +133,13 @@ export function ProjectorScreen({ planId, songs }: Props) {
         </button>
       )}
 
+      {/* ── COUNTDOWN ── */}
+      {!showPrompt && countdown !== null && (
+        <CountdownDisplay seconds={countdown} />
+      )}
+
       {/* Message libre */}
-      {!showPrompt && freeMessage && (
+      {!showPrompt && countdown === null && freeMessage && (
         <div className="text-center px-16 max-w-4xl w-full">
           {freeMessage.split('\n').map((line, i) => (
             <p
@@ -117,7 +154,7 @@ export function ProjectorScreen({ planId, songs }: Props) {
       )}
 
       {/* Contenu de la diapo */}
-      {!showPrompt && !freeMessage && currentSlide && !currentSlide.isBlank && (
+      {!showPrompt && countdown === null && !freeMessage && currentSlide && !currentSlide.isBlank && (
         <div className="text-center px-16 max-w-5xl w-full">
           {currentSlide.section && (
             <p className="text-white/25 text-base uppercase tracking-[0.4em] mb-12 font-sans">
@@ -139,11 +176,76 @@ export function ProjectorScreen({ planId, songs }: Props) {
       )}
 
       {/* Titre discret en bas */}
-      {currentSong && !showPrompt && (
+      {currentSong && !showPrompt && countdown === null && (
         <p className="absolute bottom-6 right-8 text-white/10 text-xs font-sans">
           {currentSong.title}
         </p>
       )}
+    </div>
+  )
+}
+
+/* ── Composant Countdown ── */
+function CountdownDisplay({ seconds }: { seconds: number }) {
+  const total   = COUNTDOWN_SECONDS
+  const mins    = Math.floor(seconds / 60)
+  const secs    = seconds % 60
+  const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`
+  const progress = seconds / total // 1 → 0
+
+  // SVG ring
+  const size   = 320
+  const stroke = 8
+  const radius = (size - stroke) / 2
+  const circ   = 2 * Math.PI * radius
+  const dash   = circ * progress
+
+  // Couleur : vert → orange → rouge
+  const hue = Math.round(progress * 120) // 120 (vert) → 0 (rouge)
+  const color = `hsl(${hue}, 70%, 55%)`
+
+  return (
+    <div className="flex flex-col items-center justify-center gap-8">
+      {/* Texte au-dessus */}
+      <p className="text-white/40 font-sans text-lg uppercase tracking-[0.3em]">
+        Le culte commence dans
+      </p>
+
+      {/* Cercle SVG */}
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg width={size} height={size} className="rotate-[-90deg]">
+          {/* Piste grise */}
+          <circle
+            cx={size / 2} cy={size / 2} r={radius}
+            fill="none" stroke="rgba(255,255,255,0.08)"
+            strokeWidth={stroke}
+          />
+          {/* Arc de progression */}
+          <circle
+            cx={size / 2} cy={size / 2} r={radius}
+            fill="none" stroke={color}
+            strokeWidth={stroke}
+            strokeDasharray={`${dash} ${circ}`}
+            strokeLinecap="round"
+            style={{ transition: 'stroke-dasharray 0.9s linear, stroke 1s linear' }}
+          />
+        </svg>
+
+        {/* Temps au centre */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span
+            className="text-white font-sans font-light tabular-nums"
+            style={{ fontSize: 'clamp(3.5rem, 9vw, 7rem)', letterSpacing: '0.05em' }}
+          >
+            {timeStr}
+          </span>
+        </div>
+      </div>
+
+      {/* Nom de l'église en bas */}
+      <p className="text-white/20 font-display text-xl font-light tracking-widest">
+        Église La Rencontre
+      </p>
     </div>
   )
 }
