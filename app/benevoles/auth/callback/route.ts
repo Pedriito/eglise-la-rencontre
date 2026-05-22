@@ -24,11 +24,23 @@ export async function GET(request: NextRequest) {
       }
     )
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    const { data: sessionData, error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
       if (type === 'recovery' || type === 'invite') {
         return NextResponse.redirect(`${origin}/benevoles/set-password`)
+      }
+      // Fallback : vérifie le statut du profil (cas où type n'est pas dans l'URL)
+      const userId = sessionData.session?.user?.id
+      if (userId) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('status')
+          .eq('id', userId)
+          .single()
+        if (profile?.status === 'invited') {
+          return NextResponse.redirect(`${origin}/benevoles/set-password`)
+        }
       }
       return NextResponse.redirect(`${origin}/benevoles/dashboard`)
     }

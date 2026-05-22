@@ -66,7 +66,7 @@ export async function inviteBenevole(formData: FormData) {
   const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
     type: 'recovery',
     email,
-    options: { redirectTo: `${siteUrl}/benevoles/auth/confirm` },
+    options: { redirectTo: `${siteUrl}/benevoles/auth/callback` },
   })
 
   if (linkError) {
@@ -121,7 +121,7 @@ export async function resendInviteFromList(_: unknown, formData: FormData): Prom
   const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
     type: 'recovery',
     email,
-    options: { redirectTo: `${siteUrl}/benevoles/auth/confirm` },
+    options: { redirectTo: `${siteUrl}/benevoles/auth/callback` },
   })
 
   if (!linkData?.properties?.action_link) {
@@ -180,7 +180,7 @@ export async function resendInvite(formData: FormData) {
     type: 'recovery',
     email,
     options: {
-      redirectTo: `${siteUrl}/benevoles/auth/confirm`,
+      redirectTo: `${siteUrl}/benevoles/auth/callback`,
     },
   })
 

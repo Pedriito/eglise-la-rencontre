@@ -28,7 +28,7 @@ async function activate(formData: FormData) {
     const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
       type: 'recovery',
       email,
-      options: { redirectTo: `${siteUrl}/benevoles/auth/confirm` },
+      options: { redirectTo: `${siteUrl}/benevoles/auth/callback` },
     })
     if (linkData?.properties?.action_link) {
       redirect(linkData.properties.action_link)
