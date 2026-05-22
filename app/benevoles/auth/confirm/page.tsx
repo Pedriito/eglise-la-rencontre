@@ -10,46 +10,58 @@ export default function ConfirmPage() {
   useEffect(() => {
     const supabase = createClient()
 
-    // Supabase met le token dans le hash fragment : #access_token=...&type=recovery
-    const hash = window.location.hash.substring(1)
-    const params = new URLSearchParams(hash)
-    const accessToken = params.get('access_token')
-    const refreshToken = params.get('refresh_token')
-    const type = params.get('type')
+    async function handleRedirect() {
+      // Cas 1 : flux PKCE — Supabase envoie ?code=xxx dans la query string
+      const queryParams = new URLSearchParams(window.location.search)
+      const code = queryParams.get('code')
+      const typeFromQuery = queryParams.get('type')
 
-    if (!accessToken || !refreshToken) {
-      router.replace('/benevoles/login?error=auth')
-      return
-    }
-
-    supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
-      .then(async ({ data, error }) => {
-        if (error) {
-          router.replace('/benevoles/login?error=auth')
-          return
+      if (code) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+        if (error) { router.replace('/benevoles/login?error=auth'); return }
+        if (typeFromQuery === 'recovery' || typeFromQuery === 'invite') {
+          router.replace('/benevoles/set-password'); return
         }
-
-        // Vérification par type ET par statut profil (fallback si Supabase renvoie un type inattendu)
-        if (type === 'recovery' || type === 'invite') {
-          router.replace('/benevoles/set-password')
-          return
-        }
-
         const userId = data.session?.user?.id
         if (userId) {
           const { data: profile } = await supabase
-            .from('profiles')
-            .select('status')
-            .eq('id', userId)
-            .single()
-          if (profile?.status === 'invited') {
-            router.replace('/benevoles/set-password')
-            return
-          }
+            .from('profiles').select('status').eq('id', userId).single()
+          if (profile?.status === 'invited') { router.replace('/benevoles/set-password'); return }
         }
-
         router.replace('/benevoles/dashboard')
-      })
+        return
+      }
+
+      // Cas 2 : flux implicite (ancien) — Supabase envoie #access_token=...&type=recovery
+      const hash = window.location.hash.substring(1)
+      const params = new URLSearchParams(hash)
+      const accessToken = params.get('access_token')
+      const refreshToken = params.get('refresh_token')
+      const type = params.get('type')
+
+      if (!accessToken || !refreshToken) {
+        router.replace('/benevoles/login?error=auth')
+        return
+      }
+
+      const { data, error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+      if (error) { router.replace('/benevoles/login?error=auth'); return }
+
+      if (type === 'recovery' || type === 'invite') {
+        router.replace('/benevoles/set-password'); return
+      }
+
+      const userId = data.session?.user?.id
+      if (userId) {
+        const { data: profile } = await supabase
+          .from('profiles').select('status').eq('id', userId).single()
+        if (profile?.status === 'invited') { router.replace('/benevoles/set-password'); return }
+      }
+
+      router.replace('/benevoles/dashboard')
+    }
+
+    handleRedirect()
   }, [router])
 
   return (
