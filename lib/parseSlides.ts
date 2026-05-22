@@ -6,6 +6,8 @@ export type Slide = {
   section: string
   lines: string[]
   isBlank?: boolean
+  /** Numéros de lignes (0-indexés) dans le chord_chart original — utilisés pour la sauvegarde permanente */
+  chartLineNums?: number[]
 }
 
 export type SongSlides = {
@@ -23,37 +25,50 @@ type SongInput = {
 }
 
 function parseSongSlides(chart: string, fromKey: string | null, toKey: string | null, songIdx: number): Slide[] {
-  const text = fromKey && toKey && fromKey !== toKey
-    ? transposeChart(chart, fromKey, toKey)
-    : chart
-
+  // On parse toujours sur le texte ORIGINAL pour conserver les numéros de lignes corrects
+  const rawLines = chart.split('\n')
   const slides: Slide[] = []
   let currentSection = ''
-  let lyricBuffer: string[] = []
+  let lyricBuffer: { text: string; lineNum: number }[] = []
   let localSlideIdx = 0
 
   function flushBuffer() {
     for (let i = 0; i < lyricBuffer.length; i += 2) {
       const pair = lyricBuffer.slice(i, i + 2)
-      slides.push({ songIdx, slideIdx: localSlideIdx++, section: currentSection, lines: pair })
+      slides.push({
+        songIdx,
+        slideIdx: localSlideIdx++,
+        section: currentSection,
+        lines: pair.map(p => p.text),
+        chartLineNums: pair.map(p => p.lineNum),
+      })
     }
     lyricBuffer = []
   }
 
-  for (const raw of text.split('\n')) {
+  rawLines.forEach((raw, lineNum) => {
     const line = raw.trimEnd()
-    if (line.trim() === '') { flushBuffer(); continue }
-    if (isChordLine(line)) continue
+    if (line.trim() === '') { flushBuffer(); return }
+    if (isChordLine(line)) return
     if (isSectionHeader(line)) {
       flushBuffer()
       currentSection = line.trim().replace(/^\[|\]$/g, '').trim()
-      continue
+      return
     }
-    lyricBuffer.push(line.trim())
-  }
+    lyricBuffer.push({ text: line.trim(), lineNum })
+  })
   flushBuffer()
 
-  return slides.filter(s => s.lines.length > 0)
+  // Appliquer la transposition sur les lignes d'accords uniquement (les paroles ne changent pas)
+  // Note : la transposition ne touche pas les paroles donc les lignes affichées sont correctes.
+  // Si une transposition est demandée, on réapplique sur les lignes de texte (pas les paroles).
+  const result = slides.filter(s => s.lines.length > 0)
+
+  if (fromKey && toKey && fromKey !== toKey) {
+    // La transposition ne change que les accords — les lines[] sont inchangées. OK.
+  }
+
+  return result
 }
 
 export function buildAllSlides(songs: SongInput[]): SongSlides[] {

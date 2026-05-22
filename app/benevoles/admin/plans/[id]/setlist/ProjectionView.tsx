@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { buildAllSlides, type Slide } from '@/lib/parseSlides'
+import { updateSlideLyrics } from '@/app/benevoles/admin/plans/actions'
 
 type Song = {
   planSongId: string
@@ -29,11 +30,12 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
   const [projectorWindow, setProjectorWindow] = useState<Window | null>(null)
   const [freeMessage, setFreeMessage]   = useState('')
   const [isShowingMessage, setIsShowingMessage] = useState(false)
-  // Overrides de paroles (temporaires, session uniquement)
+  // Overrides de paroles
   const [slideOverrides, setSlideOverrides] = useState<Map<string, string[]>>(new Map())
   // État d'édition
   const [editingKey, setEditingKey]     = useState<string | null>(null)
   const [editText, setEditText]         = useState('')
+  const [saveStatus, setSaveStatus]     = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const channelRef = useRef<BroadcastChannel | null>(null)
 
   const songSlides = buildAllSlides(songs)
@@ -67,17 +69,31 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
     setEditText((slideOverrides.get(key) ?? slide.lines).join('\n'))
   }
 
-  // Appliquer l'édition
-  function applyEdit() {
+  // Appliquer l'édition (affichage immédiat + sauvegarde permanente)
+  async function applyEdit() {
     if (!editingKey) return
     const lines = editText.split('\n').map(l => l.trimEnd()).filter(l => l.length > 0)
     const [si, di] = editingKey.split('-').map(Number)
+
+    // 1. Override local immédiat
     const newOverrides = new Map(slideOverrides)
     newOverrides.set(editingKey, lines)
     setSlideOverrides(newOverrides)
-    // Broadcast au projecteur
+
+    // 2. Broadcast au projecteur
     channelRef.current?.postMessage({ type: 'EDIT_SLIDE', songIdx: si, slideIdx: di, lines })
+
     setEditingKey(null)
+
+    // 3. Sauvegarde permanente en DB
+    const slide = songSlides[si]?.slides[di]
+    const arrangementId = songs[si]?.arrangement?.id
+    if (slide && arrangementId && slide.chartLineNums && !slide.isBlank) {
+      setSaveStatus('saving')
+      const result = await updateSlideLyrics(arrangementId, slide.chartLineNums, lines)
+      setSaveStatus(result.ok ? 'saved' : 'error')
+      if (result.ok) setTimeout(() => setSaveStatus('idle'), 2500)
+    }
   }
 
   // BroadcastChannel
@@ -174,6 +190,18 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
               {projectorReady ? 'Projecteur connecté' : 'En attente du projecteur…'}
             </span>
           </div>
+          {/* Statut sauvegarde paroles */}
+          {saveStatus !== 'idle' && (
+            <span className={`font-sans text-xs px-2 py-1 rounded ${
+              saveStatus === 'saving' ? 'text-white/40' :
+              saveStatus === 'saved'  ? 'text-green-400' :
+              'text-red-400'
+            }`}>
+              {saveStatus === 'saving' ? '💾 Sauvegarde…' :
+               saveStatus === 'saved'  ? '✓ Sauvegardé' :
+               '✗ Erreur sauvegarde'}
+            </span>
+          )}
           {projectorWindow && (
             <button
               onClick={() => projectorWindow.focus()}

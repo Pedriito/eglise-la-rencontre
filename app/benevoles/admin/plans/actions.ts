@@ -316,3 +316,44 @@ export async function movePlanSong(formData: FormData) {
   const { revalidatePath } = await import('next/cache')
   revalidatePath(`/benevoles/admin/plans/${planId}`)
 }
+
+/**
+ * Sauvegarde permanente d'une modification de paroles en live.
+ * Remplace les lignes identifiées par chartLineNums dans le chord_chart de l'arrangement.
+ */
+export async function updateSlideLyrics(
+  arrangementId: string,
+  chartLineNums: number[],   // indices des lignes à remplacer dans le chord_chart
+  newLines: string[],        // nouvelles paroles
+): Promise<{ ok: boolean; error?: string }> {
+  const admin = await requireAdmin()
+
+  const { data: arr, error: fetchErr } = await admin
+    .from('arrangements')
+    .select('chord_chart')
+    .eq('id', arrangementId)
+    .single()
+
+  if (fetchErr || !arr?.chord_chart) {
+    return { ok: false, error: fetchErr?.message ?? 'Arrangement introuvable' }
+  }
+
+  const lines = arr.chord_chart.split('\n')
+
+  // Remplace les lignes ciblées par les nouvelles paroles
+  const startIdx = chartLineNums[0]
+  const endIdx   = chartLineNums[chartLineNums.length - 1]
+  const updated  = [
+    ...lines.slice(0, startIdx),
+    ...newLines,
+    ...lines.slice(endIdx + 1),
+  ].join('\n')
+
+  const { error: saveErr } = await admin
+    .from('arrangements')
+    .update({ chord_chart: updated })
+    .eq('id', arrangementId)
+
+  if (saveErr) return { ok: false, error: saveErr.message }
+  return { ok: true }
+}
