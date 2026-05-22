@@ -31,13 +31,13 @@ async function requestReset(formData: FormData) {
   const { data: linkData } = await admin.auth.admin.generateLink({
     type: 'recovery',
     email,
-    options: { redirectTo: `${siteUrl}/benevoles/auth/confirm` },
+    options: { redirectTo: `${siteUrl}/benevoles/auth/callback` },
   })
 
   if (linkData?.properties?.action_link) {
     const { data: invite } = await admin
       .from('pending_invites')
-      .insert({ action_link: linkData.properties.action_link })
+      .insert({ action_link: linkData.properties.action_link, email, user_id: authUser.id })
       .select('token')
       .single()
 

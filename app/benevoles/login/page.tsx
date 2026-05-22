@@ -75,9 +75,17 @@ export default function LoginPage({
           </form>
         </div>
 
-        <p className="text-center mt-6 text-xs text-dark/40 font-sans">
-          Accès réservé aux bénévoles invités par l'équipe.
-        </p>
+        <div className="text-center mt-6 space-y-1">
+          <p className="text-xs text-dark/40 font-sans">
+            Accès réservé aux bénévoles invités par l'équipe.
+          </p>
+          <p className="text-xs text-dark/50 font-sans">
+            Première connexion ?{' '}
+            <Link href="/benevoles/mot-de-passe-oublie" className="text-teal hover:underline">
+              Créer mon mot de passe
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   )
