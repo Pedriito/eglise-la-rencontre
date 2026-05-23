@@ -28,6 +28,7 @@ export function ProjectorScreen({ planId, songs }: Props) {
   const [countdown, setCountdown]     = useState<number | null>(null) // secondes restantes, null = inactif
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  const [verse, setVerse]               = useState<{ text: string; display: string; versionName: string } | null>(null)
   const [audioError, setAudioError]     = useState<string | null>(null)
   const channelRef = useRef<BroadcastChannel | null>(null)
   const audioRef   = useRef<HTMLAudioElement | null>(null)
@@ -91,11 +92,21 @@ export function ProjectorScreen({ planId, songs }: Props) {
       }
       if (e.data?.type === 'MESSAGE') {
         setFreeMessage(e.data.text)
+        setVerse(null)
         setCountdown(null)
         setShowPrompt(false)
       }
       if (e.data?.type === 'CLEAR_MESSAGE') {
         setFreeMessage(null)
+      }
+      if (e.data?.type === 'VERSE') {
+        setVerse({ text: e.data.text, display: e.data.display, versionName: e.data.versionName })
+        setFreeMessage(null)
+        setCountdown(null)
+        setShowPrompt(false)
+      }
+      if (e.data?.type === 'CLEAR_VERSE') {
+        setVerse(null)
       }
       if (e.data?.type === 'EDIT_SLIDE') {
         const key = `${e.data.songIdx}-${e.data.slideIdx}`
@@ -182,38 +193,61 @@ export function ProjectorScreen({ planId, songs }: Props) {
       )}
 
       {/* Message libre */}
-      {!showPrompt && countdown === null && freeMessage && (
+      {!showPrompt && countdown === null && freeMessage && !verse && (
         <div className="text-center px-16 max-w-4xl w-full">
-          {freeMessage.split('\n').map((line, i) => (
-            <p
-              key={i}
-              className="text-white font-sans font-semibold leading-tight uppercase"
-              style={{ fontSize: 'clamp(2.5rem, 7vw, 5.5rem)' }}
-            >
-              {line}
-            </p>
-          ))}
+          {freeMessage.split('\n').map((line, i) => {
+            const maxLen = Math.max(...freeMessage.split('\n').map(l => l.length), 1)
+            const fs = `clamp(1.8rem, ${Math.min(85 / maxLen, 6).toFixed(2)}vw, 5rem)`
+            return (
+              <p key={i} className="text-white font-sans font-semibold leading-tight uppercase" style={{ fontSize: fs }}>
+                {line}
+              </p>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Verset biblique */}
+      {!showPrompt && countdown === null && verse && (
+        <div className="text-center px-16 max-w-5xl w-full">
+          <p className="text-white/40 text-lg uppercase tracking-[0.3em] mb-10 font-sans">
+            {verse.display}
+          </p>
+          <div className="space-y-5">
+            {verse.text.split('\n').map((line, i) => {
+              const maxLen = Math.max(...verse.text.split('\n').map(l => l.length), 1)
+              const fs = `clamp(1.5rem, ${Math.min(80 / maxLen, 5).toFixed(2)}vw, 4rem)`
+              return (
+                <p key={i} className="text-white font-sans font-light leading-snug italic" style={{ fontSize: fs }}>
+                  {line}
+                </p>
+              )
+            })}
+          </div>
+          <p className="text-white/20 text-sm font-sans mt-10 uppercase tracking-widest">
+            {verse.versionName}
+          </p>
         </div>
       )}
 
       {/* Contenu de la diapo */}
-      {!showPrompt && countdown === null && !freeMessage && currentSlide && !currentSlide.isBlank && (
+      {!showPrompt && countdown === null && !freeMessage && !verse && currentSlide && !currentSlide.isBlank && (
         <div className="text-center px-16 max-w-5xl w-full">
           {currentSlide.section && (
             <p className="text-white/25 text-base uppercase tracking-[0.4em] mb-12 font-sans">
               {currentSlide.section}
             </p>
           )}
-          <div className="space-y-6">
-            {displayLines.map((line, i) => (
-              <p
-                key={i}
-                className="text-white font-sans font-semibold leading-tight uppercase"
-                style={{ fontSize: 'clamp(2.5rem, 7vw, 5.5rem)' }}
-              >
-                {line}
-              </p>
-            ))}
+          <div className="space-y-5">
+            {(() => {
+              const maxLen = Math.max(...displayLines.map(l => l.length), 1)
+              const fs = `clamp(1.8rem, ${Math.min(85 / maxLen, 6).toFixed(2)}vw, 5rem)`
+              return displayLines.map((line, i) => (
+                <p key={i} className="text-white font-sans font-semibold leading-tight uppercase" style={{ fontSize: fs }}>
+                  {line}
+                </p>
+              ))
+            })()}
           </div>
         </div>
       )}

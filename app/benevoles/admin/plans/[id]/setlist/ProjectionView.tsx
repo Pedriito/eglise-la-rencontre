@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { buildAllSlides, type Slide } from '@/lib/parseSlides'
 import { updateSlideLyrics, searchSongsForProjection, type SongSearchResult } from '@/app/benevoles/admin/plans/actions'
+import { fetchBibleVerse, BIBLE_VERSIONS } from '@/lib/bible'
 
 type Song = {
   planSongId: string
@@ -42,6 +43,13 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
   const [searchResults, setSearchResults] = useState<SongSearchResult[]>([])
   const [isSearching, setIsSearching]   = useState(false)
   const [extraSongs, setExtraSongs]     = useState<Song[]>([])
+  // Bible
+  const [bibleRef, setBibleRef]             = useState('')
+  const [bibleVersion, setBibleVersion]     = useState('lsg')
+  const [bibleFetching, setBibleFetching]   = useState(false)
+  const [bibleResult, setBibleResult]       = useState<{ text: string; display: string; versionName: string } | null>(null)
+  const [bibleError, setBibleError]         = useState<string | null>(null)
+  const [isShowingVerse, setIsShowingVerse] = useState(false)
   // Décompte
   const [countdownActive, setCountdownActive] = useState(false)
   const countdownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -172,6 +180,31 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
   function clearMessage() {
     setIsShowingMessage(false)
     channelRef.current?.postMessage({ type: 'CLEAR_MESSAGE' })
+  }
+
+  async function lookupBible() {
+    if (!bibleRef.trim()) return
+    setBibleFetching(true)
+    setBibleError(null)
+    setBibleResult(null)
+    const res = await fetchBibleVerse(bibleRef.trim(), bibleVersion)
+    if ('error' in res) {
+      setBibleError(res.error)
+    } else {
+      setBibleResult(res)
+    }
+    setBibleFetching(false)
+  }
+
+  function projectVerse() {
+    if (!bibleResult) return
+    setIsShowingVerse(true)
+    channelRef.current?.postMessage({ type: 'VERSE', text: bibleResult.text, display: bibleResult.display, versionName: bibleResult.versionName })
+  }
+
+  function clearVerse() {
+    setIsShowingVerse(false)
+    channelRef.current?.postMessage({ type: 'CLEAR_VERSE' })
   }
 
   function toggleCountdown() {
@@ -417,6 +450,62 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
               >
                 ↑ Projeter ce message
               </button>
+            )}
+          </div>
+
+          {/* Verset biblique */}
+          <div className="border border-white/10 rounded-xl p-3 space-y-2">
+            <p className="font-sans text-[10px] uppercase tracking-widest text-white/30">Verset biblique</p>
+            <input
+              value={bibleRef}
+              onChange={e => { setBibleRef(e.target.value); setBibleResult(null); setBibleError(null) }}
+              onKeyDown={e => e.key === 'Enter' && lookupBible()}
+              placeholder="Ex : Jean 3:16 ou Ps 23:1-3"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 font-sans text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/30"
+            />
+            <select
+              value={bibleVersion}
+              onChange={e => { setBibleVersion(e.target.value); setBibleResult(null); setBibleError(null) }}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 font-sans text-xs text-white focus:outline-none focus:border-white/30"
+            >
+              {BIBLE_VERSIONS.map(v => (
+                <option key={v.id} value={v.id} className="bg-gray-900">{v.name}</option>
+              ))}
+            </select>
+            <button
+              onClick={lookupBible}
+              disabled={!bibleRef.trim() || bibleFetching}
+              className="w-full py-2 bg-white/10 hover:bg-white/20 disabled:opacity-25 rounded-lg font-sans text-xs font-semibold text-white transition-colors"
+            >
+              {bibleFetching ? 'Recherche…' : '🔍 Chercher'}
+            </button>
+            {bibleError && (
+              <p className="text-red-400 text-[10px] font-sans leading-snug">{bibleError}</p>
+            )}
+            {bibleResult && (
+              <div className="space-y-2">
+                <div className="bg-black/40 rounded-lg px-3 py-2 space-y-1 max-h-28 overflow-y-auto">
+                  <p className="text-white/40 text-[9px] uppercase tracking-widest">{bibleResult.display} · {bibleResult.versionName}</p>
+                  {bibleResult.text.split('\n').map((line, i) => (
+                    <p key={i} className="text-white/80 text-[11px] font-sans leading-snug italic">{line}</p>
+                  ))}
+                </div>
+                {isShowingVerse ? (
+                  <button
+                    onClick={clearVerse}
+                    className="w-full py-2 bg-amber-500/80 hover:bg-amber-500 rounded-lg font-sans text-xs font-semibold text-white transition-colors"
+                  >
+                    ✕ Effacer le verset
+                  </button>
+                ) : (
+                  <button
+                    onClick={projectVerse}
+                    className="w-full py-2 bg-teal hover:bg-teal/80 rounded-lg font-sans text-xs font-semibold text-white transition-colors"
+                  >
+                    ↑ Projeter ce verset
+                  </button>
+                )}
+              </div>
             )}
           </div>
 
