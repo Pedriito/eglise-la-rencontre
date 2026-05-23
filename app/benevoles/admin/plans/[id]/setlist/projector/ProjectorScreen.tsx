@@ -339,7 +339,7 @@ function CountdownDisplay({ seconds }: { seconds: number }) {
           className="font-sans uppercase tracking-[0.35em] text-white/60"
           style={{ fontSize: 'clamp(0.6rem, 1.1vw, 0.78rem)' }}
         >
-          Le culte commence dans
+          La célébration commence dans
         </p>
 
         {/* Anneau + halo pulsant + nombre statique */}
