@@ -331,7 +331,7 @@ function CountdownDisplay({ seconds }: { seconds: number }) {
         <img
           src="/logo.png"
           alt="Église La Rencontre"
-          style={{ height: 'clamp(2.5rem, 6vh, 4.5rem)', width: 'auto', objectFit: 'contain', opacity: 0.92 }}
+          style={{ height: 'clamp(5rem, 14vh, 11rem)', width: 'auto', objectFit: 'contain', opacity: 0.92 }}
         />
 
         {/* Sous-titre */}
