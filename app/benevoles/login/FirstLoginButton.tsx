@@ -1,13 +1,25 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+
 export function FirstLoginButton() {
+  const router = useRouter()
+  const [loading, setLoading] = useState(false)
+
+  function handleClick() {
+    setLoading(true)
+    router.push('/benevoles/mot-de-passe-oublie')
+  }
+
   return (
     <button
       type="button"
-      onClick={() => { window.location.href = '/benevoles/mot-de-passe-oublie' }}
-      className="block w-full py-3 border border-teal/40 rounded-lg text-teal text-sm font-sans font-medium text-center cursor-pointer hover:bg-teal/5 transition-colors"
+      onClick={handleClick}
+      disabled={loading}
+      className="block w-full py-3 border border-teal/40 rounded-lg text-teal text-sm font-sans font-medium text-center cursor-pointer hover:bg-teal/5 transition-colors disabled:opacity-60"
     >
-      Première connexion ? Créer mon mot de passe
+      {loading ? 'Chargement…' : 'Première connexion ? Créer mon mot de passe'}
     </button>
   )
 }
