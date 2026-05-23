@@ -131,6 +131,13 @@ export function ProjectorScreen({ planId, songs }: Props) {
   function enterFullscreen() {
     document.documentElement.requestFullscreen().catch(() => {})
     setShowPrompt(false)
+    // Déverrouille l'audio dès le premier geste utilisateur :
+    // play() immédiatement suivi de pause() "autorise" les play() ultérieurs
+    // déclenchés programmatiquement (ex. depuis BroadcastChannel).
+    const audio = audioRef.current
+    if (audio) {
+      audio.play().then(() => { audio.pause(); audio.currentTime = 0 }).catch(() => {})
+    }
   }
 
   return (
