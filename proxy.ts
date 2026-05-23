@@ -23,13 +23,16 @@ export async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const isLoginPage = request.nextUrl.pathname === '/benevoles/login'
-  const isCallback = request.nextUrl.pathname.startsWith('/benevoles/auth')
+  const { pathname } = request.nextUrl
+  const isLoginPage    = pathname === '/benevoles/login'
+  const isCallback     = pathname.startsWith('/benevoles/auth')
+  const isSetPassword  = pathname === '/benevoles/set-password'
+  const isResetPage    = pathname === '/benevoles/mot-de-passe-oublie'
+  const isActivation   = pathname.startsWith('/benevoles/activer')
+  const isRepondre     = pathname.startsWith('/benevoles/repondre')
 
-  const isSetPassword = request.nextUrl.pathname === '/benevoles/set-password'
-
-  // Pas connecté → redirige vers login (sauf si déjà sur login ou callback)
-  if (!user && !isLoginPage && !isCallback && !isSetPassword) {
+  // Pas connecté → redirige vers login (sauf pages publiques)
+  if (!user && !isLoginPage && !isCallback && !isSetPassword && !isResetPage && !isActivation && !isRepondre) {
     return NextResponse.redirect(new URL('/benevoles/login', request.url))
   }
 
