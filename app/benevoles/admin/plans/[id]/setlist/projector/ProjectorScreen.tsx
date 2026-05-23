@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { buildAllSlides, type Slide } from '@/lib/parseSlides'
+import { CountdownDisplay, COUNTDOWN_SECONDS } from '@/app/_components/CountdownDisplay'
 
 type Song = {
   planSongId: string
@@ -14,8 +15,6 @@ type Song = {
 }
 
 type Props = { planId: string; songs: Song[] }
-
-const COUNTDOWN_SECONDS = 5 * 60
 
 export function ProjectorScreen({ planId, songs }: Props) {
   const [current, setCurrent]         = useState<{ songIdx: number; slideIdx: number }>({ songIdx: 0, slideIdx: 0 })
@@ -276,145 +275,3 @@ export function ProjectorScreen({ planId, songs }: Props) {
   )
 }
 
-/* ── Composant Countdown ── */
-// 115 BPM = 60 000 / 115 ≈ 521 ms par temps
-const BPM_BEAT = Math.round(60_000 / 115) // 521 ms
-
-function CountdownDisplay({ seconds }: { seconds: number }) {
-  const total    = COUNTDOWN_SECONDS
-  const mins     = Math.floor(seconds / 60)
-  const secs     = seconds % 60
-  const timeStr  = `${mins}:${secs.toString().padStart(2, '0')}`
-  const progress = seconds / total
-
-  const size   = 260
-  const stroke = 10
-  const radius = (size - stroke) / 2
-  const circ   = 2 * Math.PI * radius
-  const dash   = circ * progress
-
-  // Blanc → orange → rouge selon le temps restant
-  const ringColor    = seconds < 45  ? '#ef4444'
-                     : seconds < 120 ? '#f97316'
-                     : '#ffffff'
-  // Couleurs du halo (avec transparence pour box-shadow)
-  const haloStrong   = seconds < 45  ? 'rgba(239,68,68,0.55)'
-                     : seconds < 120 ? 'rgba(249,115,22,0.55)'
-                     : 'rgba(255,255,255,0.45)'
-  const haloSoft     = seconds < 45  ? 'rgba(239,68,68,0.18)'
-                     : seconds < 120 ? 'rgba(249,115,22,0.18)'
-                     : 'rgba(255,255,255,0.12)'
-
-  return (
-    <div
-      className="absolute inset-0 flex flex-col items-center justify-center"
-      style={{ background: 'linear-gradient(160deg, #2a626a 0%, #3D7D85 45%, #5A9EA6 100%)' }}
-    >
-      <style>{`
-        @keyframes cdHaloPulse {
-          0%, 100% { transform: scale(1);    opacity: 0.55; }
-          8%       { transform: scale(1.18); opacity: 1;    }
-          25%      { transform: scale(1.08); opacity: 0.65; }
-        }
-        @keyframes cdFadeIn {
-          from { opacity: 0; transform: translateY(20px); }
-          to   { opacity: 1; transform: translateY(0);    }
-        }
-      `}</style>
-
-      <div
-        className="flex flex-col items-center"
-        style={{ gap: 'clamp(0.9rem, 2vh, 1.8rem)', animation: 'cdFadeIn 0.7s ease-out both' }}
-      >
-        {/* Logo */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/logo.png"
-          alt="Église La Rencontre"
-          style={{ height: 'clamp(5rem, 14vh, 11rem)', width: 'auto', objectFit: 'contain', opacity: 0.92 }}
-        />
-
-        {/* Sous-titre */}
-        <p
-          className="font-sans uppercase tracking-[0.35em] text-white/60"
-          style={{ fontSize: 'clamp(0.6rem, 1.1vw, 0.78rem)' }}
-        >
-          La célébration commence dans
-        </p>
-
-        {/* Anneau + halo pulsant + nombre statique */}
-        {/* overflow:visible sur le wrapper ET le SVG pour que le glow ne soit pas coupé */}
-        <div
-          className="relative flex items-center justify-center"
-          style={{ width: size, height: size, overflow: 'visible' }}
-        >
-          {/* Halo circulaire — div séparé avec border-radius:50% pour éviter le clipping carré */}
-          <div
-            style={{
-              position:     'absolute',
-              width:        size,
-              height:       size,
-              borderRadius: '50%',
-              boxShadow:    `0 0 35px 18px ${haloStrong}, 0 0 80px 40px ${haloSoft}`,
-              animation:    `cdHaloPulse ${BPM_BEAT}ms ease-out infinite`,
-              pointerEvents: 'none',
-            }}
-          />
-
-          {/* SVG anneau — overflow:visible pour que le glow ne soit pas rogné */}
-          <svg
-            width={size} height={size}
-            className="rotate-[-90deg] absolute inset-0"
-            style={{ overflow: 'visible' }}
-          >
-            {/* Piste */}
-            <circle
-              cx={size / 2} cy={size / 2} r={radius}
-              fill="none" stroke="rgba(255,255,255,0.15)"
-              strokeWidth={stroke}
-            />
-            {/* Progression */}
-            <circle
-              cx={size / 2} cy={size / 2} r={radius}
-              fill="none" stroke={ringColor}
-              strokeWidth={stroke}
-              strokeDasharray={`${dash} ${circ}`}
-              strokeLinecap="round"
-              style={{
-                transition: 'stroke-dasharray 0.9s linear, stroke 1.5s linear',
-              }}
-            />
-          </svg>
-
-          {/* Nombre — statique */}
-          <span
-            className="font-sans font-light tabular-nums text-white"
-            style={{
-              fontSize:      'clamp(3rem, 8vw, 5.5rem)',
-              letterSpacing: '0.04em',
-              textShadow:    '0 0 30px rgba(255,255,255,0.25)',
-            }}
-          >
-            {timeStr}
-          </span>
-        </div>
-
-        {/* Nom de l'église */}
-        <p
-          className="font-display text-white font-light tracking-widest text-center"
-          style={{ fontSize: 'clamp(1.8rem, 4vw, 3.2rem)' }}
-        >
-          Église La Rencontre
-        </p>
-
-        {/* URL */}
-        <p
-          className="font-sans text-white/35 uppercase tracking-[0.22em]"
-          style={{ fontSize: 'clamp(0.55rem, 0.9vw, 0.7rem)' }}
-        >
-          egliselarencontre.fr
-        </p>
-      </div>
-    </div>
-  )
-}

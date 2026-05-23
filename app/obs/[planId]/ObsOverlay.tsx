@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { CountdownDisplay } from '@/app/_components/CountdownDisplay'
 
 type DisplayState =
   | { kind: 'blank' }
@@ -85,29 +86,31 @@ export function ObsOverlay({ planId }: { planId: string }) {
   }, [planId])
 
   return (
-    <div className="fixed inset-0 flex flex-col justify-end items-center pointer-events-none">
+    <div className="fixed inset-0 pointer-events-none">
+
+      {/* ── Countdown plein écran ── */}
+      {display.kind === 'countdown' && (
+        <div
+          className="absolute inset-0 transition-opacity duration-700"
+          style={{ opacity: visible ? 1 : 0 }}
+        >
+          <CountdownDisplay seconds={display.seconds} />
+        </div>
+      )}
+
+      {/* ── Lower-third (paroles / message / verset) ── */}
+      <div className="absolute inset-0 flex flex-col justify-end items-center">
       <div
         className="w-full max-w-[1700px] mx-auto px-16 pb-14 transition-all duration-500 ease-out"
         style={{
-          opacity:   visible ? 1 : 0,
-          transform: visible ? 'translateY(0)' : 'translateY(24px)',
+          opacity:   visible && display.kind !== 'countdown' ? 1 : 0,
+          transform: visible && display.kind !== 'countdown' ? 'translateY(0)' : 'translateY(24px)',
         }}
       >
-        {display.kind !== 'blank' && (
+        {display.kind !== 'blank' && display.kind !== 'countdown' && (
           <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(8px)' }}>
             <div className="px-12 py-7">
-
-              {/* ── Décompte ── */}
-              {display.kind === 'countdown' && (
-                <div className="flex items-center gap-6">
-                  <p className="text-white/50 text-sm uppercase tracking-[0.35em] font-sans shrink-0">
-                    La célébration commence dans
-                  </p>
-                  <p className="text-white font-sans font-light tabular-nums" style={{ fontSize: '2.8rem', letterSpacing: '0.04em' }}>
-                    {Math.floor(display.seconds / 60)}:{String(display.seconds % 60).padStart(2, '0')}
-                  </p>
-                </div>
-              )}
+              {/* (pas de cas countdown ici) */}
 
               {/* ── Diapo de chant ── */}
               {display.kind === 'slide' && (
@@ -174,6 +177,7 @@ export function ObsOverlay({ planId }: { planId: string }) {
             <div className="h-1.5" style={{ background: 'linear-gradient(90deg, #3D7D85, #5A9EA6)' }} />
           </div>
         )}
+      </div>
       </div>
     </div>
   )
