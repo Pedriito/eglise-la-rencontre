@@ -68,9 +68,16 @@ export default async function ProfilPage({
           )}
 
           <form action={saveProfile} className="space-y-5" key="profile-form">
+            {isFirstTime && (
+              <p className="text-xs font-sans text-red-500/80">
+                Les champs marqués <span className="font-semibold">*</span> sont obligatoires.
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label htmlFor="first_name" className="block text-sm font-sans text-dark/70 mb-1.5">Prénom</label>
+                <label htmlFor="first_name" className="block text-sm font-sans text-dark/70 mb-1.5">
+                  Prénom {isFirstTime && <span className="text-red-500">*</span>}
+                </label>
                 <input
                   id="first_name"
                   name="first_name"
@@ -81,7 +88,9 @@ export default async function ProfilPage({
                 />
               </div>
               <div>
-                <label htmlFor="last_name" className="block text-sm font-sans text-dark/70 mb-1.5">Nom</label>
+                <label htmlFor="last_name" className="block text-sm font-sans text-dark/70 mb-1.5">
+                  Nom {isFirstTime && <span className="text-red-500">*</span>}
+                </label>
                 <input
                   id="last_name"
                   name="last_name"
@@ -94,7 +103,9 @@ export default async function ProfilPage({
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-sans text-dark/70 mb-1.5">Email</label>
+              <label htmlFor="email" className="block text-sm font-sans text-dark/70 mb-1.5">
+                Email {isFirstTime && <span className="text-red-500">*</span>}
+              </label>
               <input
                 id="email"
                 name="email"
@@ -108,13 +119,14 @@ export default async function ProfilPage({
             {/* Téléphone */}
             <div>
               <label htmlFor="phone" className="block text-sm font-sans text-dark/70 mb-1.5">
-                Téléphone
+                Téléphone {isFirstTime && <span className="text-red-500">*</span>}
               </label>
               <input
                 id="phone"
                 name="phone"
                 type="tel"
                 defaultValue={profile?.phone ?? ''}
+                required={isFirstTime}
                 placeholder="06 12 34 56 78"
                 className="w-full px-4 py-2.5 rounded-lg border border-teal/30 bg-teal-50 text-dark placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-teal/40 font-sans text-sm"
               />
@@ -123,13 +135,14 @@ export default async function ProfilPage({
             {/* Date de naissance */}
             <div>
               <label htmlFor="birthdate" className="block text-sm font-sans text-dark/70 mb-1.5">
-                Date de naissance
+                Date de naissance {isFirstTime && <span className="text-red-500">*</span>}
               </label>
               <input
                 id="birthdate"
                 name="birthdate"
                 type="date"
                 defaultValue={profile?.birthdate ?? ''}
+                required={isFirstTime}
                 className="w-full px-4 py-2.5 rounded-lg border border-teal/30 bg-teal-50 text-dark focus:outline-none focus:ring-2 focus:ring-teal/40 font-sans text-sm"
               />
             </div>
@@ -137,13 +150,14 @@ export default async function ProfilPage({
             {/* Ville */}
             <div>
               <label htmlFor="city" className="block text-sm font-sans text-dark/70 mb-1.5">
-                Ville
+                Ville {isFirstTime && <span className="text-red-500">*</span>}
               </label>
               <input
                 id="city"
                 name="city"
                 type="text"
                 defaultValue={profile?.city ?? ''}
+                required={isFirstTime}
                 placeholder="Lieusaint"
                 className="w-full px-4 py-2.5 rounded-lg border border-teal/30 bg-teal-50 text-dark placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-teal/40 font-sans text-sm"
               />

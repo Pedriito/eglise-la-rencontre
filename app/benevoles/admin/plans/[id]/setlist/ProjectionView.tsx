@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { buildAllSlides, type Slide } from '@/lib/parseSlides'
 import { updateSlideLyrics, searchSongsForProjection, type SongSearchResult } from '@/app/benevoles/admin/plans/actions'
 import { fetchBibleVerse, BIBLE_VERSIONS } from '@/lib/bible'
+import { createClient } from '@/lib/supabase/client'
 
 type Song = {
   planSongId: string
@@ -56,6 +57,8 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
   const [countdownActive, setCountdownActive] = useState(false)
   const countdownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const channelRef = useRef<BroadcastChannel | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const realtimeRef = useRef<any>(null)
 
   const allSongs   = [...songs, ...extraSongs]
   const songSlides = buildAllSlides(allSongs)
@@ -160,6 +163,42 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
       if (countdownTimerRef.current) clearTimeout(countdownTimerRef.current)
     }
   }, [planId])
+
+  // Supabase Realtime — canal OBS
+  useEffect(() => {
+    const supabase = createClient()
+    const ch = supabase.channel(`obs-${planId}`)
+    realtimeRef.current = ch
+    ch.subscribe()
+    return () => {
+      realtimeRef.current = null
+      supabase.removeChannel(ch)
+    }
+  }, [planId])
+
+  // Broadcast de l'état d'affichage courant vers l'overlay OBS
+  useEffect(() => {
+    const ch = realtimeRef.current
+    if (!ch) return
+
+    if (countdownActive) {
+      ch.send({ type: 'broadcast', event: 'blank', payload: {} })
+    } else if (isShowingMessage && freeMessage.trim()) {
+      ch.send({ type: 'broadcast', event: 'message', payload: { text: freeMessage.trim() } })
+    } else if (isShowingVerse && bibleResult) {
+      ch.send({ type: 'broadcast', event: 'verse', payload: { text: bibleResult.text, display: bibleResult.display, versionName: bibleResult.versionName } })
+    } else if (!isShowingMessage && !isShowingVerse) {
+      const slide = songSlides[current.songIdx]?.slides[current.slideIdx]
+      if (slide && !slide.isBlank) {
+        const lines = slideOverrides.get(slideKey(current.songIdx, current.slideIdx)) ?? slide.lines
+        ch.send({ type: 'broadcast', event: 'slide', payload: { lines, section: slide.section ?? null } })
+      } else {
+        ch.send({ type: 'broadcast', event: 'blank', payload: {} })
+      }
+    } else {
+      ch.send({ type: 'broadcast', event: 'blank', payload: {} })
+    }
+  }, [current, isShowingMessage, freeMessage, isShowingVerse, bibleResult, countdownActive, songSlides, slideOverrides])
 
   // Fenêtre projecteur
   useEffect(() => {
@@ -324,6 +363,17 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
               ↗ Basculer sur l'écran
             </button>
           )}
+          <button
+            onClick={() => {
+              const url = `${window.location.origin}/obs/${planId}`
+              navigator.clipboard.writeText(url).catch(() => {})
+              window.open(url, '_blank', 'noopener')
+            }}
+            title="Ouvre l'overlay OBS dans un onglet — copiez cette URL dans OBS > Browser Source"
+            className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg font-sans text-xs transition-colors"
+          >
+            📺 OBS
+          </button>
           <button
             onClick={onClose}
             className="px-3 py-1.5 bg-white/10 hover:bg-red-500/40 rounded-lg font-sans text-xs transition-colors"

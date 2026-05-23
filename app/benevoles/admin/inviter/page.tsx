@@ -36,21 +36,25 @@ export default async function InviterPage({
             {/* Identité */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-sans text-dark/70 mb-1.5">Prénom</label>
+                <label className="block text-sm font-sans text-dark/70 mb-1.5">
+                  Prénom <span className="text-red-500">*</span>
+                </label>
                 <input name="first_name" type="text" required
                   className="w-full px-4 py-2.5 rounded-lg border border-teal/30 bg-teal-50 text-dark placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-teal/40 font-sans text-sm"
                   placeholder="Marie" />
               </div>
               <div>
                 <label className="block text-sm font-sans text-dark/70 mb-1.5">Nom</label>
-                <input name="last_name" type="text" required
+                <input name="last_name" type="text"
                   className="w-full px-4 py-2.5 rounded-lg border border-teal/30 bg-teal-50 text-dark placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-teal/40 font-sans text-sm"
                   placeholder="Dupont" />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-sans text-dark/70 mb-1.5">Adresse email</label>
+              <label className="block text-sm font-sans text-dark/70 mb-1.5">
+                Adresse email <span className="text-red-500">*</span>
+              </label>
               <input name="email" type="email" required
                 className="w-full px-4 py-2.5 rounded-lg border border-teal/30 bg-teal-50 text-dark placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-teal/40 font-sans text-sm"
                 placeholder="marie@exemple.com" />
