@@ -278,14 +278,7 @@ export function ProjectorScreen({ planId, songs }: Props) {
 
 /* ── Composant Countdown ── */
 // 115 BPM = 60 000 / 115 ≈ 521 ms par temps
-const BPM_BEAT  = Math.round(60_000 / 115) // 521 ms
-const BPM_2BEAT = BPM_BEAT * 2              // 1 042 ms (scroll ECG = 1 cycle / 2 beats)
-
-// Tracé ECG réaliste (onde P + complexe QRS + onde T) × 2 répétitions pour un défilement sans couture
-// Viewport 1000 × 40 — ligne de base à y = 20
-// Cycle 1 : 0 → 500 | Cycle 2 : 500 → 1000 (décalage exact de +500 sur chaque x)
-const ECG_PATH =
-  'M 0,20 H 160 L 167,14 L 174,20 H 185 L 188,27 L 192,3 L 196,32 L 200,20 H 208 L 215,13 L 222,20 H 660 L 667,14 L 674,20 H 685 L 688,27 L 692,3 L 696,32 L 700,20 H 708 L 715,13 L 722,20 H 1000'
+const BPM_BEAT = Math.round(60_000 / 115) // 521 ms
 
 function CountdownDisplay({ seconds }: { seconds: number }) {
   const total    = COUNTDOWN_SECONDS
@@ -301,41 +294,31 @@ function CountdownDisplay({ seconds }: { seconds: number }) {
   const dash   = circ * progress
 
   // Blanc → orange → rouge selon le temps restant
-  const ringColor = seconds < 45  ? 'rgba(239,68,68,0.9)'
-                  : seconds < 120 ? 'rgba(249,115,22,0.9)'
-                  : 'rgba(255,255,255,0.85)'
+  const ringColor    = seconds < 45  ? '#ef4444'
+                     : seconds < 120 ? '#f97316'
+                     : '#ffffff'
+  // Couleurs du halo (avec transparence pour box-shadow)
+  const haloStrong   = seconds < 45  ? 'rgba(239,68,68,0.55)'
+                     : seconds < 120 ? 'rgba(249,115,22,0.55)'
+                     : 'rgba(255,255,255,0.45)'
+  const haloSoft     = seconds < 45  ? 'rgba(239,68,68,0.18)'
+                     : seconds < 120 ? 'rgba(249,115,22,0.18)'
+                     : 'rgba(255,255,255,0.12)'
 
   return (
-    // Fond plein écran — dégradé teal du site
     <div
       className="absolute inset-0 flex flex-col items-center justify-center"
       style={{ background: 'linear-gradient(160deg, #2a626a 0%, #3D7D85 45%, #5A9EA6 100%)' }}
     >
       <style>{`
-        /* Double battement cardiaque — thump-thump puis silence */
-        @keyframes cdHeartbeat {
-          0%   { transform: scale(1);    }
-          6%   { transform: scale(1.09); }   /* 1er battement */
-          13%  { transform: scale(1);    }
-          20%  { transform: scale(1.05); }   /* 2e battement (plus doux) */
-          28%  { transform: scale(1);    }
-          100% { transform: scale(1);    }   /* silence */
+        @keyframes cdHaloPulse {
+          0%, 100% { transform: scale(1);    opacity: 0.55; }
+          8%       { transform: scale(1.18); opacity: 1;    }
+          25%      { transform: scale(1.08); opacity: 0.65; }
         }
-        /* Défilement de la ligne ECG */
-        @keyframes cdScroll {
-          from { transform: translateX(0%);   }
-          to   { transform: translateX(-50%); }
-        }
-        /* Apparition initiale */
         @keyframes cdFadeIn {
           from { opacity: 0; transform: translateY(20px); }
           to   { opacity: 1; transform: translateY(0);    }
-        }
-        /* Éclat du tracé ECG au passage du QRS */
-        @keyframes cdEcgGlow {
-          0%, 100% { opacity: 0.65; }
-          6%       { opacity: 1;    }
-          20%      { opacity: 0.75; }
         }
       `}</style>
 
@@ -359,11 +342,30 @@ function CountdownDisplay({ seconds }: { seconds: number }) {
           Le culte commence dans
         </p>
 
-        {/* Anneau de progression + nombre */}
-        <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+        {/* Anneau + halo pulsant + nombre statique */}
+        {/* overflow:visible sur le wrapper ET le SVG pour que le glow ne soit pas coupé */}
+        <div
+          className="relative flex items-center justify-center"
+          style={{ width: size, height: size, overflow: 'visible' }}
+        >
+          {/* Halo circulaire — div séparé avec border-radius:50% pour éviter le clipping carré */}
+          <div
+            style={{
+              position:     'absolute',
+              width:        size,
+              height:       size,
+              borderRadius: '50%',
+              boxShadow:    `0 0 35px 18px ${haloStrong}, 0 0 80px 40px ${haloSoft}`,
+              animation:    `cdHaloPulse ${BPM_BEAT}ms ease-out infinite`,
+              pointerEvents: 'none',
+            }}
+          />
+
+          {/* SVG anneau — overflow:visible pour que le glow ne soit pas rogné */}
           <svg
             width={size} height={size}
             className="rotate-[-90deg] absolute inset-0"
+            style={{ overflow: 'visible' }}
           >
             {/* Piste */}
             <circle
@@ -380,66 +382,21 @@ function CountdownDisplay({ seconds }: { seconds: number }) {
               strokeLinecap="round"
               style={{
                 transition: 'stroke-dasharray 0.9s linear, stroke 1.5s linear',
-                filter:     `drop-shadow(0 0 10px ${ringColor})`,
               }}
             />
           </svg>
 
-          {/* Nombre — double battement cardiaque */}
+          {/* Nombre — statique */}
           <span
             className="font-sans font-light tabular-nums text-white"
             style={{
               fontSize:      'clamp(3rem, 8vw, 5.5rem)',
               letterSpacing: '0.04em',
-              animation:     `cdHeartbeat ${BPM_BEAT}ms ease-out infinite`,
-              textShadow:    `0 0 40px rgba(255,255,255,0.3)`,
+              textShadow:    '0 0 30px rgba(255,255,255,0.25)',
             }}
           >
             {timeStr}
           </span>
-        </div>
-
-        {/* ── Ligne ECG défilante ── */}
-        <div
-          style={{
-            width:    'clamp(280px, 50vw, 560px)',
-            height:   44,
-            overflow: 'hidden',
-            position: 'relative',
-          }}
-        >
-          <svg
-            viewBox="0 0 1000 40"
-            preserveAspectRatio="none"
-            style={{
-              width:     '200%',
-              height:    '100%',
-              animation: `cdScroll ${BPM_2BEAT}ms linear infinite`,
-            }}
-          >
-            {/* Trace blanc sous-jacent (lisibilité) */}
-            <path
-              d={ECG_PATH}
-              fill="none"
-              stroke="rgba(255,255,255,0.25)"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            {/* Trace coloré + glow — bat en sync avec le nombre */}
-            <path
-              d={ECG_PATH}
-              fill="none"
-              stroke={ringColor}
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{
-                filter:    `drop-shadow(0 0 5px ${ringColor})`,
-                animation: `cdEcgGlow ${BPM_BEAT}ms ease-out infinite`,
-              }}
-            />
-          </svg>
         </div>
 
         {/* Nom de l'église */}
