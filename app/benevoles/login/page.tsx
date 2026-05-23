@@ -1,5 +1,6 @@
 import { login } from './actions'
 import Link from 'next/link'
+import { FirstLoginButton } from './FirstLoginButton'
 
 export default function LoginPage({
   searchParams,
@@ -75,12 +76,7 @@ export default function LoginPage({
           </form>
 
           <div className="mt-5 pt-5 border-t border-teal/10">
-            <a
-              href="/benevoles/mot-de-passe-oublie"
-              className="block w-full py-3 border border-teal/40 rounded-lg text-teal text-sm font-sans font-medium text-center cursor-pointer hover:bg-teal/5 transition-colors"
-            >
-              Première connexion ? Créer mon mot de passe
-            </a>
+            <FirstLoginButton />
           </div>
         </div>
 
