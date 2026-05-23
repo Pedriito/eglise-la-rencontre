@@ -277,66 +277,162 @@ export function ProjectorScreen({ planId, songs }: Props) {
 }
 
 /* ── Composant Countdown ── */
-function CountdownDisplay({ seconds }: { seconds: number }) {
-  const total   = COUNTDOWN_SECONDS
-  const mins    = Math.floor(seconds / 60)
-  const secs    = seconds % 60
-  const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`
-  const progress = seconds / total // 1 → 0
+// 115 BPM = 60 000 / 115 ≈ 521 ms par temps
+const BPM_MS = (60_000 / 115).toFixed(0) + 'ms' // "521ms"
 
-  // SVG ring
-  const size   = 320
-  const stroke = 8
+function CountdownDisplay({ seconds }: { seconds: number }) {
+  const total    = COUNTDOWN_SECONDS
+  const mins     = Math.floor(seconds / 60)
+  const secs     = seconds % 60
+  const timeStr  = `${mins}:${secs.toString().padStart(2, '0')}`
+  const progress = seconds / total // 1.0 → 0.0
+
+  // Anneau SVG
+  const size   = 300
+  const stroke = 10
   const radius = (size - stroke) / 2
   const circ   = 2 * Math.PI * radius
   const dash   = circ * progress
 
-  // Couleur : vert → orange → rouge
-  const hue = Math.round(progress * 120) // 120 (vert) → 0 (rouge)
-  const color = `hsl(${hue}, 70%, 55%)`
+  // Couleur : teal (#5A9EA6) la plupart du temps, orange < 2 min, rouge < 45 s
+  const ringColor = seconds < 45  ? '#ef4444'
+                  : seconds < 120 ? '#f97316'
+                  : '#5A9EA6'
+
+  // Couleur des ondulations (synchro avec l'anneau)
+  const rippleColor = ringColor
 
   return (
-    <div className="flex flex-col items-center justify-center gap-8">
-      {/* Texte au-dessus */}
-      <p className="text-white/40 font-sans text-lg uppercase tracking-[0.3em]">
-        Le culte commence dans
-      </p>
+    <>
+      {/* Keyframes injectés une seule fois */}
+      <style>{`
+        @keyframes cdRipple {
+          0%   { transform: scale(1);   opacity: 0.55; }
+          100% { transform: scale(2.6); opacity: 0;    }
+        }
+        @keyframes cdBeat {
+          0%,100% { transform: scale(1);    }
+          8%      { transform: scale(1.07); }
+          18%     { transform: scale(1);    }
+        }
+        @keyframes cdGlow {
+          0%,100% { opacity: 0.3; }
+          50%     { opacity: 0.9; }
+        }
+        @keyframes cdFadeIn {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0);    }
+        }
+      `}</style>
 
-      {/* Cercle SVG */}
-      <div className="relative" style={{ width: size, height: size }}>
-        <svg width={size} height={size} className="rotate-[-90deg]">
-          {/* Piste grise */}
-          <circle
-            cx={size / 2} cy={size / 2} r={radius}
-            fill="none" stroke="rgba(255,255,255,0.08)"
-            strokeWidth={stroke}
-          />
-          {/* Arc de progression */}
-          <circle
-            cx={size / 2} cy={size / 2} r={radius}
-            fill="none" stroke={color}
-            strokeWidth={stroke}
-            strokeDasharray={`${dash} ${circ}`}
-            strokeLinecap="round"
-            style={{ transition: 'stroke-dasharray 0.9s linear, stroke 1s linear' }}
-          />
-        </svg>
+      <div
+        className="flex flex-col items-center justify-center"
+        style={{ gap: 'clamp(1.5rem, 3vh, 2.5rem)', animation: 'cdFadeIn 0.8s ease-out both' }}
+      >
+        {/* Logo */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logo.png"
+          alt="Église La Rencontre"
+          style={{ height: 'clamp(3rem, 7vh, 5rem)', width: 'auto', objectFit: 'contain', opacity: 0.9 }}
+        />
 
-        {/* Temps au centre */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span
-            className="text-white font-sans font-light tabular-nums"
-            style={{ fontSize: 'clamp(3.5rem, 9vw, 7rem)', letterSpacing: '0.05em' }}
+        {/* Sous-titre */}
+        <p
+          className="font-sans uppercase tracking-[0.35em] text-white/50"
+          style={{ fontSize: 'clamp(0.65rem, 1.2vw, 0.85rem)' }}
+        >
+          Le culte commence dans
+        </p>
+
+        {/* Zone anneau + ondulations */}
+        <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+
+          {/* 3 ondulations concentriques à 115 BPM */}
+          {[0, 1, 2].map(i => (
+            <div
+              key={i}
+              style={{
+                position:     'absolute',
+                inset:        0,
+                borderRadius: '50%',
+                border:       `2px solid ${rippleColor}`,
+                animation:    `cdRipple ${BPM_MS} cubic-bezier(0.2, 0.6, 0.4, 1) infinite`,
+                animationDelay: `${Math.round(i * (521 / 3))}ms`,
+                pointerEvents: 'none',
+              }}
+            />
+          ))}
+
+          {/* Halo doux qui pulse */}
+          <div
+            style={{
+              position:    'absolute',
+              inset:       '10%',
+              borderRadius: '50%',
+              background:  `radial-gradient(circle, ${rippleColor}22 0%, transparent 70%)`,
+              animation:   `cdGlow ${BPM_MS} ease-in-out infinite`,
+            }}
+          />
+
+          {/* Anneau SVG */}
+          <svg
+            width={size} height={size}
+            className="rotate-[-90deg]"
+            style={{ position: 'absolute', inset: 0 }}
           >
-            {timeStr}
-          </span>
-        </div>
-      </div>
+            {/* Piste */}
+            <circle
+              cx={size / 2} cy={size / 2} r={radius}
+              fill="none" stroke="rgba(255,255,255,0.07)"
+              strokeWidth={stroke}
+            />
+            {/* Progression */}
+            <circle
+              cx={size / 2} cy={size / 2} r={radius}
+              fill="none" stroke={ringColor}
+              strokeWidth={stroke}
+              strokeDasharray={`${dash} ${circ}`}
+              strokeLinecap="round"
+              style={{
+                transition: 'stroke-dasharray 0.9s linear, stroke 1.5s linear',
+                filter:     `drop-shadow(0 0 6px ${ringColor}88)`,
+              }}
+            />
+          </svg>
 
-      {/* Nom de l'église en bas */}
-      <p className="text-white/20 font-display text-xl font-light tracking-widest">
-        Église La Rencontre
-      </p>
-    </div>
+          {/* Temps au centre — bat à 115 BPM */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span
+              className="font-sans font-light tabular-nums text-white"
+              style={{
+                fontSize:        'clamp(3.5rem, 9vw, 6.5rem)',
+                letterSpacing:   '0.04em',
+                animation:       `cdBeat ${BPM_MS} ease-out infinite`,
+                textShadow:      `0 0 30px ${ringColor}66`,
+              }}
+            >
+              {timeStr}
+            </span>
+          </div>
+        </div>
+
+        {/* Nom de l'église */}
+        <p
+          className="font-display text-white font-light tracking-widest text-center"
+          style={{ fontSize: 'clamp(1.6rem, 3.5vw, 2.8rem)' }}
+        >
+          Église La Rencontre
+        </p>
+
+        {/* URL du site */}
+        <p
+          className="font-sans text-white/30 tracking-widest uppercase"
+          style={{ fontSize: 'clamp(0.6rem, 1vw, 0.75rem)', letterSpacing: '0.25em' }}
+        >
+          egliselarencontre.fr
+        </p>
+      </div>
+    </>
   )
 }
