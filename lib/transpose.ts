@@ -89,12 +89,12 @@ export function isSectionHeader(line: string): boolean {
   if (!t) return false
   // Entre crochets : [Verse 1], [Chorus]
   if (/^\[.+\]$/.test(t)) return true
-  // Mots-clés connus
-  const KNOWN = /^(intro|verse|chorus|pre-chorus|bridge|outro|tag|coda|refrain|couplet|pont|verset)/i
+  // Mots-clés connus (insensible à la casse)
+  const KNOWN = /^(intro|verse|chorus|pre-chorus|pre-refrain|bridge|outro|tag|coda|refrain|couplet|strophe|pont|verset|interlude|modulation)/i
   if (KNOWN.test(t) && t.length < 40) return true
-  // Tout en majuscules — MAIS on exclut les lignes qui sont des accords valides
-  // (F, G, Am, Bm… seraient sinon confondus avec des titres de section)
-  if (t === t.toUpperCase() && t.length < 30 && /[A-Z]/.test(t) && !isChordLine(t)) return true
+  // Mot unique tout en majuscules sans espace (ex : "INTERLUDE", "FINAL")
+  // ⚠️  On refuse les lignes multi-mots : "ALPHA ET OMEGA", "JE T'ADORE" sont des paroles
+  if (t === t.toUpperCase() && /[A-Z]/.test(t) && !t.includes(' ') && t.length <= 20 && !isChordLine(t)) return true
   return false
 }
 
