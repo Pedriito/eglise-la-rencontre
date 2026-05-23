@@ -9,7 +9,7 @@ export function FirstLoginButton() {
 
   function handleClick() {
     setLoading(true)
-    router.push('/benevoles/mot-de-passe-oublie')
+    router.push('/benevoles/mot-de-passe-oublie?premier=1')
   }
 
   return (

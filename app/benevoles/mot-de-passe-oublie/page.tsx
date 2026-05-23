@@ -6,6 +6,7 @@ import Link from 'next/link'
 async function requestReset(formData: FormData) {
   'use server'
   const email = (formData.get('email') as string)?.trim().toLowerCase()
+  const premier = (formData.get('premier') as string) === '1'
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.startsWith('http://localhost')
     ? 'https://www.egliselarencontre.fr'
@@ -19,7 +20,7 @@ async function requestReset(formData: FormData) {
 
   // On redirige toujours vers la même page de confirmation (pas d'énumération d'emails)
   if (!authUser) {
-    redirect('/benevoles/mot-de-passe-oublie?sent=1')
+    redirect(`/benevoles/mot-de-passe-oublie?sent=1${premier ? '&premier=1' : ''}`)
   }
 
   const { data: profile } = await admin
@@ -55,16 +56,17 @@ async function requestReset(formData: FormData) {
     }
   }
 
-  redirect('/benevoles/mot-de-passe-oublie?sent=1')
+  redirect(`/benevoles/mot-de-passe-oublie?sent=1${premier ? '&premier=1' : ''}`)
 }
 
 export default async function ForgotPasswordPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sent?: string }>
+  searchParams: Promise<{ sent?: string; premier?: string }>
 }) {
   const params = await searchParams
   const sent = !!params.sent
+  const isFirstLogin = !!params.premier
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-teal-50 px-4">
@@ -86,9 +88,11 @@ export default async function ForgotPasswordPage({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h2 className="font-display text-2xl text-dark font-light">Email envoyé</h2>
+              <h2 className="font-display text-2xl text-dark font-light">Email envoyé !</h2>
               <p className="text-sm text-dark/50 font-sans">
-                Si ton adresse est dans notre système, tu vas recevoir un lien pour réinitialiser ton mot de passe.
+                {isFirstLogin
+                  ? "Si ton adresse est dans notre système, tu vas recevoir un lien pour créer ton mot de passe."
+                  : "Si ton adresse est dans notre système, tu vas recevoir un lien pour réinitialiser ton mot de passe."}
               </p>
               <Link
                 href="/benevoles/login"
@@ -100,13 +104,16 @@ export default async function ForgotPasswordPage({
           ) : (
             <>
               <h2 className="font-display text-2xl text-dark font-light mb-2">
-                Mot de passe oublié
+                {isFirstLogin ? 'Créer mon mot de passe' : 'Mot de passe oublié'}
               </h2>
               <p className="text-sm text-dark/50 font-sans mb-6">
-                Saisis ton adresse email et tu recevras un lien pour choisir un nouveau mot de passe.
+                {isFirstLogin
+                  ? "Saisis ton adresse email et tu recevras un lien pour créer ton mot de passe et accéder à ton espace."
+                  : "Saisis ton adresse email et tu recevras un lien pour choisir un nouveau mot de passe."}
               </p>
 
               <form action={requestReset} className="space-y-5">
+                <input type="hidden" name="premier" value={isFirstLogin ? '1' : '0'} />
                 <div>
                   <label htmlFor="email" className="block text-sm font-sans text-dark/70 mb-1.5">
                     Adresse email
@@ -126,7 +133,7 @@ export default async function ForgotPasswordPage({
                   type="submit"
                   className="w-full py-3 bg-teal text-white rounded-lg font-sans text-sm font-medium hover:bg-teal-dark transition-colors"
                 >
-                  Envoyer le lien
+                  {isFirstLogin ? 'Recevoir mon lien de création' : 'Envoyer le lien'}
                 </button>
               </form>
 
