@@ -65,6 +65,19 @@ export default function LoginPage({
               />
             </div>
 
+            <div className="flex items-center gap-2.5">
+              <input
+                id="remember_me"
+                name="remember_me"
+                type="checkbox"
+                defaultChecked
+                className="w-4 h-4 rounded accent-teal cursor-pointer"
+              />
+              <label htmlFor="remember_me" className="text-sm font-sans text-dark/60 cursor-pointer select-none">
+                Rester connecté sur cet appareil
+              </label>
+            </div>
+
             <ErrorMessage searchParams={searchParams} />
 
             <button
