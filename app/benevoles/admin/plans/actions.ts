@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
 import { sendPlanAssignmentEmail, sendCancellationNotificationEmail, sendExternalGuestInvitationEmail } from '@/lib/email'
 
 const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
@@ -325,6 +326,7 @@ export async function updateSlideLyrics(
   arrangementId: string,
   chartLineNums: number[],   // indices des lignes à remplacer dans le chord_chart
   newLines: string[],        // nouvelles paroles
+  planId: string,            // pour revalider la page setlist
 ): Promise<{ ok: boolean; error?: string }> {
   const admin = await requireAdmin()
 
@@ -355,6 +357,8 @@ export async function updateSlideLyrics(
     .eq('id', arrangementId)
 
   if (saveErr) return { ok: false, error: saveErr.message }
+
+  revalidatePath(`/benevoles/admin/plans/${planId}/setlist`)
   return { ok: true }
 }
 

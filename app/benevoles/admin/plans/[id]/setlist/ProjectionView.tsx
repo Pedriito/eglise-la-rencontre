@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { buildAllSlides, type Slide } from '@/lib/parseSlides'
 import { updateSlideLyrics, searchSongsForProjection, type SongSearchResult } from '@/app/benevoles/admin/plans/actions'
 import { fetchBibleVerse, BIBLE_VERSIONS } from '@/lib/bible'
@@ -26,6 +27,7 @@ type Props = {
 function slideKey(si: number, di: number) { return `${si}-${di}` }
 
 export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props) {
+  const router = useRouter()
   const [current, setCurrent]           = useState({ songIdx: initialSongIdx, slideIdx: 0 })
   const [projectorReady, setProjectorReady] = useState(false)
   const [projectorWindow, setProjectorWindow] = useState<Window | null>(null)
@@ -134,12 +136,15 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
 
     // 3. Sauvegarde permanente en DB
     const slide = songSlides[si]?.slides[di]
-    const arrangementId = songs[si]?.arrangement?.id
+    const arrangementId = allSongs[si]?.arrangement?.id
     if (slide && arrangementId && slide.chartLineNums && !slide.isBlank) {
       setSaveStatus('saving')
-      const result = await updateSlideLyrics(arrangementId, slide.chartLineNums, lines)
+      const result = await updateSlideLyrics(arrangementId, slide.chartLineNums, lines, planId)
       setSaveStatus(result.ok ? 'saved' : 'error')
-      if (result.ok) setTimeout(() => setSaveStatus('idle'), 2500)
+      if (result.ok) {
+        router.refresh()
+        setTimeout(() => setSaveStatus('idle'), 2500)
+      }
     }
   }
 
