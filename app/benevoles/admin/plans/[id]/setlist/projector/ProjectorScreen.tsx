@@ -148,11 +148,14 @@ export function ProjectorScreen({ planId, songs }: Props) {
       {/* Élément audio géré par le DOM — preload automatique */}
       <audio
         ref={audioRef}
-        src="/countdown-music.mp3"
         loop
         preload="auto"
         style={{ display: 'none' }}
-      />
+        onError={(e) => console.error('[audio] load error:', (e.target as HTMLAudioElement).error?.message, (e.target as HTMLAudioElement).src)}
+        onCanPlayThrough={() => console.log('[audio] ready to play')}
+      >
+        <source src="/countdown-music.mp3" type="audio/mpeg" />
+      </audio>
       {/* Invite plein écran */}
       {showPrompt && (
         <div className="absolute inset-0 flex items-center justify-center z-10">
