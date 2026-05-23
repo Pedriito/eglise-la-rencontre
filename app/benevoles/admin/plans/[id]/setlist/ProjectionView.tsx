@@ -181,9 +181,10 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
     const ch = realtimeRef.current
     if (!ch) return
 
-    if (countdownActive) {
-      ch.send({ type: 'broadcast', event: 'blank', payload: {} })
-    } else if (isShowingMessage && freeMessage.trim()) {
+    // Le countdown est géré via toggleCountdown — on ne touche pas à l'état OBS ici
+    if (countdownActive) return
+
+    if (isShowingMessage && freeMessage.trim()) {
       ch.send({ type: 'broadcast', event: 'message', payload: { text: freeMessage.trim() } })
     } else if (isShowingVerse && bibleResult) {
       ch.send({ type: 'broadcast', event: 'verse', payload: { text: bibleResult.text, display: bibleResult.display, versionName: bibleResult.versionName } })
@@ -251,17 +252,24 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
     channelRef.current?.postMessage({ type: 'CLEAR_VERSE' })
   }
 
+  const COUNTDOWN_SECONDS = 5 * 60
+
   function toggleCountdown() {
     if (countdownActive) {
       setCountdownActive(false)
       if (countdownTimerRef.current) clearTimeout(countdownTimerRef.current)
       channelRef.current?.postMessage({ type: 'COUNTDOWN_STOP' })
+      realtimeRef.current?.send({ type: 'broadcast', event: 'countdown_stop', payload: {} })
     } else {
       setCountdownActive(true)
       setIsShowingMessage(false)
       channelRef.current?.postMessage({ type: 'COUNTDOWN_START' })
+      realtimeRef.current?.send({ type: 'broadcast', event: 'countdown_start', payload: { seconds: COUNTDOWN_SECONDS } })
       // Réinitialise automatiquement après 5 min
-      countdownTimerRef.current = setTimeout(() => setCountdownActive(false), 5 * 60 * 1000)
+      countdownTimerRef.current = setTimeout(() => {
+        setCountdownActive(false)
+        realtimeRef.current?.send({ type: 'broadcast', event: 'countdown_stop', payload: {} })
+      }, COUNTDOWN_SECONDS * 1000)
     }
   }
 

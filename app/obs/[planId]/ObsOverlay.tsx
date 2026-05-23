@@ -1,23 +1,46 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 type DisplayState =
   | { kind: 'blank' }
-  | { kind: 'slide';   lines: string[]; section: string | null }
-  | { kind: 'message'; text: string }
-  | { kind: 'verse';   text: string; display: string; versionName: string }
+  | { kind: 'slide';     lines: string[]; section: string | null }
+  | { kind: 'message';   text: string }
+  | { kind: 'verse';     text: string; display: string; versionName: string }
+  | { kind: 'countdown'; seconds: number }
 
 export function ObsOverlay({ planId }: { planId: string }) {
   const [display, setDisplay] = useState<DisplayState>({ kind: 'blank' })
   const [visible, setVisible]  = useState(false)
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Fond transparent pour OBS
   useLayoutEffect(() => {
     document.documentElement.style.background = 'transparent'
     document.body.style.background            = 'transparent'
   }, [])
+
+  function stopCountdown() {
+    if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null }
+  }
+
+  function startCountdown(totalSeconds: number) {
+    stopCountdown()
+    setDisplay({ kind: 'countdown', seconds: totalSeconds })
+    setVisible(true)
+    let remaining = totalSeconds
+    countdownRef.current = setInterval(() => {
+      remaining -= 1
+      if (remaining <= 0) {
+        stopCountdown()
+        setVisible(false)
+        setDisplay({ kind: 'blank' })
+      } else {
+        setDisplay({ kind: 'countdown', seconds: remaining })
+      }
+    }, 1000)
+  }
 
   // Abonnement Supabase Realtime
   useEffect(() => {
@@ -26,23 +49,39 @@ export function ObsOverlay({ planId }: { planId: string }) {
 
     channel
       .on('broadcast', { event: 'slide' }, ({ payload }) => {
+        stopCountdown()
         setDisplay({ kind: 'slide', lines: payload.lines ?? [], section: payload.section ?? null })
         setVisible(true)
       })
       .on('broadcast', { event: 'message' }, ({ payload }) => {
+        stopCountdown()
         setDisplay({ kind: 'message', text: payload.text ?? '' })
         setVisible(true)
       })
       .on('broadcast', { event: 'verse' }, ({ payload }) => {
+        stopCountdown()
         setDisplay({ kind: 'verse', text: payload.text ?? '', display: payload.display ?? '', versionName: payload.versionName ?? '' })
         setVisible(true)
       })
       .on('broadcast', { event: 'blank' }, () => {
+        stopCountdown()
         setVisible(false)
+      })
+      .on('broadcast', { event: 'countdown_start' }, ({ payload }) => {
+        startCountdown(payload.seconds ?? 300)
+      })
+      .on('broadcast', { event: 'countdown_stop' }, () => {
+        stopCountdown()
+        setVisible(false)
+        setDisplay({ kind: 'blank' })
       })
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
+    return () => {
+      stopCountdown()
+      supabase.removeChannel(channel)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId])
 
   return (
@@ -50,13 +89,25 @@ export function ObsOverlay({ planId }: { planId: string }) {
       <div
         className="w-full max-w-[1700px] mx-auto px-16 pb-14 transition-all duration-500 ease-out"
         style={{
-          opacity:    visible ? 1 : 0,
-          transform:  visible ? 'translateY(0)' : 'translateY(24px)',
+          opacity:   visible ? 1 : 0,
+          transform: visible ? 'translateY(0)' : 'translateY(24px)',
         }}
       >
         {display.kind !== 'blank' && (
           <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(8px)' }}>
             <div className="px-12 py-7">
+
+              {/* ── Décompte ── */}
+              {display.kind === 'countdown' && (
+                <div className="flex items-center gap-6">
+                  <p className="text-white/50 text-sm uppercase tracking-[0.35em] font-sans shrink-0">
+                    La célébration commence dans
+                  </p>
+                  <p className="text-white font-sans font-light tabular-nums" style={{ fontSize: '2.8rem', letterSpacing: '0.04em' }}>
+                    {Math.floor(display.seconds / 60)}:{String(display.seconds % 60).padStart(2, '0')}
+                  </p>
+                </div>
+              )}
 
               {/* ── Diapo de chant ── */}
               {display.kind === 'slide' && (
