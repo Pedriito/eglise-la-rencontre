@@ -31,7 +31,7 @@ async function requestReset(formData: FormData) {
   const { data: linkData } = await admin.auth.admin.generateLink({
     type: 'recovery',
     email,
-    options: { redirectTo: `${siteUrl}/benevoles/auth/callback` },
+    options: { redirectTo: `${siteUrl}/benevoles/auth/confirm` },
   })
 
   if (linkData?.properties?.action_link) {
