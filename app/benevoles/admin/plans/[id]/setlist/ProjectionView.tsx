@@ -164,12 +164,22 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
     }
   }, [planId])
 
+  // Horodatage du démarrage du décompte (pour recalculer le temps restant si OBS se connecte tard)
+  const countdownStartedAtRef = useRef<number | null>(null)
+
   // Supabase Realtime — canal OBS
   useEffect(() => {
     const supabase = createClient()
     const ch = supabase.channel(`obs-${planId}`)
     realtimeRef.current = ch
-    ch.subscribe()
+    ch.subscribe((status) => {
+      // Si le canal vient de se connecter ET qu'un décompte est en cours, l'envoyer immédiatement
+      if (status === 'SUBSCRIBED' && countdownStartedAtRef.current !== null) {
+        const elapsed  = Math.round((Date.now() - countdownStartedAtRef.current) / 1000)
+        const remaining = Math.max(1, 5 * 60 - elapsed)
+        ch.send({ type: 'broadcast', event: 'countdown_start', payload: { seconds: remaining } })
+      }
+    })
     return () => {
       realtimeRef.current = null
       supabase.removeChannel(ch)
@@ -254,19 +264,27 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
 
   const COUNTDOWN_SECONDS = 5 * 60
 
+  function sendCountdownStart() {
+    const seconds = COUNTDOWN_SECONDS
+    realtimeRef.current?.send({ type: 'broadcast', event: 'countdown_start', payload: { seconds } })
+  }
+
   function toggleCountdown() {
     if (countdownActive) {
+      countdownStartedAtRef.current = null
       setCountdownActive(false)
       if (countdownTimerRef.current) clearTimeout(countdownTimerRef.current)
       channelRef.current?.postMessage({ type: 'COUNTDOWN_STOP' })
       realtimeRef.current?.send({ type: 'broadcast', event: 'countdown_stop', payload: {} })
     } else {
+      countdownStartedAtRef.current = Date.now()
       setCountdownActive(true)
       setIsShowingMessage(false)
       channelRef.current?.postMessage({ type: 'COUNTDOWN_START' })
-      realtimeRef.current?.send({ type: 'broadcast', event: 'countdown_start', payload: { seconds: COUNTDOWN_SECONDS } })
+      sendCountdownStart()
       // Réinitialise automatiquement après 5 min
       countdownTimerRef.current = setTimeout(() => {
+        countdownStartedAtRef.current = null
         setCountdownActive(false)
         realtimeRef.current?.send({ type: 'broadcast', event: 'countdown_stop', payload: {} })
       }, COUNTDOWN_SECONDS * 1000)

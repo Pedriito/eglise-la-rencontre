@@ -12,9 +12,11 @@ type DisplayState =
   | { kind: 'countdown'; seconds: number }
 
 export function ObsOverlay({ planId }: { planId: string }) {
-  const [display, setDisplay] = useState<DisplayState>({ kind: 'blank' })
-  const [visible, setVisible]  = useState(false)
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [display, setDisplay]   = useState<DisplayState>({ kind: 'blank' })
+  const [visible, setVisible]   = useState(false)
+  const [connected, setConnected] = useState(false)
+  // intervalId stocké dans un ref pour que la closure du useEffect y accède toujours
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Fond transparent pour OBS
   useLayoutEffect(() => {
@@ -22,67 +24,68 @@ export function ObsOverlay({ planId }: { planId: string }) {
     document.body.style.background            = 'transparent'
   }, [])
 
-  function stopCountdown() {
-    if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null }
-  }
-
-  function startCountdown(totalSeconds: number) {
-    stopCountdown()
-    setDisplay({ kind: 'countdown', seconds: totalSeconds })
-    setVisible(true)
-    let remaining = totalSeconds
-    countdownRef.current = setInterval(() => {
-      remaining -= 1
-      if (remaining <= 0) {
-        stopCountdown()
-        setVisible(false)
-        setDisplay({ kind: 'blank' })
-      } else {
-        setDisplay({ kind: 'countdown', seconds: remaining })
-      }
-    }, 1000)
-  }
-
-  // Abonnement Supabase Realtime
+  // Abonnement Supabase Realtime — tout le logique est à l'intérieur pour éviter les stale closures
   useEffect(() => {
     const supabase = createClient()
     const channel  = supabase.channel(`obs-${planId}`)
 
+    function stopTimer() {
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+    }
+
+    function startCountdown(totalSeconds: number) {
+      stopTimer()
+      let remaining = Math.max(1, Math.round(totalSeconds))
+      setDisplay({ kind: 'countdown', seconds: remaining })
+      setVisible(true)
+      timerRef.current = setInterval(() => {
+        remaining -= 1
+        if (remaining <= 0) {
+          stopTimer()
+          setVisible(false)
+          setDisplay({ kind: 'blank' })
+        } else {
+          setDisplay({ kind: 'countdown', seconds: remaining })
+        }
+      }, 1000)
+    }
+
     channel
       .on('broadcast', { event: 'slide' }, ({ payload }) => {
-        stopCountdown()
+        stopTimer()
         setDisplay({ kind: 'slide', lines: payload.lines ?? [], section: payload.section ?? null })
         setVisible(true)
       })
       .on('broadcast', { event: 'message' }, ({ payload }) => {
-        stopCountdown()
+        stopTimer()
         setDisplay({ kind: 'message', text: payload.text ?? '' })
         setVisible(true)
       })
       .on('broadcast', { event: 'verse' }, ({ payload }) => {
-        stopCountdown()
+        stopTimer()
         setDisplay({ kind: 'verse', text: payload.text ?? '', display: payload.display ?? '', versionName: payload.versionName ?? '' })
         setVisible(true)
       })
       .on('broadcast', { event: 'blank' }, () => {
-        stopCountdown()
+        stopTimer()
         setVisible(false)
       })
       .on('broadcast', { event: 'countdown_start' }, ({ payload }) => {
         startCountdown(payload.seconds ?? 300)
       })
       .on('broadcast', { event: 'countdown_stop' }, () => {
-        stopCountdown()
+        stopTimer()
         setVisible(false)
         setDisplay({ kind: 'blank' })
       })
-      .subscribe()
+      .subscribe((status) => {
+        setConnected(status === 'SUBSCRIBED')
+      })
 
     return () => {
-      stopCountdown()
+      stopTimer()
       supabase.removeChannel(channel)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId])
 
   return (
@@ -100,85 +103,96 @@ export function ObsOverlay({ planId }: { planId: string }) {
 
       {/* ── Lower-third (paroles / message / verset) ── */}
       <div className="absolute inset-0 flex flex-col justify-end items-center">
-      <div
-        className="w-full max-w-[1700px] mx-auto px-16 pb-14 transition-all duration-500 ease-out"
-        style={{
-          opacity:   visible && display.kind !== 'countdown' ? 1 : 0,
-          transform: visible && display.kind !== 'countdown' ? 'translateY(0)' : 'translateY(24px)',
-        }}
-      >
-        {display.kind !== 'blank' && display.kind !== 'countdown' && (
-          <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(8px)' }}>
-            <div className="px-12 py-7">
-              {/* (pas de cas countdown ici) */}
+        <div
+          className="w-full max-w-[1700px] mx-auto px-16 pb-14 transition-all duration-500 ease-out"
+          style={{
+            opacity:   visible && display.kind !== 'countdown' ? 1 : 0,
+            transform: visible && display.kind !== 'countdown' ? 'translateY(0)' : 'translateY(24px)',
+          }}
+        >
+          {display.kind !== 'blank' && display.kind !== 'countdown' && (
+            <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(8px)' }}>
+              <div className="px-12 py-7">
 
-              {/* ── Diapo de chant ── */}
-              {display.kind === 'slide' && (
-                <>
-                  {display.section && (
-                    <p className="text-white/40 text-sm uppercase tracking-[0.35em] mb-3 font-sans">
-                      {display.section}
-                    </p>
-                  )}
-                  <div className="space-y-2">
-                    {(() => {
-                      const maxLen = Math.max(...display.lines.map(l => l.length), 1)
-                      const fs = `clamp(1.8rem, ${Math.min(72 / maxLen, 4.5).toFixed(2)}vw, 3.8rem)`
-                      return display.lines.map((line, i) => (
-                        <p key={i} className="text-white font-sans font-bold leading-tight uppercase" style={{ fontSize: fs }}>
-                          {line}
-                        </p>
-                      ))
-                    })()}
-                  </div>
-                </>
-              )}
-
-              {/* ── Message libre ── */}
-              {display.kind === 'message' && (
-                <div className="space-y-2">
-                  {display.text.split('\n').map((line, i) => {
-                    const maxLen = Math.max(...display.text.split('\n').map(l => l.length), 1)
-                    const fs = `clamp(1.8rem, ${Math.min(72 / maxLen, 4.5).toFixed(2)}vw, 3.8rem)`
-                    return (
-                      <p key={i} className="text-white font-sans font-bold leading-tight uppercase" style={{ fontSize: fs }}>
-                        {line}
+                {/* ── Diapo de chant ── */}
+                {display.kind === 'slide' && (
+                  <>
+                    {display.section && (
+                      <p className="text-white/40 text-sm uppercase tracking-[0.35em] mb-3 font-sans">
+                        {display.section}
                       </p>
-                    )
-                  })}
-                </div>
-              )}
+                    )}
+                    <div className="space-y-2">
+                      {(() => {
+                        const maxLen = Math.max(...display.lines.map(l => l.length), 1)
+                        const fs = `clamp(1.8rem, ${Math.min(72 / maxLen, 4.5).toFixed(2)}vw, 3.8rem)`
+                        return display.lines.map((line, i) => (
+                          <p key={i} className="text-white font-sans font-bold leading-tight uppercase" style={{ fontSize: fs }}>
+                            {line}
+                          </p>
+                        ))
+                      })()}
+                    </div>
+                  </>
+                )}
 
-              {/* ── Verset biblique ── */}
-              {display.kind === 'verse' && (
-                <>
-                  <p className="text-white/50 text-sm uppercase tracking-[0.3em] mb-3 font-sans">
-                    {display.display}
-                  </p>
+                {/* ── Message libre ── */}
+                {display.kind === 'message' && (
                   <div className="space-y-2">
                     {display.text.split('\n').map((line, i) => {
                       const maxLen = Math.max(...display.text.split('\n').map(l => l.length), 1)
-                      const fs = `clamp(1.4rem, ${Math.min(68 / maxLen, 4).toFixed(2)}vw, 3.2rem)`
+                      const fs = `clamp(1.8rem, ${Math.min(72 / maxLen, 4.5).toFixed(2)}vw, 3.8rem)`
                       return (
-                        <p key={i} className="text-white font-sans font-light leading-snug italic" style={{ fontSize: fs }}>
+                        <p key={i} className="text-white font-sans font-bold leading-tight uppercase" style={{ fontSize: fs }}>
                           {line}
                         </p>
                       )
                     })}
                   </div>
-                  <p className="text-white/30 text-xs font-sans mt-3 uppercase tracking-widest">
-                    {display.versionName}
-                  </p>
-                </>
-              )}
+                )}
 
+                {/* ── Verset biblique ── */}
+                {display.kind === 'verse' && (
+                  <>
+                    <p className="text-white/50 text-sm uppercase tracking-[0.3em] mb-3 font-sans">
+                      {display.display}
+                    </p>
+                    <div className="space-y-2">
+                      {display.text.split('\n').map((line, i) => {
+                        const maxLen = Math.max(...display.text.split('\n').map(l => l.length), 1)
+                        const fs = `clamp(1.4rem, ${Math.min(68 / maxLen, 4).toFixed(2)}vw, 3.2rem)`
+                        return (
+                          <p key={i} className="text-white font-sans font-light leading-snug italic" style={{ fontSize: fs }}>
+                            {line}
+                          </p>
+                        )
+                      })}
+                    </div>
+                    <p className="text-white/30 text-xs font-sans mt-3 uppercase tracking-widest">
+                      {display.versionName}
+                    </p>
+                  </>
+                )}
+
+              </div>
+              {/* Barre colorée en bas */}
+              <div className="h-1.5" style={{ background: 'linear-gradient(90deg, #3D7D85, #5A9EA6)' }} />
             </div>
-            {/* Barre colorée en bas */}
-            <div className="h-1.5" style={{ background: 'linear-gradient(90deg, #3D7D85, #5A9EA6)' }} />
-          </div>
-        )}
+          )}
+        </div>
       </div>
-      </div>
+
+      {/* ── Indicateur de connexion (visible quand rien n'est affiché) ── */}
+      {!visible && (
+        <div className="absolute bottom-3 right-4 flex items-center gap-1.5">
+          <span
+            className={`block w-2 h-2 rounded-full ${connected ? 'bg-green-400' : 'bg-white/30 animate-pulse'}`}
+          />
+          <span className="text-white/25 text-[10px] font-sans uppercase tracking-widest">
+            {connected ? 'connecté' : 'connexion…'}
+          </span>
+        </div>
+      )}
     </div>
   )
 }
