@@ -15,8 +15,8 @@ async function requestReset(formData: FormData) {
 
   const admin = createAdminClient()
 
-  // Cherche l'utilisateur via la table profiles (plus fiable que listUsers paginé)
-  const { data: profile, error: profileErr } = await admin
+  // Cherche d'abord via profiles.email (rapide)
+  const { data: profileByEmail, error: profileErr } = await admin
     .from('profiles')
     .select('id, first_name')
     .eq('email', email)
@@ -24,9 +24,26 @@ async function requestReset(formData: FormData) {
 
   if (profileErr) console.error('[requestReset] profiles lookup error:', profileErr.message, { email })
 
+  let profile = profileByEmail
+
+  // Fallback : listUsers pour les anciens comptes dont profiles.email est null
+  if (!profile) {
+    console.log('[requestReset] not found in profiles.email, trying listUsers fallback for:', email)
+    const { data: authUsers, error: listErr } = await admin.auth.admin.listUsers({ perPage: 1000 })
+    if (listErr) console.error('[requestReset] listUsers error:', listErr.message)
+    const authUser = authUsers?.users?.find(u => u.email?.toLowerCase() === email)
+    if (authUser) {
+      const { data: p } = await admin.from('profiles').select('id, first_name').eq('id', authUser.id).maybeSingle()
+      if (p) profile = p
+      // Profite pour corriger l'email manquant dans profiles
+      await admin.from('profiles').update({ email }).eq('id', authUser.id)
+      console.log('[requestReset] fixed missing email in profiles for userId:', authUser.id)
+    }
+  }
+
   // Toujours rediriger vers ?sent=1 (pas d'énumération d'emails)
   if (!profile) {
-    console.log('[requestReset] email not found in profiles:', email)
+    console.log('[requestReset] email not found anywhere:', email)
     redirect(sentUrl)
   }
 

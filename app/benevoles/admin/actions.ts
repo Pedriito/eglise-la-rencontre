@@ -45,7 +45,7 @@ export async function inviteBenevole(formData: FormData) {
 
   const { error: upsertError } = await admin
     .from('profiles')
-    .upsert({ id: userId, permission, first_name: firstName, last_name: lastName, status: 'invited' })
+    .upsert({ id: userId, permission, first_name: firstName, last_name: lastName, email, status: 'invited' })
 
   if (upsertError) {
     redirect(`/benevoles/admin/inviter?error=${encodeURIComponent(upsertError.message)}`)
