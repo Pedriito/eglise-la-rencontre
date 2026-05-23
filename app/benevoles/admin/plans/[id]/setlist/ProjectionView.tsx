@@ -680,7 +680,7 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
                         className={`group relative rounded-lg border-2 transition-all text-left overflow-hidden aspect-video flex flex-col items-center justify-center px-2 py-2 cursor-pointer ${
                           isActive
                             ? 'border-teal bg-teal/10 ring-1 ring-teal/50'
-                            : 'border-white/10 bg-white/5 hover:border-white/30 hover:bg-white/10'
+                            : `${slide.isBlank ? 'border-white/10 hover:border-white/30' : sectionBorder(slide.section)} bg-white/5 hover:bg-white/10`
                         }`}
                       >
                         {slide.isBlank ? (
@@ -731,6 +731,15 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
       </div>
     </div>
   )
+}
+
+/* ── Couleur de bordure selon le type de section ── */
+function sectionBorder(section: string): string {
+  const s = section.toLowerCase()
+  if (/chorus|refrain/.test(s))              return 'border-red-500/50   hover:border-red-500/90'
+  if (/verse|couplet|strophe|verset/.test(s)) return 'border-green-500/50 hover:border-green-500/90'
+  if (/bridge|pont/.test(s))                  return 'border-blue-500/50  hover:border-blue-500/90'
+  return 'border-white/10 hover:border-white/30'
 }
 
 /* ── Composant prévisualisation ── */
