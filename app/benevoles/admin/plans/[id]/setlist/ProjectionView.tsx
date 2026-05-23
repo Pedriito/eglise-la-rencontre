@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { buildAllSlides, type Slide } from '@/lib/parseSlides'
-import { updateSlideLyrics } from '@/app/benevoles/admin/plans/actions'
+import { updateSlideLyrics, searchSongsForProjection, type SongSearchResult } from '@/app/benevoles/admin/plans/actions'
 
 type Song = {
   planSongId: string
@@ -36,12 +36,19 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
   const [editingKey, setEditingKey]     = useState<string | null>(null)
   const [editText, setEditText]         = useState('')
   const [saveStatus, setSaveStatus]     = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  // Ajout de chant à la volée
+  const [showAddSong, setShowAddSong]   = useState(false)
+  const [addQuery, setAddQuery]         = useState('')
+  const [searchResults, setSearchResults] = useState<SongSearchResult[]>([])
+  const [isSearching, setIsSearching]   = useState(false)
+  const [extraSongs, setExtraSongs]     = useState<Song[]>([])
   // Décompte
   const [countdownActive, setCountdownActive] = useState(false)
   const countdownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const channelRef = useRef<BroadcastChannel | null>(null)
 
-  const songSlides = buildAllSlides(songs)
+  const allSongs   = [...songs, ...extraSongs]
+  const songSlides = buildAllSlides(allSongs)
 
   // Toutes les diapos à plat
   const allSlides: { songIdx: number; slideIdx: number; slide: Slide; songTitle: string }[] = []
@@ -63,6 +70,35 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
   // Lignes effectives (avec override éventuel)
   function getLines(si: number, di: number, slide: Slide): string[] {
     return slideOverrides.get(slideKey(si, di)) ?? slide.lines
+  }
+
+  // Recherche debounce pour l'ajout à la volée
+  useEffect(() => {
+    if (!addQuery.trim()) { setSearchResults([]); return }
+    const timer = setTimeout(async () => {
+      setIsSearching(true)
+      const res = await searchSongsForProjection(addQuery)
+      setSearchResults(res)
+      setIsSearching(false)
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [addQuery])
+
+  // Ajouter un chant à la volée
+  function addSongToProjection(result: SongSearchResult) {
+    const newSong: Song = {
+      planSongId: `extra-${Date.now()}`,
+      orderIndex: allSongs.length,
+      keySelected: result.arrangement?.chord_chart_key ?? null,
+      song: { id: result.songId, title: result.title },
+      arrangement: result.arrangement
+        ? { id: result.arrangement.id, name: result.arrangement.name, chord_chart: result.arrangement.chord_chart, chord_chart_key: result.arrangement.chord_chart_key }
+        : null,
+    }
+    setExtraSongs(prev => [...prev, newSong])
+    setShowAddSong(false)
+    setAddQuery('')
+    setSearchResults([])
   }
 
   // Ouvrir l'éditeur pour une diapo
@@ -222,6 +258,15 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
                '✗ Erreur sauvegarde'}
             </span>
           )}
+          {/* Bouton ajout chant */}
+          <button
+            onClick={() => { setShowAddSong(v => !v); setEditingKey(null) }}
+            className={`px-3 py-1.5 rounded-lg font-sans text-xs transition-colors ${
+              showAddSong ? 'bg-teal text-white' : 'bg-white/10 hover:bg-white/20 text-white'
+            }`}
+          >
+            ➕ Ajouter un chant
+          </button>
           {/* Bouton décompte */}
           <button
             onClick={toggleCountdown}
@@ -256,7 +301,46 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
         {/* Panneau gauche */}
         <div className="w-80 shrink-0 flex flex-col gap-3 p-4 border-r border-white/10 overflow-y-auto">
 
-          {editingKey ? (
+          {showAddSong ? (
+            /* ── Ajout d'un chant à la volée ── */
+            <div className="border border-teal/40 rounded-xl p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="font-sans text-[10px] uppercase tracking-widest text-teal/70">➕ Ajouter un chant</p>
+                <button onClick={() => { setShowAddSong(false); setAddQuery(''); setSearchResults([]) }} className="text-white/40 hover:text-white text-sm leading-none">✕</button>
+              </div>
+              <input
+                autoFocus
+                value={addQuery}
+                onChange={e => setAddQuery(e.target.value)}
+                placeholder="Titre ou mots des paroles…"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 font-sans text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-teal/50"
+              />
+              <p className="text-white/25 text-[10px] font-sans">Recherche dans les titres et les paroles</p>
+              {isSearching && (
+                <p className="text-white/30 text-xs font-sans text-center py-2">Recherche…</p>
+              )}
+              {!isSearching && searchResults.length > 0 && (
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {searchResults.map(r => (
+                    <button
+                      key={r.songId}
+                      onClick={() => addSongToProjection(r)}
+                      className="w-full text-left px-3 py-2 rounded-lg bg-white/5 hover:bg-teal/20 transition-colors group"
+                    >
+                      <p className="font-sans text-sm text-white truncate">{r.title}</p>
+                      <p className="font-sans text-[10px] text-white/30 flex items-center gap-1">
+                        {r.arrangement?.chord_chart_key && <span>{r.arrangement.chord_chart_key}</span>}
+                        {r.matchedInLyrics && <span className="text-teal/60">· trouvé dans les paroles</span>}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {!isSearching && addQuery.trim() && searchResults.length === 0 && (
+                <p className="text-white/30 text-xs font-sans text-center py-2">Aucun résultat</p>
+              )}
+            </div>
+          ) : editingKey ? (
             /* ── Éditeur de diapo ── */
             <div className="border border-teal/40 rounded-xl p-3 space-y-2">
               <div className="flex items-center justify-between">

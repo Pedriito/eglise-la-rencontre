@@ -357,3 +357,66 @@ export async function updateSlideLyrics(
   if (saveErr) return { ok: false, error: saveErr.message }
   return { ok: true }
 }
+
+// ── RECHERCHE DE CHANTS POUR LA PROJECTION ────────────────────────────────
+
+export type SongSearchResult = {
+  songId: number
+  title: string
+  matchedInLyrics: boolean
+  arrangement: {
+    id: string
+    name: string
+    chord_chart: string | null
+    chord_chart_key: string | null
+  } | null
+}
+
+export async function searchSongsForProjection(query: string): Promise<SongSearchResult[]> {
+  const admin = await requireAdmin()
+  const q = query.trim()
+  if (!q) return []
+
+  // Recherche 1 : par titre
+  const { data: byTitle } = await admin
+    .from('songs')
+    .select('id, title, arrangements(id, name, chord_chart, chord_chart_key)')
+    .ilike('title', `%${q}%`)
+    .order('title')
+    .limit(8)
+
+  // Recherche 2 : dans les paroles (chord_chart)
+  const { data: byLyrics } = await admin
+    .from('arrangements')
+    .select('id, name, chord_chart, chord_chart_key, song_id, songs(id, title)')
+    .ilike('chord_chart', `%${q}%`)
+    .limit(8)
+
+  const seen = new Set<number>()
+  const results: SongSearchResult[] = []
+
+  for (const s of (byTitle ?? [])) {
+    seen.add(s.id)
+    const arrs = s.arrangements as { id: string; name: string; chord_chart: string | null; chord_chart_key: string | null }[]
+    results.push({
+      songId: s.id,
+      title: s.title,
+      matchedInLyrics: false,
+      arrangement: arrs.find(a => a.chord_chart) ?? arrs[0] ?? null,
+    })
+  }
+
+  for (const arr of (byLyrics ?? [])) {
+    const song = arr.songs as unknown as { id: number; title: string }
+    if (!song || seen.has(song.id)) continue
+    seen.add(song.id)
+    results.push({
+      songId: song.id,
+      title: song.title,
+      matchedInLyrics: true,
+      arrangement: { id: arr.id, name: arr.name, chord_chart: arr.chord_chart, chord_chart_key: arr.chord_chart_key },
+    })
+  }
+
+  return results.slice(0, 10)
+}
