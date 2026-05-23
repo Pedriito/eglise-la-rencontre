@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ChordChart } from '@/app/benevoles/chants/[id]/ChordChart'
 import { ProjectionView } from './ProjectionView'
+import { updatePlanSongArrangement } from '@/app/benevoles/admin/plans/actions'
 
 type Song = {
   planSongId: string
@@ -16,6 +18,7 @@ type Song = {
     chord_chart: string | null
     chord_chart_key: string | null
   } | null
+  allArrangements: { id: string; name: string; chord_chart_key: string | null; hasChart: boolean }[]
 }
 
 type Props = {
@@ -25,9 +28,21 @@ type Props = {
 }
 
 export function SetlistView({ planId, planTitle, songs }: Props) {
+  const router = useRouter()
   const [activeIdx, setActiveIdx] = useState(0)
   const [mobileView, setMobileView] = useState<'list' | 'chart'>('list')
   const [projecting, setProjecting] = useState(false)
+  const [isPending, startTransition] = useTransition()
+  const [switchError, setSwitchError] = useState<string | null>(null)
+
+  async function switchArrangement(arrangementId: string) {
+    setSwitchError(null)
+    startTransition(async () => {
+      const res = await updatePlanSongArrangement(active!.planSongId, arrangementId, planId)
+      if (!res.ok) { setSwitchError(res.error ?? 'Erreur'); return }
+      router.refresh()
+    })
+  }
 
   const active = songs[activeIdx] ?? null
 
@@ -195,14 +210,44 @@ export function SetlistView({ planId, planTitle, songs }: Props) {
                 arrangementId={active.arrangement.id}
               />
             ) : (
-              <div className="bg-white rounded-2xl border border-teal/20 px-5 py-12 text-center">
-                <p className="font-sans text-sm text-dark/40">Pas de grille d'accords pour ce chant.</p>
+              <div className="bg-white rounded-2xl border border-teal/20 px-5 py-10 text-center space-y-5">
+                <p className="font-sans text-sm text-dark/40">
+                  L'arrangement &laquo;&nbsp;{active.arrangement?.name ?? 'sélectionné'}&nbsp;&raquo; n'a pas de grille d'accords.
+                </p>
+
+                {/* Autres arrangements disponibles */}
+                {active.allArrangements.filter(a => a.id !== active.arrangement?.id).length > 0 && (
+                  <div className="space-y-2">
+                    <p className="font-sans text-xs text-dark/50">Autres arrangements disponibles :</p>
+                    <div className="flex flex-col gap-2 items-center">
+                      {active.allArrangements
+                        .filter(a => a.id !== active.arrangement?.id)
+                        .map(a => (
+                          <button
+                            key={a.id}
+                            onClick={() => switchArrangement(a.id)}
+                            disabled={isPending}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-teal/10 hover:bg-teal/20 disabled:opacity-50 border border-teal/20 rounded-lg font-sans text-sm text-teal transition-colors"
+                          >
+                            {a.hasChart ? '♩' : '○'}
+                            <span>{a.name}</span>
+                            {a.chord_chart_key && <span className="text-teal/60 text-xs">{a.chord_chart_key}</span>}
+                            {a.hasChart && <span className="text-xs text-teal/50">· grille dispo</span>}
+                          </button>
+                        ))
+                      }
+                    </div>
+                    {switchError && <p className="font-sans text-xs text-red-500">{switchError}</p>}
+                    {isPending && <p className="font-sans text-xs text-dark/40">Changement en cours…</p>}
+                  </div>
+                )}
+
                 <a
                   href={`/benevoles/chants/${active.song.id}`}
                   target="_blank"
-                  className="mt-3 inline-block font-sans text-xs text-teal hover:underline"
+                  className="inline-block font-sans text-xs text-teal/60 hover:text-teal hover:underline"
                 >
-                  Voir le chant →
+                  Gérer les arrangements →
                 </a>
               </div>
             )}

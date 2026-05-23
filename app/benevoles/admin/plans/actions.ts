@@ -318,6 +318,22 @@ export async function movePlanSong(formData: FormData) {
   revalidatePath(`/benevoles/admin/plans/${planId}`)
 }
 
+/** Change l'arrangement sélectionné pour un chant dans un plan. */
+export async function updatePlanSongArrangement(
+  planSongId: string,
+  arrangementId: string,
+  planId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const admin = await requireAdmin()
+  const { error } = await admin
+    .from('plan_songs')
+    .update({ arrangement_id: arrangementId })
+    .eq('id', planSongId)
+  if (error) return { ok: false, error: error.message }
+  revalidatePath(`/benevoles/admin/plans/${planId}/setlist`)
+  return { ok: true }
+}
+
 /**
  * Sauvegarde permanente d'une modification de paroles en live.
  * Remplace les lignes identifiées par chartLineNums dans le chord_chart de l'arrangement.
