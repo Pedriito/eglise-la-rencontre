@@ -1,13 +1,13 @@
-// Versions disponibles sur api.getbible.net
+// Versions disponibles via bolls.life (proxy interne : /api/bible)
 export const BIBLE_VERSIONS = [
-  { id: 'lsg',    name: 'Louis Segond 1910' },
-  { id: 'martin', name: 'Bible Martin 1744'  },
-  { id: 'darby',  name: 'Darby (FR)'         },
-  { id: 'kjv',    name: 'King James (EN)'    },
-  { id: 'asv',    name: 'American Standard'  },
+  { id: 'BDS',   name: 'Bible du Semeur'          },
+  { id: 'NBS',   name: 'Nouvelle Bible Segond 2002' },
+  { id: 'FRLSG', name: 'Louis Segond 1910'         },
+  { id: 'FRDBY', name: 'Darby (FR)'                },
+  { id: 'KJV',   name: 'King James (EN)'           },
 ]
 
-// Noms normalisés → numéro de livre
+// Noms normalisés → numéro de livre (1-66)
 function normalize(s: string) {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim()
 }
@@ -86,17 +86,16 @@ const BOOK_MAP: Record<string, number> = {
 export type ParsedRef = { bookNum: number; chapter: number; verseStart: number; verseEnd: number }
 
 export function parseReference(ref: string): ParsedRef | null {
-  // Formats : "Jean 3:16" / "1 Jean 1:1" / "Jean 3:16-18" / "Ps 23" (chapitre entier)
   const s = ref.trim()
-  const matchVerse = s.match(/^(\d?\s*[A-Za-zÀ-ÿ\s]+?)\s+(\d+):(\d+)(?:-(\d+))?$/)
-  if (!matchVerse) return null
+  const match = s.match(/^(\d?\s*[A-Za-zÀ-ÿ\s]+?)\s+(\d+):(\d+)(?:-(\d+))?$/)
+  if (!match) return null
 
-  const bookRaw  = normalize(matchVerse[1])
-  const chapter  = parseInt(matchVerse[2], 10)
-  const vStart   = parseInt(matchVerse[3], 10)
-  const vEnd     = matchVerse[4] ? parseInt(matchVerse[4], 10) : vStart
+  const bookRaw  = normalize(match[1])
+  const chapter  = parseInt(match[2], 10)
+  const vStart   = parseInt(match[3], 10)
+  const vEnd     = match[4] ? parseInt(match[4], 10) : vStart
 
-  const bookNum  = BOOK_MAP[bookRaw]
+  const bookNum = BOOK_MAP[bookRaw]
   if (!bookNum) return null
   return { bookNum, chapter, verseStart: vStart, verseEnd: vEnd }
 }
@@ -108,36 +107,43 @@ export async function fetchBibleVerse(
   version: string,
 ): Promise<BibleResult | { error: string }> {
   const parsed = parseReference(ref)
-  if (!parsed) return { error: `Référence non reconnue : "${ref}"\nExemple : "Jean 3:16" ou "Ps 23:1-3"` }
+  if (!parsed) {
+    return { error: `Référence non reconnue : "${ref}"\nExemple : "Jean 3:16" ou "Ps 23:1-3"` }
+  }
 
   const { bookNum, chapter, verseStart, verseEnd } = parsed
 
   try {
-    const url = `https://api.getbible.net/v2/${version}/${bookNum}/${chapter}.json`
-    const res = await fetch(url, { cache: 'no-store' })
-    if (!res.ok) return { error: `Erreur API (${res.status}) — vérifie la référence` }
+    // Passe par le proxy Next.js pour éviter les problèmes CORS
+    const url = `/api/bible?translation=${version}&book=${bookNum}&chapter=${chapter}`
+    const res = await fetch(url)
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      return { error: body.error ?? `Erreur serveur (${res.status})` }
+    }
 
-    const data = await res.json()
-    const verseMap: Record<string, { verse_nr: number; verse: string }> = data.verses ?? {}
+    // bolls.life retourne [{ pk, verse, text }, ...]
+    const data: { pk: number; verse: number; text: string }[] = await res.json()
 
     const lines: string[] = []
     for (let v = verseStart; v <= verseEnd; v++) {
-      const entry = verseMap[String(v)]
-      if (entry) lines.push(entry.verse.trim())
+      const entry = data.find(d => d.verse === v)
+      if (entry) lines.push(entry.text.trim())
     }
 
-    if (lines.length === 0) return { error: 'Verset introuvable dans cette version' }
+    if (lines.length === 0) {
+      return { error: 'Verset introuvable dans cette version' }
+    }
 
-    const verRange  = verseStart === verseEnd ? `${verseStart}` : `${verseStart}-${verseEnd}`
-    const bookName  = data.book_name ?? ''
+    const verRange    = verseStart === verseEnd ? `${verseStart}` : `${verseStart}-${verseEnd}`
     const versionName = BIBLE_VERSIONS.find(v => v.id === version)?.name ?? version
 
-    return {
-      text: lines.join('\n'),
-      display: `${bookName} ${chapter}:${verRange}`,
-      versionName,
-    }
+    // Reconstruit un nom de livre lisible depuis la référence (pas fourni par bolls.life)
+    const bookLabel = ref.trim().match(/^(\d?\s*[A-Za-zÀ-ÿ\s]+?)\s+\d/)?.[1]?.trim() ?? ''
+    const display   = `${bookLabel} ${chapter}:${verRange}`.trim()
+
+    return { text: lines.join('\n'), display, versionName }
   } catch {
-    return { error: 'Impossible de contacter l\'API Bible — vérifie ta connexion' }
+    return { error: 'Impossible de contacter la source biblique — vérifie ta connexion' }
   }
 }
