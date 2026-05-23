@@ -28,11 +28,7 @@ export function ProjectorScreen({ planId, songs }: Props) {
   const [countdown, setCountdown]     = useState<number | null>(null) // secondes restantes, null = inactif
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Audio
-  const [audioBlocked, setAudioBlocked] = useState(false) // true = autoplay refusé, attente clic
-  const audioUnlocked = useRef(false)
-  const pendingPlay   = useRef(false) // son demandé mais en attente d'un clic
-
+  const [audioBlocked, setAudioBlocked] = useState(false)
   const channelRef = useRef<BroadcastChannel | null>(null)
   const audioRef   = useRef<HTMLAudioElement | null>(null)
 
@@ -43,6 +39,23 @@ export function ProjectorScreen({ planId, songs }: Props) {
     audioRef.current = audio
     return () => { audio.pause(); audio.src = '' }
   }, [])
+
+  function tryPlayAudio() {
+    const audio = audioRef.current
+    if (!audio) return
+    audio.currentTime = 0
+    audio.play()
+      .then(() => setAudioBlocked(false))
+      .catch(() => setAudioBlocked(true))
+  }
+
+  function stopAudio() {
+    setAudioBlocked(false)
+    const audio = audioRef.current
+    if (!audio) return
+    audio.pause()
+    audio.currentTime = 0
+  }
 
   const songSlides   = buildAllSlides(songs)
   const currentSong  = songSlides[current.songIdx]
@@ -55,7 +68,7 @@ export function ProjectorScreen({ planId, songs }: Props) {
     if (countdown === null) return
     if (countdown <= 0) {
       setCountdown(null)
-      stopAudio()
+      stopAudio()  // stopAudio est stable (définie hors useEffect), pas besoin dans les deps
       return
     }
     countdownRef.current = setInterval(() => {
@@ -101,7 +114,7 @@ export function ProjectorScreen({ planId, songs }: Props) {
         setFreeMessage(null)
         setShowPrompt(false)
         setCountdown(COUNTDOWN_SECONDS)
-        playAudio()
+        tryPlayAudio()
       }
       if (e.data?.type === 'COUNTDOWN_STOP') {
         clearInterval(countdownRef.current!)
@@ -120,49 +133,15 @@ export function ProjectorScreen({ planId, songs }: Props) {
     return () => document.removeEventListener('fullscreenchange', onFsChange)
   }, [])
 
-  function unlockAudio() {
-    if (!audioRef.current || audioUnlocked.current) return
-    audioRef.current.play()
-      .then(() => {
-        audioUnlocked.current = true
-        // Si un son était en attente (décompte déjà lancé), on laisse jouer
-        if (!pendingPlay.current) {
-          audioRef.current!.pause()
-          audioRef.current!.currentTime = 0
-        }
-        setAudioBlocked(false)
-        pendingPlay.current = false
-      })
-      .catch(() => {})
-  }
-
-  function playAudio() {
-    if (!audioRef.current) return
-    if (audioUnlocked.current) {
-      audioRef.current.play().catch(() => {})
-    } else {
-      // Autoplay bloqué — marquer en attente et afficher l'invite
-      pendingPlay.current = true
-      setAudioBlocked(true)
-    }
-  }
-
-  function stopAudio() {
-    pendingPlay.current = false
-    setAudioBlocked(false)
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0 }
-  }
-
   function enterFullscreen() {
     document.documentElement.requestFullscreen().catch(() => {})
     setShowPrompt(false)
-    unlockAudio()
   }
 
   return (
     <div
       className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center select-none cursor-none"
-      onClick={!isFullscreen ? enterFullscreen : (audioBlocked ? unlockAudio : undefined)}
+      onClick={!isFullscreen ? enterFullscreen : undefined}
     >
       {/* Invite plein écran */}
       {showPrompt && (
@@ -226,13 +205,17 @@ export function ProjectorScreen({ planId, songs }: Props) {
         </div>
       )}
 
-      {/* Invite activation son (autoplay bloqué) */}
+      {/* Invite activation son (autoplay bloqué par le navigateur) */}
       {audioBlocked && (
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 cursor-pointer">
-          <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl px-6 py-3 text-center animate-pulse">
-            <p className="text-white font-sans text-sm">🔇 Cliquez n'importe où pour activer le son</p>
+        <button
+          onClick={tryPlayAudio}
+          className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 cursor-pointer animate-pulse"
+          style={{ cursor: 'pointer' }}
+        >
+          <div className="bg-white/15 backdrop-blur-sm border border-white/30 rounded-2xl px-8 py-4 text-center">
+            <p className="text-white font-sans text-base font-semibold">🔇 Cliquez ici pour activer le son</p>
           </div>
-        </div>
+        </button>
       )}
 
       {/* Titre discret en bas */}
