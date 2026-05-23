@@ -28,29 +28,24 @@ export function ProjectorScreen({ planId, songs }: Props) {
   const [countdown, setCountdown]     = useState<number | null>(null) // secondes restantes, null = inactif
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const [audioBlocked, setAudioBlocked] = useState(false)
+  const [audioError, setAudioError]     = useState<string | null>(null)
   const channelRef = useRef<BroadcastChannel | null>(null)
   const audioRef   = useRef<HTMLAudioElement | null>(null)
 
-  // Initialise l'audio au montage
-  useEffect(() => {
-    const audio = new Audio('/countdown-music.mp3')
-    audio.loop = true
-    audioRef.current = audio
-    return () => { audio.pause(); audio.src = '' }
-  }, [])
-
   function tryPlayAudio() {
     const audio = audioRef.current
-    if (!audio) return
+    if (!audio) { setAudioError('audio element introuvable'); return }
     audio.currentTime = 0
-    audio.play()
-      .then(() => setAudioBlocked(false))
-      .catch(() => setAudioBlocked(true))
+    const promise = audio.play()
+    if (promise !== undefined) {
+      promise
+        .then(() => setAudioError(null))
+        .catch((err: Error) => setAudioError(err.name + ': ' + err.message))
+    }
   }
 
   function stopAudio() {
-    setAudioBlocked(false)
+    setAudioError(null)
     const audio = audioRef.current
     if (!audio) return
     audio.pause()
@@ -68,7 +63,7 @@ export function ProjectorScreen({ planId, songs }: Props) {
     if (countdown === null) return
     if (countdown <= 0) {
       setCountdown(null)
-      stopAudio()  // stopAudio est stable (définie hors useEffect), pas besoin dans les deps
+      stopAudio()
       return
     }
     countdownRef.current = setInterval(() => {
@@ -143,6 +138,14 @@ export function ProjectorScreen({ planId, songs }: Props) {
       className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center select-none cursor-none"
       onClick={!isFullscreen ? enterFullscreen : undefined}
     >
+      {/* Élément audio géré par le DOM — preload automatique */}
+      <audio
+        ref={audioRef}
+        src="/countdown-music.mp3"
+        loop
+        preload="auto"
+        style={{ display: 'none' }}
+      />
       {/* Invite plein écran */}
       {showPrompt && (
         <div className="absolute inset-0 flex items-center justify-center z-10">
@@ -205,15 +208,16 @@ export function ProjectorScreen({ planId, songs }: Props) {
         </div>
       )}
 
-      {/* Invite activation son (autoplay bloqué par le navigateur) */}
-      {audioBlocked && (
+      {/* Erreur audio — affiche le message réel pour diagnostic */}
+      {audioError && (
         <button
           onClick={tryPlayAudio}
-          className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 cursor-pointer animate-pulse"
+          className="absolute bottom-10 left-1/2 -translate-x-1/2 z-[10000]"
           style={{ cursor: 'pointer' }}
         >
-          <div className="bg-white/15 backdrop-blur-sm border border-white/30 rounded-2xl px-8 py-4 text-center">
+          <div className="bg-white/15 backdrop-blur-sm border border-white/30 rounded-2xl px-8 py-4 text-center space-y-1">
             <p className="text-white font-sans text-base font-semibold">🔇 Cliquez ici pour activer le son</p>
+            <p className="text-white/50 font-sans text-xs">{audioError}</p>
           </div>
         </button>
       )}
