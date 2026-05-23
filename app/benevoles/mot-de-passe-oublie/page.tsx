@@ -1,12 +1,13 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
-import { sendPasswordResetEmail } from '@/lib/email'
+import { sendPasswordResetEmail, sendInviteEmail } from '@/lib/email'
 import Link from 'next/link'
 
 async function requestReset(formData: FormData) {
   'use server'
   const email = (formData.get('email') as string)?.trim().toLowerCase()
   const premier = (formData.get('premier') as string) === '1'
+  const sentUrl = `/benevoles/mot-de-passe-oublie?sent=1${premier ? '&premier=1' : ''}`
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.startsWith('http://localhost')
     ? 'https://www.egliselarencontre.fr'
@@ -14,49 +15,69 @@ async function requestReset(formData: FormData) {
 
   const admin = createAdminClient()
 
-  // On cherche le profil pour avoir le prénom — sans révéler si l'email existe
-  const { data: authUsers } = await admin.auth.admin.listUsers()
-  const authUser = authUsers?.users?.find(u => u.email?.toLowerCase() === email)
+  // Cherche l'utilisateur via la table profiles (plus fiable que listUsers paginé)
+  const { data: profile, error: profileErr } = await admin
+    .from('profiles')
+    .select('id, first_name')
+    .eq('email', email)
+    .maybeSingle()
 
-  // On redirige toujours vers la même page de confirmation (pas d'énumération d'emails)
-  if (!authUser) {
-    redirect(`/benevoles/mot-de-passe-oublie?sent=1${premier ? '&premier=1' : ''}`)
+  if (profileErr) console.error('[requestReset] profiles lookup error:', profileErr.message, { email })
+
+  // Toujours rediriger vers ?sent=1 (pas d'énumération d'emails)
+  if (!profile) {
+    console.log('[requestReset] email not found in profiles:', email)
+    redirect(sentUrl)
   }
 
-  const { data: profile } = await admin
-    .from('profiles')
-    .select('first_name')
-    .eq('id', authUser.id)
-    .single()
-
-  const { data: linkData } = await admin.auth.admin.generateLink({
+  // Génère le lien de récupération
+  const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
     type: 'recovery',
     email,
     options: { redirectTo: `${siteUrl}/benevoles/auth/confirm` },
   })
 
-  if (linkData?.properties?.action_link) {
-    const { data: invite } = await admin
-      .from('pending_invites')
-      .insert({ action_link: linkData.properties.action_link, email, user_id: authUser.id })
-      .select('token')
-      .single()
-
-    if (invite) {
-      const resetLink = `${siteUrl}/benevoles/activer/${invite.token}`
-      try {
-        await sendPasswordResetEmail({
-          to: email,
-          firstName: profile?.first_name ?? '',
-          resetLink,
-        })
-      } catch (err: any) {
-        console.error('[requestReset] Resend error:', err?.message, { email })
-      }
-    }
+  if (linkErr || !linkData?.properties?.action_link) {
+    console.error('[requestReset] generateLink failed:', linkErr?.message ?? 'no action_link', { email, userId: profile.id })
+    redirect(sentUrl)
   }
 
-  redirect(`/benevoles/mot-de-passe-oublie?sent=1${premier ? '&premier=1' : ''}`)
+  // Stocke dans pending_invites pour usage via /activer/{token}
+  const { data: invite, error: inviteErr } = await admin
+    .from('pending_invites')
+    .insert({ action_link: linkData.properties.action_link, email, user_id: profile.id })
+    .select('token')
+    .single()
+
+  if (inviteErr || !invite) {
+    console.error('[requestReset] pending_invites insert failed:', inviteErr?.message, { email, userId: profile.id })
+    redirect(sentUrl)
+  }
+
+  const actionUrl = `${siteUrl}/benevoles/activer/${invite.token}`
+
+  try {
+    if (premier) {
+      // Première connexion : email d'invitation avec le bon wording
+      await sendInviteEmail({
+        to: email,
+        firstName: profile.first_name ?? '',
+        inviteLink: actionUrl,
+      })
+    } else {
+      // Mot de passe oublié : email de réinitialisation
+      await sendPasswordResetEmail({
+        to: email,
+        firstName: profile.first_name ?? '',
+        resetLink: actionUrl,
+      })
+    }
+    console.log('[requestReset] email sent OK to', email, '| premier:', premier)
+  } catch (err: any) {
+    console.error('[requestReset] Resend error:', err?.message, { email, premier })
+  }
+
+  redirect(sentUrl)
 }
 
 export default async function ForgotPasswordPage({
