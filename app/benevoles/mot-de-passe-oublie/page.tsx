@@ -15,39 +15,7 @@ async function requestReset(formData: FormData) {
 
   const admin = createAdminClient()
 
-  // Cherche d'abord via profiles.email (rapide)
-  const { data: profileByEmail, error: profileErr } = await admin
-    .from('profiles')
-    .select('id, first_name')
-    .eq('email', email)
-    .maybeSingle()
-
-  if (profileErr) console.error('[requestReset] profiles lookup error:', profileErr.message, { email })
-
-  let profile = profileByEmail
-
-  // Fallback : listUsers pour les anciens comptes dont profiles.email est null
-  if (!profile) {
-    console.log('[requestReset] not found in profiles.email, trying listUsers fallback for:', email)
-    const { data: authUsers, error: listErr } = await admin.auth.admin.listUsers({ perPage: 1000 })
-    if (listErr) console.error('[requestReset] listUsers error:', listErr.message)
-    const authUser = authUsers?.users?.find(u => u.email?.toLowerCase() === email)
-    if (authUser) {
-      const { data: p } = await admin.from('profiles').select('id, first_name').eq('id', authUser.id).maybeSingle()
-      if (p) profile = p
-      // Profite pour corriger l'email manquant dans profiles
-      await admin.from('profiles').update({ email }).eq('id', authUser.id)
-      console.log('[requestReset] fixed missing email in profiles for userId:', authUser.id)
-    }
-  }
-
-  // Toujours rediriger vers ?sent=1 (pas d'énumération d'emails)
-  if (!profile) {
-    console.log('[requestReset] email not found anywhere:', email)
-    redirect(sentUrl)
-  }
-
-  // Génère le lien de récupération
+  // generateLink échoue si l'email n'existe pas dans Supabase Auth → pas d'énumération
   const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
     type: 'recovery',
     email,
@@ -55,19 +23,33 @@ async function requestReset(formData: FormData) {
   })
 
   if (linkErr || !linkData?.properties?.action_link) {
-    console.error('[requestReset] generateLink failed:', linkErr?.message ?? 'no action_link', { email, userId: profile.id })
+    console.log('[requestReset] generateLink failed:', linkErr?.message ?? 'no action_link', { email })
     redirect(sentUrl)
   }
+
+  // generateLink retourne l'objet user complet
+  const userId: string = (linkData as any).user?.id
+  console.log('[requestReset] user found in auth:', userId, '| email:', email)
+
+  // Récupère le prénom depuis profiles
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('first_name')
+    .eq('id', userId)
+    .maybeSingle()
+
+  // Corrige l'email manquant dans profiles (anciens comptes)
+  await admin.from('profiles').update({ email }).eq('id', userId)
 
   // Stocke dans pending_invites pour usage via /activer/{token}
   const { data: invite, error: inviteErr } = await admin
     .from('pending_invites')
-    .insert({ action_link: linkData.properties.action_link, email, user_id: profile.id })
+    .insert({ action_link: linkData.properties.action_link, email, user_id: userId })
     .select('token')
     .single()
 
   if (inviteErr || !invite) {
-    console.error('[requestReset] pending_invites insert failed:', inviteErr?.message, { email, userId: profile.id })
+    console.error('[requestReset] pending_invites insert failed:', inviteErr?.message, { email, userId })
     redirect(sentUrl)
   }
 
@@ -78,14 +60,14 @@ async function requestReset(formData: FormData) {
       // Première connexion : email d'invitation avec le bon wording
       await sendInviteEmail({
         to: email,
-        firstName: profile.first_name ?? '',
+        firstName: profile?.first_name ?? '',
         inviteLink: actionUrl,
       })
     } else {
       // Mot de passe oublié : email de réinitialisation
       await sendPasswordResetEmail({
         to: email,
-        firstName: profile.first_name ?? '',
+        firstName: profile?.first_name ?? '',
         resetLink: actionUrl,
       })
     }
