@@ -447,6 +447,37 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
               Suivante →
             </button>
           </div>
+
+          {/* Liste des chants */}
+          <div className="border border-white/10 rounded-xl overflow-hidden">
+            <p className="font-sans text-[10px] uppercase tracking-widest text-white/30 px-3 py-2 border-b border-white/10">
+              Chants
+            </p>
+            <div className="divide-y divide-white/5">
+              {songSlides.map((ss, si) => {
+                const isActiveSong = current.songIdx === si
+                return (
+                  <button
+                    key={si}
+                    onClick={() => goto(si, 0)}
+                    className={`w-full text-left px-3 py-2.5 flex items-center gap-2.5 transition-colors ${
+                      isActiveSong
+                        ? 'bg-teal/20 text-white'
+                        : 'text-white/50 hover:bg-white/5 hover:text-white'
+                    }`}
+                  >
+                    <span className={`font-sans text-[10px] tabular-nums w-4 shrink-0 ${isActiveSong ? 'text-teal' : 'text-white/25'}`}>
+                      {si + 1}
+                    </span>
+                    <span className="font-sans text-xs truncate">{ss.title}</span>
+                    {isActiveSong && (
+                      <span className="ml-auto w-1.5 h-1.5 rounded-full bg-teal shrink-0" />
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Grille de toutes les diapos */}
