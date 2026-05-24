@@ -116,6 +116,7 @@ export async function sendSingleInvitation(formData: FormData) {
         assignmentId,
       })
       console.log('[sendSingleInvitation] external guest email sent OK to', a.external_email)
+      await admin.from('plan_assignments').update({ invitation_sent_at: new Date().toISOString() }).eq('id', assignmentId)
     } catch (err: any) {
       console.error('[sendSingleInvitation] Resend error (external):', err?.message, { email: a.external_email, assignmentId })
       redirect(`/benevoles/admin/plans/${planId}?error=${encodeURIComponent(err?.message ?? 'Erreur envoi email')}`)
@@ -150,6 +151,7 @@ export async function sendSingleInvitation(formData: FormData) {
       assignmentId,
     })
     console.log('[sendSingleInvitation] email sent OK to', email)
+    await admin.from('plan_assignments').update({ invitation_sent_at: new Date().toISOString() }).eq('id', assignmentId)
   } catch (err: any) {
     console.error('[sendSingleInvitation] Resend error:', err?.message, { email, assignmentId })
     redirect(`/benevoles/admin/plans/${planId}?error=${encodeURIComponent(err?.message ?? 'Erreur envoi email')}`)

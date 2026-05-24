@@ -20,6 +20,7 @@ type AssignmentRow = {
   team_id: string | null
   external_name: string | null
   external_email: string | null
+  invitation_sent_at: string | null
   profiles: { first_name: string; last_name: string } | null
   positions: { id: string; name: string; team_id: string } | null
 }
@@ -53,7 +54,7 @@ export default async function PlanDetailPage({
     supabase.from('plans').select('id, title, service_date, notes, plan_type').eq('id', id).single(),
     supabase
       .from('plan_assignments')
-      .select('id, status, user_id, position_id, team_id, external_name, external_email, profiles(first_name, last_name), positions(id, name, team_id)')
+      .select('id, status, user_id, position_id, team_id, external_name, external_email, invitation_sent_at, profiles(first_name, last_name), positions(id, name, team_id)')
       .eq('plan_id', id),
     supabase.from('teams').select('id, name, positions(id, name)').order('name'),
     supabase.from('profiles').select('id, first_name, last_name').order('last_name'),
@@ -196,6 +197,11 @@ export default async function PlanDetailPage({
                           </p>
                           {isInvite && a.external_email && (
                             <p className="text-xs text-dark/30 font-sans truncate">{a.external_email}</p>
+                          )}
+                          {a.invitation_sent_at && (
+                            <p className="text-xs text-teal/60 font-sans mt-0.5" title={`Envoyée le ${new Date(a.invitation_sent_at).toLocaleString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`}>
+                              ✉ envoyée le {new Date(a.invitation_sent_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                            </p>
                           )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
