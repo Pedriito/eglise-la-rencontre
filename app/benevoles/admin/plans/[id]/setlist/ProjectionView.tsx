@@ -405,6 +405,14 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
           >
             {countdownActive ? '⏹ Arrêter le décompte' : '⏱ Décompte 5 min'}
           </button>
+          <a
+            href="/benevoles/admin/parametres/projection"
+            target="_blank"
+            className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg font-sans text-xs transition-colors"
+            title="Modifier l'apparence (fond, police, couleurs)"
+          >
+            🎨 Apparence
+          </a>
           {projectorWindow && (
             <button
               onClick={() => projectorWindow.focus()}

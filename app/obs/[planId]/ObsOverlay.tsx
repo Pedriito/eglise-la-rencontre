@@ -11,6 +11,20 @@ type DisplayState =
   | { kind: 'verse';     text: string; display: string; versionName: string }
   | { kind: 'countdown'; seconds: number }
 
+function formatSection(raw: string): string {
+  const s = raw.replace(/\s*:\s*$/, '').trim()
+  const lower = s.toLowerCase()
+  if (/^verse|^couplet|^strophe/.test(lower)) return s.replace(/verse/gi, 'Couplet').replace(/couplet/gi, 'Couplet').replace(/strophe/gi, 'Couplet')
+  if (/^chorus|^refrain/.test(lower))          return s.replace(/chorus/gi, 'Refrain').replace(/refrain/gi, 'Refrain')
+  if (/^bridge|^pont/.test(lower))             return s.replace(/bridge/gi, 'Pont').replace(/pont/gi, 'Pont')
+  if (/^pre.?chorus|^pré.?refrain/.test(lower)) return 'Pré-refrain'
+  if (/^intro/.test(lower))                    return 'Intro'
+  if (/^outro/.test(lower))                    return 'Outro'
+  if (/^tag/.test(lower))                      return 'Tag'
+  if (/^interlude/.test(lower))                return 'Interlude'
+  return s
+}
+
 export function ObsOverlay({ planId }: { planId: string }) {
   const [display, setDisplay]   = useState<DisplayState>({ kind: 'blank' })
   const [visible, setVisible]   = useState(false)
@@ -119,7 +133,7 @@ export function ObsOverlay({ planId }: { planId: string }) {
                   <>
                     {display.section && (
                       <p className="text-white/40 text-sm uppercase tracking-[0.35em] mb-3 font-sans">
-                        {display.section}
+                        {formatSection(display.section)}
                       </p>
                     )}
                     <div className="space-y-2">

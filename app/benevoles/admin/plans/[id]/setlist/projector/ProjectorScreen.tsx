@@ -58,6 +58,21 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
   // Charger la Google Font si nécessaire
   useEffect(() => { loadGoogleFont(settings.font_family) }, [settings.font_family])
 
+  // Traduit et nettoie les noms de sections (retire les deux-points, traduit en français)
+  function formatSection(raw: string): string {
+    const s = raw.replace(/\s*:\s*$/, '').trim() // retire le ':' final
+    const lower = s.toLowerCase()
+    if (/^verse|^couplet|^strophe/.test(lower)) return s.replace(/verse/gi, 'Couplet').replace(/couplet/gi, 'Couplet').replace(/strophe/gi, 'Couplet')
+    if (/^chorus|^refrain/.test(lower))          return s.replace(/chorus/gi, 'Refrain').replace(/refrain/gi, 'Refrain')
+    if (/^bridge|^pont/.test(lower))             return s.replace(/bridge/gi, 'Pont').replace(/pont/gi, 'Pont')
+    if (/^pre.?chorus|^pré.?refrain/.test(lower)) return 'Pré-refrain'
+    if (/^intro/.test(lower))                    return 'Intro'
+    if (/^outro/.test(lower))                    return 'Outro'
+    if (/^tag/.test(lower))                      return 'Tag'
+    if (/^interlude/.test(lower))                return 'Interlude'
+    return s
+  }
+
   const songSlides   = buildAllSlides(songs)
   const currentSong  = songSlides[current.songIdx]
   const currentSlide: Slide | null = currentSong?.slides[current.slideIdx] ?? null
@@ -279,7 +294,7 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
         <div className="text-center px-12 max-w-6xl w-full relative">
           {currentSlide.section && (
             <p className="text-base uppercase tracking-[0.4em] mb-10 font-sans" style={{ color: settings.text_color + '40' }}>
-              {currentSlide.section}
+              {formatSection(currentSlide.section)}
             </p>
           )}
           <div className="space-y-6">
