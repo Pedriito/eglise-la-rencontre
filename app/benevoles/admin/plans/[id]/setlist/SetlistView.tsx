@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ChordChart } from '@/app/benevoles/chants/[id]/ChordChart'
@@ -34,6 +34,7 @@ export function SetlistView({ planId, planTitle, songs }: Props) {
   const [projecting, setProjecting] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [switchError, setSwitchError] = useState<string | null>(null)
+  const songRefs = useRef<(HTMLDivElement | null)[]>([])
 
   async function switchArrangement(arrangementId: string) {
     setSwitchError(null)
@@ -48,7 +49,18 @@ export function SetlistView({ planId, planTitle, songs }: Props) {
 
   function selectSong(idx: number) {
     setActiveIdx(idx)
-    setMobileView('chart')
+    if (mobileView === 'chart') {
+      // Déjà en vue scroll — juste scroller jusqu'au chant
+      setTimeout(() => {
+        songRefs.current[idx]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 30)
+    } else {
+      setMobileView('chart')
+      // Attendre le rendu puis scroller
+      setTimeout(() => {
+        songRefs.current[idx]?.scrollIntoView({ behavior: 'instant', block: 'start' })
+      }, 50)
+    }
   }
 
   return (
@@ -160,31 +172,94 @@ export function SetlistView({ planId, planTitle, songs }: Props) {
         flex-1 overflow-y-auto
         ${mobileView === 'list' ? 'hidden md:block' : 'block'}
       `}>
-        {/* Barre mobile : retour + titre */}
-        <div className="md:hidden sticky top-0 z-10 bg-white border-b border-teal/20 px-4 py-3 flex items-center gap-3">
-          <button
-            onClick={() => setMobileView('list')}
-            className="text-dark/40 hover:text-dark font-sans text-sm"
-          >
-            ← Liste
-          </button>
-          <p className="font-sans text-sm text-dark font-medium truncate flex-1">
-            {active?.song.title}
-          </p>
+
+        {/* ── VUE MOBILE : tous les chants en scroll continu ── */}
+        <div className="md:hidden flex flex-col h-full">
+          {/* Barre sticky : retour + titre du plan */}
+          <div className="sticky top-0 z-10 bg-white border-b border-teal/20 px-4 py-3 flex items-center gap-3 shrink-0">
+            <button
+              onClick={() => setMobileView('list')}
+              className="text-dark/40 hover:text-dark font-sans text-sm shrink-0"
+            >
+              ← Liste
+            </button>
+            <p className="font-sans text-sm text-dark/50 truncate flex-1">{planTitle}</p>
+            <span className="font-sans text-xs text-dark/25 tabular-nums shrink-0">{songs.length} chant{songs.length > 1 ? 's' : ''}</span>
+          </div>
+
+          {/* Scroll continu : tous les chants empilés */}
+          <div className="flex-1 overflow-y-auto">
+            {songs.map((s, idx) => (
+              <div
+                key={s.planSongId}
+                ref={el => { songRefs.current[idx] = el }}
+              >
+                {/* En-tête du chant */}
+                <div className="px-4 pt-6 pb-3 flex items-baseline gap-3">
+                  <span className="font-sans text-xs text-dark/20 tabular-nums shrink-0">{idx + 1}</span>
+                  <h2 className="font-display text-xl text-dark font-light leading-tight">{s.song.title}</h2>
+                  {s.keySelected && (
+                    <span className="font-sans text-sm text-teal font-semibold shrink-0">{s.keySelected}</span>
+                  )}
+                </div>
+                {s.arrangement?.name && (
+                  <p className="px-4 pb-2 font-sans text-xs text-dark/35">{s.arrangement.name}</p>
+                )}
+
+                {/* Partition ou message */}
+                <div className="px-4 pb-2">
+                  {s.arrangement?.chord_chart ? (
+                    <ChordChart
+                      chart={s.arrangement.chord_chart}
+                      originalKey={s.arrangement.chord_chart_key}
+                      initialKey={s.keySelected ?? s.arrangement.chord_chart_key ?? undefined}
+                      songId={s.song.id}
+                      arrangementId={s.arrangement.id}
+                    />
+                  ) : (
+                    <div className="bg-white rounded-xl border border-teal/20 px-4 py-6 text-center">
+                      <p className="font-sans text-sm text-dark/40 mb-3">
+                        Pas de grille pour cet arrangement.
+                      </p>
+                      <a
+                        href={`/benevoles/chants/${s.song.id}`}
+                        target="_blank"
+                        className="font-sans text-xs text-teal/60 hover:text-teal hover:underline"
+                      >
+                        Gérer les arrangements →
+                      </a>
+                    </div>
+                  )}
+                </div>
+
+                {/* Séparateur entre chants */}
+                {idx < songs.length - 1 && (
+                  <div className="mx-4 my-4 border-t-2 border-dashed border-teal/15 flex items-center justify-center">
+                    <span className="bg-teal-50 px-3 text-xs text-dark/20 font-sans -mt-2.5 relative">
+                      {songs[idx + 1]?.song.title}
+                    </span>
+                  </div>
+                )}
+              </div>
+            ))}
+            {/* Espace en bas pour ne pas finir à ras bord */}
+            <div className="h-16" />
+          </div>
         </div>
 
+        {/* ── VUE DESKTOP : un seul chant actif ── */}
         {active ? (
-          <div className="max-w-2xl mx-auto px-4 md:px-6 py-6">
-            {/* Titre du chant */}
-            <div className="mb-4 hidden md:block">
+          <div className="hidden md:block max-w-2xl mx-auto px-6 py-6">
+            {/* Titre */}
+            <div className="mb-4">
               <h2 className="font-display text-2xl text-dark font-light">{active.song.title}</h2>
               {active.arrangement?.name && (
                 <p className="font-sans text-xs text-dark/40 mt-0.5">{active.arrangement.name}</p>
               )}
             </div>
 
-            {/* Navigation desktop entre chants */}
-            <div className="hidden md:flex items-center justify-between mb-4">
+            {/* Navigation desktop */}
+            <div className="flex items-center justify-between mb-4">
               <button
                 onClick={() => activeIdx > 0 && setActiveIdx(activeIdx - 1)}
                 disabled={activeIdx === 0}
@@ -214,8 +289,6 @@ export function SetlistView({ planId, planTitle, songs }: Props) {
                 <p className="font-sans text-sm text-dark/40">
                   L'arrangement &laquo;&nbsp;{active.arrangement?.name ?? 'sélectionné'}&nbsp;&raquo; n'a pas de grille d'accords.
                 </p>
-
-                {/* Autres arrangements disponibles */}
                 {active.allArrangements.filter(a => a.id !== active.arrangement?.id).length > 0 && (
                   <div className="space-y-2">
                     <p className="font-sans text-xs text-dark/50">Autres arrangements disponibles :</p>
@@ -241,7 +314,6 @@ export function SetlistView({ planId, planTitle, songs }: Props) {
                     {isPending && <p className="font-sans text-xs text-dark/40">Changement en cours…</p>}
                   </div>
                 )}
-
                 <a
                   href={`/benevoles/chants/${active.song.id}`}
                   target="_blank"
@@ -253,7 +325,7 @@ export function SetlistView({ planId, planTitle, songs }: Props) {
             )}
           </div>
         ) : (
-          <div className="flex items-center justify-center h-full">
+          <div className="hidden md:flex items-center justify-center h-full">
             <p className="font-sans text-sm text-dark/30">Sélectionne un chant dans la liste.</p>
           </div>
         )}
