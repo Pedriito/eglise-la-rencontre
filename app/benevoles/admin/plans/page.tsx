@@ -92,14 +92,12 @@ export default async function PlansPage() {
           </Link>
           <h1 className="font-display text-xl md:text-2xl text-dark font-light truncate">Planification</h1>
         </div>
-        {isAdmin && (
-          <Link
-            href="/benevoles/admin/plans/nouveau"
-            className="shrink-0 px-3 md:px-4 py-2 bg-teal text-white rounded-lg font-sans text-sm font-medium hover:bg-teal-dark transition-colors"
-          >
-            + Nouveau
-          </Link>
-        )}
+        <Link
+          href="/benevoles/admin/plans/nouveau"
+          className="shrink-0 px-3 md:px-4 py-2 bg-teal text-white rounded-lg font-sans text-sm font-medium hover:bg-teal-dark transition-colors"
+        >
+          + Nouveau
+        </Link>
       </header>
 
       <main className="max-w-4xl mx-auto px-4 md:px-6 py-6 md:py-8 space-y-6">
@@ -127,11 +125,9 @@ export default async function PlansPage() {
             ) : (
               <div className="px-6 py-10 text-center">
                 <p className="font-sans text-sm text-dark/40 mb-3">Aucun service à venir.</p>
-                {isAdmin && (
-                  <Link href="/benevoles/admin/plans/nouveau" className="text-teal font-sans text-sm hover:underline">
-                    Créer le premier service →
-                  </Link>
-                )}
+                <Link href="/benevoles/admin/plans/nouveau" className="text-teal font-sans text-sm hover:underline">
+                  Créer le premier service →
+                </Link>
               </div>
             )}
           </div>
