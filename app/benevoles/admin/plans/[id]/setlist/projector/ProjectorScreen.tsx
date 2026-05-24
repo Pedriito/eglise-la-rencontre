@@ -58,6 +58,15 @@ export function ProjectorScreen({ planId, songs }: Props) {
   const slideKey     = `${current.songIdx}-${current.slideIdx}`
   const displayLines = slideOverrides.get(slideKey) ?? currentSlide?.lines ?? []
 
+  // Police cohérente : basée sur la ligne la plus longue de tout le chant actif,
+  // pas seulement de la diapo courante — évite les sauts de taille entre diapos.
+  const allSongLines = currentSong?.slides
+    .filter(s => !s.isBlank && s.lines.length > 0)
+    .flatMap(s => s.lines) ?? []
+  const songMaxLen = Math.max(...allSongLines.map(l => l.length), displayLines.reduce((m, l) => Math.max(m, l.length), 1), 1)
+  // clamp : min 2.5rem, max 7rem — plus généreux qu'avant pour remplir l'écran
+  const slideFs = `clamp(2.5rem, ${Math.min(95 / songMaxLen, 8).toFixed(2)}vw, 7rem)`
+
   // Gestion du countdown (tick)
   useEffect(() => {
     if (countdown === null) return
@@ -208,14 +217,15 @@ export function ProjectorScreen({ planId, songs }: Props) {
 
       {/* Verset biblique */}
       {!showPrompt && countdown === null && verse && (
-        <div className="text-center px-16 max-w-5xl w-full">
-          <p className="text-white/40 text-lg uppercase tracking-[0.3em] mb-10 font-sans">
+        <div className="text-center px-12 max-w-6xl w-full">
+          <p className="text-white/40 text-xl uppercase tracking-[0.3em] mb-10 font-sans">
             {verse.display}
           </p>
-          <div className="space-y-5">
+          <div className="space-y-6">
             {verse.text.split('\n').map((line, i) => {
-              const maxLen = Math.max(...verse.text.split('\n').map(l => l.length), 1)
-              const fs = `clamp(1.5rem, ${Math.min(80 / maxLen, 5).toFixed(2)}vw, 4rem)`
+              const verseLines = verse.text.split('\n')
+              const maxLen = Math.max(...verseLines.map(l => l.length), 1)
+              const fs = `clamp(2.2rem, ${Math.min(90 / maxLen, 6.5).toFixed(2)}vw, 5.5rem)`
               return (
                 <p key={i} className="text-white font-sans font-light leading-snug italic" style={{ fontSize: fs }}>
                   {line}
@@ -223,7 +233,7 @@ export function ProjectorScreen({ planId, songs }: Props) {
               )
             })}
           </div>
-          <p className="text-white/20 text-sm font-sans mt-10 uppercase tracking-widest">
+          <p className="text-white/20 text-base font-sans mt-12 uppercase tracking-widest">
             {verse.versionName}
           </p>
         </div>
@@ -231,22 +241,18 @@ export function ProjectorScreen({ planId, songs }: Props) {
 
       {/* Contenu de la diapo */}
       {!showPrompt && countdown === null && !freeMessage && !verse && currentSlide && !currentSlide.isBlank && (
-        <div className="text-center px-16 max-w-5xl w-full">
+        <div className="text-center px-12 max-w-6xl w-full">
           {currentSlide.section && (
-            <p className="text-white/25 text-base uppercase tracking-[0.4em] mb-12 font-sans">
+            <p className="text-white/25 text-base uppercase tracking-[0.4em] mb-10 font-sans">
               {currentSlide.section}
             </p>
           )}
-          <div className="space-y-5">
-            {(() => {
-              const maxLen = Math.max(...displayLines.map(l => l.length), 1)
-              const fs = `clamp(1.8rem, ${Math.min(85 / maxLen, 6).toFixed(2)}vw, 5rem)`
-              return displayLines.map((line, i) => (
-                <p key={i} className="text-white font-sans font-semibold leading-tight uppercase" style={{ fontSize: fs }}>
-                  {line}
-                </p>
-              ))
-            })()}
+          <div className="space-y-6">
+            {displayLines.map((line, i) => (
+              <p key={i} className="text-white font-sans font-semibold leading-tight uppercase" style={{ fontSize: slideFs }}>
+                {line}
+              </p>
+            ))}
           </div>
         </div>
       )}

@@ -413,7 +413,8 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
       <div className="flex flex-1 min-h-0">
 
         {/* Panneau gauche */}
-        <div className="w-80 shrink-0 flex flex-col gap-3 p-4 border-r border-white/10 overflow-y-auto">
+        <div className="w-80 shrink-0 border-r border-white/10 overflow-y-auto">
+        <div className="flex flex-col gap-3 p-4">
 
           {showAddSong ? (
             /* ── Ajout d'un chant à la volée ── */
@@ -648,7 +649,8 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
               })}
             </div>
           </div>
-        </div>
+        </div>{/* fin inner flex */}
+        </div>{/* fin panneau gauche */}
 
         {/* Grille de toutes les diapos */}
         <div className="flex-1 overflow-y-auto p-4">
