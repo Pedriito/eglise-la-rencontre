@@ -49,16 +49,25 @@ export default async function TeamPage({
 
   if (!team) redirect('/benevoles/admin/equipes')
 
-  const memberIds = new Set(members?.map(m => m.user_id))
+  // Tri alphabétique par nom à l'intérieur de chaque rôle
+  const sortedMembers = (members ?? []).sort((a, b) => {
+    if (a.role !== b.role) return a.role.localeCompare(b.role)
+    const pa = a.profiles as { last_name?: string; first_name?: string } | null
+    const pb = b.profiles as { last_name?: string; first_name?: string } | null
+    return (pa?.last_name ?? '').localeCompare(pb?.last_name ?? '', 'fr') ||
+           (pa?.first_name ?? '').localeCompare(pb?.first_name ?? '', 'fr')
+  })
+
+  const memberIds = new Set(sortedMembers.map(m => m.user_id))
   const nonMembers = allProfiles?.filter(p => !memberIds.has(p.id)) ?? []
 
   // Positions par membre
   const memberPositions: Record<string, Set<string>> = {}
-  if (members?.length) {
+  if (sortedMembers.length) {
     const { data: mp } = await supabase
       .from('member_positions')
       .select('user_id, position_id')
-      .in('user_id', members.map(m => m.user_id))
+      .in('user_id', sortedMembers.map(m => m.user_id))
     mp?.forEach(p => {
       if (!memberPositions[p.user_id]) memberPositions[p.user_id] = new Set()
       memberPositions[p.user_id].add(p.position_id)
@@ -88,7 +97,7 @@ export default async function TeamPage({
           <h2 className="font-display text-xl text-dark font-light mb-3">Membres</h2>
           <MemberList
             teamId={id}
-            members={(members ?? []) as any}
+            members={sortedMembers as any}
             positions={positions ?? []}
             memberPositions={memberPositions}
             readOnly={!canEdit}
