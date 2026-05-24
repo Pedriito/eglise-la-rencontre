@@ -104,6 +104,27 @@ export default async function PlanDetailPage({
 
   const pendingCount = assignments.filter(a => a.status === 'pending' && a.user_id !== INVITE_EXT_ID).length
 
+  const isAdmin = me?.permission === 'admin'
+
+  // Équipes visibles selon le rôle :
+  // - admin : tout
+  // - affecté à "Coordination des célébrations" dans ce plan : tout
+  // - sinon : uniquement les équipes où l'utilisateur est affecté dans ce plan
+  const COORDINATION_NAME = 'Coordination des célébrations'
+  const myTeamIdsInPlan = new Set(
+    assignments
+      .filter(a => a.user_id === user.id)
+      .map(a => a.team_id ?? a.positions?.team_id)
+      .filter((id): id is string => !!id)
+  )
+  const isCoordinator = (teams ?? []).some(
+    t => t.name === COORDINATION_NAME && myTeamIdsInPlan.has(t.id)
+  )
+  const canSeeAllTeams = isAdmin || isCoordinator
+  function isTeamVisible(team: { id: string }): boolean {
+    return canSeeAllTeams || myTeamIdsInPlan.has(team.id)
+  }
+
   const date = new Date(plan.service_date).toLocaleDateString('fr-FR', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
@@ -150,7 +171,7 @@ export default async function PlanDetailPage({
           {((plan as any).plan_type === 'prayer_meeting'
             ? (teams ?? []).filter(t => PRAYER_MEETING_TEAMS.has(t.name))
             : (teams ?? [])
-          ).map(team => {
+          ).filter(isTeamVisible).map(team => {
             const teamPositions = team.positions as unknown as TeamPosition[]
             const teamAssignments = assignmentsByTeam[team.id] ?? []
             const isInviteTeam = TEAMS_WITH_INVITE.has(team.name)
