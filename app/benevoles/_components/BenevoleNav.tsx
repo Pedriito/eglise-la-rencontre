@@ -60,6 +60,16 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
     })
   }
 
+  if (isAdmin || isEditor) {
+    items.push({
+      label: 'Paramètres',
+      href: '/benevoles/admin/parametres',
+      match: p =>
+        p.startsWith('/benevoles/admin/parametres') ||
+        p.startsWith('/benevoles/admin/mediatheque'),
+    })
+  }
+
   items.push({
     label: 'Gestion',
     href: '/benevoles/gestion',

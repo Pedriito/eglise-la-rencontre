@@ -59,6 +59,9 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
   const channelRef = useRef<BroadcastChannel | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const realtimeRef = useRef<any>(null)
+  // Médias
+  const [mediaFiles, setMediaFiles] = useState<{ id: string; name: string; url: string }[]>([])
+  const [projectedImageUrl, setProjectedImageUrl] = useState<string | null>(null)
 
   const allSongs   = [...songs, ...extraSongs]
   const songSlides = buildAllSlides(allSongs)
@@ -150,6 +153,13 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
       }
     }
   }
+
+  // Charger les médias depuis Supabase
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.from('media_files').select('id, name, url').eq('type', 'image').order('created_at', { ascending: false })
+      .then(({ data }) => { if (data) setMediaFiles(data) })
+  }, [])
 
   // BroadcastChannel
   useEffect(() => {
@@ -260,6 +270,20 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
   function clearVerse() {
     setIsShowingVerse(false)
     channelRef.current?.postMessage({ type: 'CLEAR_VERSE' })
+  }
+
+  function projectImage(url: string) {
+    setProjectedImageUrl(url)
+    setIsShowingMessage(false)
+    setIsShowingVerse(false)
+    channelRef.current?.postMessage({ type: 'IMAGE', url })
+    realtimeRef.current?.send({ type: 'broadcast', event: 'image', payload: { url } })
+  }
+
+  function clearImage() {
+    setProjectedImageUrl(null)
+    channelRef.current?.postMessage({ type: 'CLEAR_IMAGE' })
+    realtimeRef.current?.send({ type: 'broadcast', event: 'blank', payload: {} })
   }
 
   const COUNTDOWN_SECONDS = 5 * 60
@@ -590,6 +614,44 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
               </div>
             )}
           </div>
+
+          {/* Médias */}
+          {mediaFiles.length > 0 && (
+            <div className="border border-white/10 rounded-xl p-3 space-y-2">
+              <p className="font-sans text-[10px] uppercase tracking-widest text-white/30">Images</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {mediaFiles.map(f => {
+                  const isActive = projectedImageUrl === f.url
+                  return (
+                    <button
+                      key={f.id}
+                      onClick={() => isActive ? clearImage() : projectImage(f.url)}
+                      title={f.name}
+                      className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                        isActive ? 'border-teal ring-1 ring-teal/50' : 'border-white/10 hover:border-white/40'
+                      }`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={f.url} alt={f.name} className="w-full h-full object-cover" />
+                      {isActive && (
+                        <div className="absolute inset-0 bg-teal/30 flex items-center justify-center">
+                          <span className="text-white text-lg">✓</span>
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+              {projectedImageUrl && (
+                <button
+                  onClick={clearImage}
+                  className="w-full py-1.5 bg-amber-500/80 hover:bg-amber-500 rounded-lg font-sans text-xs font-semibold text-white transition-colors"
+                >
+                  ✕ Effacer l'image
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Prev / Next */}
           <div className="flex gap-2">

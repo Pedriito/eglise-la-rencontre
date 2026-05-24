@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { buildAllSlides, type Slide } from '@/lib/parseSlides'
 import { CountdownDisplay, COUNTDOWN_SECONDS } from '@/app/_components/CountdownDisplay'
+import { type ProjectionSettings, DEFAULT_SETTINGS, getBgStyle, getTextStyle, loadGoogleFont } from '@/lib/projectionSettings'
 
 type Song = {
   planSongId: string
@@ -14,10 +15,12 @@ type Song = {
   } | null
 }
 
-type Props = { planId: string; songs: Song[] }
+type Props = { planId: string; songs: Song[]; settings?: ProjectionSettings }
 
-export function ProjectorScreen({ planId, songs }: Props) {
+export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props) {
+  const settings = settingsProp ?? DEFAULT_SETTINGS
   const [current, setCurrent]         = useState<{ songIdx: number; slideIdx: number }>({ songIdx: 0, slideIdx: 0 })
+  const [projectedImageUrl, setProjectedImageUrl] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showPrompt, setShowPrompt]   = useState(true)
   const [freeMessage, setFreeMessage] = useState<string | null>(null)
@@ -51,6 +54,9 @@ export function ProjectorScreen({ planId, songs }: Props) {
     audio.pause()
     audio.currentTime = 0
   }
+
+  // Charger la Google Font si nécessaire
+  useEffect(() => { loadGoogleFont(settings.font_family) }, [settings.font_family])
 
   const songSlides   = buildAllSlides(songs)
   const currentSong  = songSlides[current.songIdx]
@@ -135,6 +141,16 @@ export function ProjectorScreen({ planId, songs }: Props) {
         setCountdown(null)
         stopAudio()
       }
+      if (e.data?.type === 'IMAGE') {
+        setProjectedImageUrl(e.data.url)
+        setFreeMessage(null)
+        setVerse(null)
+        setCountdown(null)
+        setShowPrompt(false)
+      }
+      if (e.data?.type === 'CLEAR_IMAGE') {
+        setProjectedImageUrl(null)
+      }
     }
     ch.postMessage({ type: 'READY' })
     return () => ch.close()
@@ -159,11 +175,22 @@ export function ProjectorScreen({ planId, songs }: Props) {
     }
   }
 
+  const bgStyle = getBgStyle(settings)
+  const txtStyle = getTextStyle(settings)
+
   return (
     <div
-      className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center select-none cursor-none"
+      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center select-none cursor-none overflow-hidden"
+      style={bgStyle}
       onClick={!isFullscreen ? enterFullscreen : undefined}
     >
+      {/* Overlay sombre pour les fonds image */}
+      {settings.bg_type === 'image' && settings.overlay_opacity > 0 && (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ backgroundColor: `rgba(0,0,0,${settings.overlay_opacity})` }}
+        />
+      )}
       {/* Élément audio géré par le DOM — preload automatique */}
       <audio
         ref={audioRef}
@@ -200,14 +227,22 @@ export function ProjectorScreen({ planId, songs }: Props) {
         <CountdownDisplay seconds={countdown} />
       )}
 
+      {/* Image projetée */}
+      {!showPrompt && projectedImageUrl && (
+        <div
+          className="absolute inset-0"
+          style={{ backgroundImage: `url(${projectedImageUrl})`, backgroundSize: 'contain', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}
+        />
+      )}
+
       {/* Message libre */}
-      {!showPrompt && countdown === null && freeMessage && !verse && (
-        <div className="text-center px-16 max-w-4xl w-full">
+      {!showPrompt && countdown === null && !projectedImageUrl && freeMessage && !verse && (
+        <div className="text-center px-16 max-w-4xl w-full relative">
           {freeMessage.split('\n').map((line, i) => {
             const maxLen = Math.max(...freeMessage.split('\n').map(l => l.length), 1)
             const fs = `clamp(1.8rem, ${Math.min(85 / maxLen, 6).toFixed(2)}vw, 5rem)`
             return (
-              <p key={i} className="text-white font-sans font-semibold leading-tight uppercase" style={{ fontSize: fs }}>
+              <p key={i} className="font-semibold leading-tight uppercase" style={{ ...txtStyle, fontSize: fs }}>
                 {line}
               </p>
             )
@@ -216,9 +251,9 @@ export function ProjectorScreen({ planId, songs }: Props) {
       )}
 
       {/* Verset biblique */}
-      {!showPrompt && countdown === null && verse && (
-        <div className="text-center px-12 max-w-6xl w-full">
-          <p className="text-white/40 text-xl uppercase tracking-[0.3em] mb-10 font-sans">
+      {!showPrompt && countdown === null && !projectedImageUrl && verse && (
+        <div className="text-center px-12 max-w-6xl w-full relative">
+          <p className="text-xl uppercase tracking-[0.3em] mb-10 font-sans" style={{ color: settings.text_color + '66' }}>
             {verse.display}
           </p>
           <div className="space-y-6">
@@ -227,29 +262,29 @@ export function ProjectorScreen({ planId, songs }: Props) {
               const maxLen = Math.max(...verseLines.map(l => l.length), 1)
               const fs = `clamp(2.2rem, ${Math.min(90 / maxLen, 6.5).toFixed(2)}vw, 5.5rem)`
               return (
-                <p key={i} className="text-white font-sans font-light leading-snug italic" style={{ fontSize: fs }}>
+                <p key={i} className="font-light leading-snug italic" style={{ ...txtStyle, fontSize: fs }}>
                   {line}
                 </p>
               )
             })}
           </div>
-          <p className="text-white/20 text-base font-sans mt-12 uppercase tracking-widest">
+          <p className="text-base font-sans mt-12 uppercase tracking-widest" style={{ color: settings.text_color + '33' }}>
             {verse.versionName}
           </p>
         </div>
       )}
 
       {/* Contenu de la diapo */}
-      {!showPrompt && countdown === null && !freeMessage && !verse && currentSlide && !currentSlide.isBlank && (
-        <div className="text-center px-12 max-w-6xl w-full">
+      {!showPrompt && countdown === null && !projectedImageUrl && !freeMessage && !verse && currentSlide && !currentSlide.isBlank && (
+        <div className="text-center px-12 max-w-6xl w-full relative">
           {currentSlide.section && (
-            <p className="text-white/25 text-base uppercase tracking-[0.4em] mb-10 font-sans">
+            <p className="text-base uppercase tracking-[0.4em] mb-10 font-sans" style={{ color: settings.text_color + '40' }}>
               {currentSlide.section}
             </p>
           )}
           <div className="space-y-6">
             {displayLines.map((line, i) => (
-              <p key={i} className="text-white font-sans font-semibold leading-tight uppercase" style={{ fontSize: slideFs }}>
+              <p key={i} className="font-semibold leading-tight uppercase" style={{ ...txtStyle, fontSize: slideFs }}>
                 {line}
               </p>
             ))}

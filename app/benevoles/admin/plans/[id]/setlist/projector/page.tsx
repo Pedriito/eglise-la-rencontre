@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import { ProjectorScreen } from './ProjectorScreen'
+import { DEFAULT_SETTINGS, SETTINGS_ID } from '@/lib/projectionSettings'
 
 export default async function ProjectorPage({
   params,
@@ -12,13 +13,14 @@ export default async function ProjectorPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/benevoles/login')
 
-  const [{ data: plan }, { data: rawSongs }] = await Promise.all([
+  const [{ data: plan }, { data: rawSongs }, { data: rawSettings }] = await Promise.all([
     supabase.from('plans').select('id, title').eq('id', id).single(),
     supabase
       .from('plan_songs')
       .select('id, order_index, key_selected, songs(id, title), arrangements(id, name, chord_chart, chord_chart_key)')
       .eq('plan_id', id)
       .order('order_index'),
+    supabase.from('projection_settings').select('*').eq('id', SETTINGS_ID).single(),
   ])
 
   if (!plan) notFound()
@@ -33,5 +35,7 @@ export default async function ProjectorPage({
     } | null,
   }))
 
-  return <ProjectorScreen planId={plan.id} songs={songs} />
+  const settings = (rawSettings as any) ?? DEFAULT_SETTINGS
+
+  return <ProjectorScreen planId={plan.id} songs={songs} settings={settings} />
 }
