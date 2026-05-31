@@ -34,12 +34,10 @@ const FONTS = [
   'Playfair Display', 'Bebas Neue', 'Poppins', 'Lato', 'Cinzel',
 ]
 
-const SIZE_STEPS = [
-  { label: 'XS', value: 0.60 },
-  { label: 'S',  value: 0.80 },
-  { label: 'M',  value: 1.00 },
-  { label: 'L',  value: 1.35 },
-  { label: 'XL', value: 1.75 },
+// Tailles disponibles (en % de la taille de base auto-calculée)
+const SIZE_OPTIONS = [
+  40, 50, 60, 70, 80, 90, 100, 110, 120, 130,
+  140, 150, 160, 175, 200, 225, 250, 300,
 ]
 
 // ── Toggle ───────────────────────────────────────────────────────────────────
@@ -86,19 +84,21 @@ function CassePicker({ value, fontFamily, onChange }: {
 
 // ── Taille ───────────────────────────────────────────────────────────────────
 function SizePicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const percent = Math.round(value * 100)
   return (
-    <div className="flex gap-2">
-      {SIZE_STEPS.map(step => (
-        <button key={step.label} type="button" onClick={() => onChange(step.value)}
-          className={`flex-1 py-2.5 rounded-lg border text-sm font-semibold transition-colors ${
-            Math.abs(value - step.value) < 0.05
-              ? 'bg-teal-600 text-white border-teal-600'
-              : 'bg-white text-gray-700 border-gray-200 hover:border-teal-300'
-          }`}
-        >
-          {step.label}
-        </button>
-      ))}
+    <div className="flex items-center gap-3">
+      <select
+        value={percent}
+        onChange={e => onChange(Number(e.target.value) / 100)}
+        className="flex-1 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+      >
+        {SIZE_OPTIONS.map(pct => (
+          <option key={pct} value={pct}>
+            {pct}%{pct === 100 ? ' — Normal' : ''}
+          </option>
+        ))}
+      </select>
+      <span className="text-xs text-gray-400 shrink-0">de la taille de base</span>
     </div>
   )
 }
