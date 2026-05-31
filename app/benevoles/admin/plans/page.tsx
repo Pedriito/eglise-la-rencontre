@@ -8,41 +8,30 @@ export default async function PlansPage() {
   if (!user) redirect('/benevoles/login')
 
   const { data: me } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
-  if (me?.permission !== 'admin' && me?.permission !== 'editor') redirect('/benevoles/dashboard')
 
-  const isAdmin = me?.permission === 'admin'
-
-  // Admins : tous les plans — Editors : uniquement les plans où ils sont affectés
-  let planIdFilter: string[] | null = null
-  if (!isAdmin) {
-    const { data: assignments } = await supabase
-      .from('plan_assignments')
-      .select('plan_id')
-      .eq('user_id', user.id)
-    planIdFilter = [...new Set((assignments ?? []).map(a => a.plan_id as string))]
-  }
+  const isAdmin  = me?.permission === 'admin'
+  const isEditor = me?.permission === 'editor'
+  const canManage = isAdmin || isEditor
 
   const now = new Date().toISOString()
 
-  const upcomingQuery = supabase
-    .from('plans')
-    .select('id, title, service_date, teams(name)')
-    .gte('service_date', now)
-    .order('service_date')
-
-  const pastQuery = supabase
-    .from('plans')
-    .select('id, title, service_date, teams(name)')
-    .lt('service_date', now)
-    .order('service_date', { ascending: false })
-    .limit(10)
-
-  if (planIdFilter !== null) {
-    upcomingQuery.in('id', planIdFilter.length ? planIdFilter : [''])
-    pastQuery.in('id', planIdFilter.length ? planIdFilter : [''])
-  }
-
-  const [{ data: upcoming }, { data: past }] = await Promise.all([upcomingQuery, pastQuery])
+  // À venir : visible par tous
+  const [{ data: upcoming }, { data: past }] = await Promise.all([
+    supabase
+      .from('plans')
+      .select('id, title, service_date, teams(name)')
+      .gte('service_date', now)
+      .order('service_date'),
+    // Passés : uniquement pour admin/editor
+    canManage
+      ? supabase
+          .from('plans')
+          .select('id, title, service_date, teams(name)')
+          .lt('service_date', now)
+          .order('service_date', { ascending: false })
+          .limit(10)
+      : Promise.resolve({ data: [] }),
+  ])
 
   // Compte des affectations par plan
   const allPlanIds = [...(upcoming ?? []), ...(past ?? [])].map(p => p.id)
@@ -76,7 +65,7 @@ export default async function PlansPage() {
         </td>
         <td className="px-6 py-4 text-right">
           <Link href={`/benevoles/admin/plans/${plan.id}`} className="text-teal font-sans text-sm hover:underline">
-            Gérer →
+            {canManage ? 'Gérer →' : 'Voir →'}
           </Link>
         </td>
       </tr>
@@ -92,12 +81,14 @@ export default async function PlansPage() {
           </Link>
           <h1 className="font-display text-xl md:text-2xl text-dark font-light truncate">Planification</h1>
         </div>
-        <Link
-          href="/benevoles/admin/plans/nouveau"
-          className="shrink-0 px-3 md:px-4 py-2 bg-teal text-white rounded-lg font-sans text-sm font-medium hover:bg-teal-dark transition-colors"
-        >
-          + Nouveau
-        </Link>
+        {canManage && (
+          <Link
+            href="/benevoles/admin/plans/nouveau"
+            className="shrink-0 px-3 md:px-4 py-2 bg-teal text-white rounded-lg font-sans text-sm font-medium hover:bg-teal-dark transition-colors"
+          >
+            + Nouveau
+          </Link>
+        )}
       </header>
 
       <main className="max-w-4xl mx-auto px-4 md:px-6 py-6 md:py-8 space-y-6">

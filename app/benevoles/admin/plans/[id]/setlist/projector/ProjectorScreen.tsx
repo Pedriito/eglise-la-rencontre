@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { buildAllSlides, type Slide } from '@/lib/parseSlides'
 import { CountdownDisplay, COUNTDOWN_SECONDS } from '@/app/_components/CountdownDisplay'
-import { type ProjectionSettings, DEFAULT_SETTINGS, getBgStyle, getTextStyle, loadGoogleFont } from '@/lib/projectionSettings'
+import { type ProjectionSettings, DEFAULT_SETTINGS, getBgStyle, getAnnBgStyle, getTextStyle, getAnnTextStyle, loadGoogleFont } from '@/lib/projectionSettings'
 
 type Song = {
   planSongId: string
@@ -31,6 +31,9 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const [verse, setVerse]               = useState<{ text: string; display: string; versionName: string } | null>(null)
+  const [announcement, setAnnouncement] = useState<{ title: string | null; body: string; imageUrl: string | null } | null>(null)
+  const [annImgOrientation, setAnnImgOrientation] = useState<'landscape' | 'portrait' | null>(null)
+  const [projectedVideo, setProjectedVideo] = useState<{ embedUrl: string; title: string | null } | null>(null)
   const [audioError, setAudioError]     = useState<string | null>(null)
   const channelRef = useRef<BroadcastChannel | null>(null)
   const audioRef   = useRef<HTMLAudioElement | null>(null)
@@ -116,12 +119,14 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
       if (e.data?.type === 'GOTO') {
         setCurrent({ songIdx: e.data.songIdx, slideIdx: e.data.slideIdx })
         setFreeMessage(null)
+        setProjectedVideo(null)
         setCountdown(null)
         setShowPrompt(false)
       }
       if (e.data?.type === 'MESSAGE') {
         setFreeMessage(e.data.text)
         setVerse(null)
+        setProjectedVideo(null)
         setCountdown(null)
         setShowPrompt(false)
       }
@@ -156,15 +161,41 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
         setCountdown(null)
         stopAudio()
       }
+      if (e.data?.type === 'ANNOUNCEMENT') {
+        setAnnouncement({ title: e.data.title ?? null, body: e.data.body ?? '', imageUrl: e.data.imageUrl ?? null })
+        setFreeMessage(null)
+        setVerse(null)
+        setProjectedImageUrl(null)
+        setCountdown(null)
+        setShowPrompt(false)
+      }
+      if (e.data?.type === 'CLEAR_ANNOUNCEMENT') {
+        setAnnouncement(null)
+        setAnnImgOrientation(null)
+      }
       if (e.data?.type === 'IMAGE') {
         setProjectedImageUrl(e.data.url)
         setFreeMessage(null)
         setVerse(null)
+        setAnnouncement(null)
+        setProjectedVideo(null)
         setCountdown(null)
         setShowPrompt(false)
       }
       if (e.data?.type === 'CLEAR_IMAGE') {
         setProjectedImageUrl(null)
+      }
+      if (e.data?.type === 'VIDEO') {
+        setProjectedVideo({ embedUrl: e.data.embedUrl, title: e.data.title ?? null })
+        setProjectedImageUrl(null)
+        setFreeMessage(null)
+        setVerse(null)
+        setAnnouncement(null)
+        setCountdown(null)
+        setShowPrompt(false)
+      }
+      if (e.data?.type === 'CLEAR_VIDEO') {
+        setProjectedVideo(null)
       }
     }
     ch.postMessage({ type: 'READY' })
@@ -190,8 +221,21 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
     }
   }
 
-  const bgStyle = getBgStyle(settings)
-  const txtStyle = getTextStyle(settings)
+  // Détection orientation de l'image d'annonce
+  useEffect(() => {
+    const url = announcement?.imageUrl
+    if (!url) { setAnnImgOrientation(null); return }
+    const img = new window.Image()
+    img.onload = () => {
+      setAnnImgOrientation(img.naturalWidth >= img.naturalHeight ? 'landscape' : 'portrait')
+    }
+    img.src = url
+  }, [announcement?.imageUrl])
+
+  const bgStyle      = getBgStyle(settings)
+  const annBgStyle   = getAnnBgStyle(settings)
+  const txtStyle     = getTextStyle(settings)
+  const annTxtStyle  = getAnnTextStyle(settings)
 
   return (
     <div
@@ -250,14 +294,137 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
         />
       )}
 
+      {/* Vidéo projetée */}
+      {!showPrompt && projectedVideo && (
+        <div className="absolute inset-0 z-10 bg-black flex items-center justify-center">
+          <iframe
+            src={projectedVideo.embedUrl}
+            className="w-full h-full border-0"
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      )}
+
+      {/* ── Annonce ── */}
+      {!showPrompt && countdown === null && !projectedImageUrl && !projectedVideo && announcement && (() => {
+        const hasImage   = !!announcement.imageUrl
+        const isLandscape = annImgOrientation === 'landscape'
+        const isPortrait  = annImgOrientation === 'portrait'
+        const lines       = announcement.body.split('\n')
+        const maxLen      = Math.max(...lines.map(l => l.length), 1)
+
+        // ── Paysage : image plein fond + texte centré par-dessus ──────────────
+        if (hasImage && isLandscape) {
+          return (
+            <div className="absolute inset-0 z-10">
+              {/* Image de fond plein écran */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={announcement.imageUrl!} alt="" className="absolute inset-0 w-full h-full object-cover" />
+              {/* Dégradé sombre en bas pour lisibilité du texte */}
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.1) 100%)' }} />
+              {/* Texte en bas */}
+              <div className="absolute bottom-0 left-0 right-0 px-[8%] pb-[6%]">
+                {announcement.title && (
+                  <p className="text-base uppercase tracking-[0.4em] mb-4 font-sans" style={{ color: settings.text_color + '80' }}>
+                    {announcement.title}
+                  </p>
+                )}
+                <div className="space-y-3">
+                  {lines.map((line, i) => {
+                    const fs = `clamp(1.8rem, ${Math.min(70 / maxLen, 6).toFixed(2)}vw, 5rem)`
+                    return (
+                      <p key={i} className="font-semibold leading-tight drop-shadow-lg" style={{ ...annTxtStyle, fontSize: fs }}>
+                        {line}
+                      </p>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )
+        }
+
+        // ── Portrait : image à droite (40%), texte à gauche (60%) ────────────
+        if (hasImage && isPortrait) {
+          const fs = `clamp(1.6rem, ${Math.min(55 / maxLen, 5.5).toFixed(2)}vw, 4.5rem)`
+          return (
+            <div className="absolute inset-0 z-10 flex">
+              {/* Fond de la moitié gauche (couleur/dégradé des paramètres) */}
+              <div className="w-[58%] h-full flex flex-col justify-center px-[5%]" style={annBgStyle}>
+                {settings.ann_bg_type === 'image' && settings.ann_bg_image_url && (
+                  <>
+                    <div className="absolute inset-0 bg-center bg-cover" style={{ backgroundImage: `url(${settings.ann_bg_image_url})`, filter: settings.ann_bg_blur > 0 ? `blur(${settings.ann_bg_blur}px)` : undefined, transform: 'scale(1.05)' }} />
+                    {settings.ann_bg_overlay_opacity > 0 && (
+                      <div className="absolute inset-0" style={{ backgroundColor: `rgba(0,0,0,${settings.ann_bg_overlay_opacity})` }} />
+                    )}
+                  </>
+                )}
+                <div className="relative z-10">
+                  {announcement.title && (
+                    <p className="text-sm uppercase tracking-[0.4em] mb-6 font-sans" style={{ color: settings.text_color + '60' }}>
+                      {announcement.title}
+                    </p>
+                  )}
+                  <div className="space-y-4">
+                    {lines.map((line, i) => (
+                      <p key={i} className="font-semibold leading-tight" style={{ ...annTxtStyle, fontSize: fs }}>
+                        {line}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              {/* Image portrait à droite */}
+              <div className="w-[42%] h-full overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={announcement.imageUrl!} alt="" className="w-full h-full object-cover" />
+              </div>
+            </div>
+          )
+        }
+
+        // ── Pas d'image (ou orientation pas encore détectée) : layout standard ─
+        const fs = `clamp(2rem, ${Math.min(80 / maxLen, 7).toFixed(2)}vw, 6rem)`
+        return (
+          <>
+            {/* Fond */}
+            <div className="absolute inset-0 z-0" style={annBgStyle}>
+              {settings.ann_bg_type === 'image' && settings.ann_bg_image_url && (
+                <>
+                  <div className="absolute inset-0 bg-center bg-cover" style={{ backgroundImage: `url(${settings.ann_bg_image_url})`, filter: settings.ann_bg_blur > 0 ? `blur(${settings.ann_bg_blur}px)` : undefined, transform: 'scale(1.05)' }} />
+                  {settings.ann_bg_overlay_opacity > 0 && (
+                    <div className="absolute inset-0" style={{ backgroundColor: `rgba(0,0,0,${settings.ann_bg_overlay_opacity})` }} />
+                  )}
+                </>
+              )}
+            </div>
+            <div className="px-[8%] w-full relative z-10">
+              {announcement.title && (
+                <p className="text-base uppercase tracking-[0.4em] mb-8 font-sans" style={{ color: settings.text_color + '60' }}>
+                  {announcement.title}
+                </p>
+              )}
+              <div className="space-y-5">
+                {lines.map((line, i) => (
+                  <p key={i} className="font-semibold leading-tight" style={{ ...annTxtStyle, fontSize: fs }}>
+                    {line}
+                  </p>
+                ))}
+              </div>
+            </div>
+          </>
+        )
+      })()}
+
       {/* Message libre */}
-      {!showPrompt && countdown === null && !projectedImageUrl && freeMessage && !verse && (
+      {!showPrompt && countdown === null && !projectedImageUrl && !projectedVideo && !announcement && freeMessage && !verse && (
         <div className="text-center px-16 max-w-4xl w-full relative">
           {freeMessage.split('\n').map((line, i) => {
             const maxLen = Math.max(...freeMessage.split('\n').map(l => l.length), 1)
             const fs = `clamp(1.8rem, ${Math.min(85 / maxLen, 6).toFixed(2)}vw, 5rem)`
             return (
-              <p key={i} className="font-semibold leading-tight uppercase" style={{ ...txtStyle, fontSize: fs }}>
+              <p key={i} className="font-semibold leading-tight" style={{ ...txtStyle, fontSize: fs }}>
                 {line}
               </p>
             )
@@ -266,7 +433,7 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
       )}
 
       {/* Verset biblique */}
-      {!showPrompt && countdown === null && !projectedImageUrl && verse && (
+      {!showPrompt && countdown === null && !projectedImageUrl && !projectedVideo && verse && (
         <div className="text-center px-12 max-w-6xl w-full relative">
           <p className="text-xl uppercase tracking-[0.3em] mb-10 font-sans" style={{ color: settings.text_color + '66' }}>
             {verse.display}
@@ -290,8 +457,8 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
       )}
 
       {/* Contenu de la diapo */}
-      {!showPrompt && countdown === null && !projectedImageUrl && !freeMessage && !verse && currentSlide && !currentSlide.isBlank && (
-        <div className="text-center px-12 max-w-6xl w-full relative">
+      {!showPrompt && countdown === null && !projectedImageUrl && !projectedVideo && !announcement && !freeMessage && !verse && currentSlide && !currentSlide.isBlank && (
+        <div className="text-center px-[8%] w-full relative">
           {currentSlide.section && (
             <p className="text-base uppercase tracking-[0.4em] mb-10 font-sans" style={{ color: settings.text_color + '40' }}>
               {formatSection(currentSlide.section)}
@@ -299,7 +466,7 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
           )}
           <div className="space-y-6">
             {displayLines.map((line, i) => (
-              <p key={i} className="font-semibold leading-tight uppercase" style={{ ...txtStyle, fontSize: slideFs }}>
+              <p key={i} className="font-semibold leading-tight" style={{ ...txtStyle, fontSize: slideFs }}>
                 {line}
               </p>
             ))}

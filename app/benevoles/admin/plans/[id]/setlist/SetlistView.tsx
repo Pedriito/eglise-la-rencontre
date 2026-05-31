@@ -21,17 +21,25 @@ type Song = {
   allArrangements: { id: string; name: string; chord_chart_key: string | null; hasChart: boolean }[]
 }
 
+type Announcement = { id: string; title: string | null; body: string; order_index: number; image_url: string | null; video_url: string | null }
+type Sermon = { id: string; title: string; url: string }
+type PlanVideo = { id: string; title: string | null; url: string; order_index: number }
+
 type Props = {
   planId: string
   planTitle: string
   songs: Song[]
+  announcements: Announcement[]
+  sermons: Sermon[]
+  videos?: PlanVideo[]
+  autoProjection?: boolean
 }
 
-export function SetlistView({ planId, planTitle, songs }: Props) {
+export function SetlistView({ planId, planTitle, songs, announcements, sermons, videos, autoProjection }: Props) {
   const router = useRouter()
   const [activeIdx, setActiveIdx] = useState(0)
   const [mobileView, setMobileView] = useState<'list' | 'chart'>('list')
-  const [projecting, setProjecting] = useState(false)
+  const [projecting, setProjecting] = useState(autoProjection ?? false)
   const [isPending, startTransition] = useTransition()
   const [switchError, setSwitchError] = useState<string | null>(null)
   const songRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -69,6 +77,9 @@ export function SetlistView({ planId, planTitle, songs }: Props) {
         <ProjectionView
           planId={planId}
           songs={songs}
+          announcements={announcements}
+          sermons={sermons}
+          videos={videos ?? []}
           initialSongIdx={activeIdx}
           onClose={() => setProjecting(false)}
         />
@@ -92,15 +103,13 @@ export function SetlistView({ planId, planTitle, songs }: Props) {
             <p className="font-display text-base text-dark font-light truncate">{planTitle}</p>
             <p className="font-sans text-xs text-dark/40">{songs.length} chant{songs.length > 1 ? 's' : ''}</p>
           </div>
-          {songs.length > 0 && (
-            <button
-              onClick={() => setProjecting(true)}
-              title="Mode vidéoprojecteur"
-              className="shrink-0 px-2.5 py-1.5 bg-dark hover:bg-dark/80 text-white rounded-lg font-sans text-xs font-medium transition-colors"
-            >
-              ⬛ Projection
-            </button>
-          )}
+          <button
+            onClick={() => setProjecting(true)}
+            title="Mode vidéoprojecteur"
+            className="shrink-0 px-2.5 py-1.5 bg-dark hover:bg-dark/80 text-white rounded-lg font-sans text-xs font-medium transition-colors"
+          >
+            ⬛ Projection
+          </button>
         </div>
 
         {/* Songs list */}

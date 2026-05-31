@@ -1,21 +1,77 @@
-import WaveDivider from "../WaveDivider";
+import WaveDivider from "../WaveDivider"
 
-const videos = [
-  {
-    id: "aR9ZkmRe0w8",
-    titre: "Culte du 3 mai 2026",
-  },
-  {
-    id: "zQikIyM9Dlc",
-    titre: "Culte du 26 avril 2026",
-  },
-  {
-    id: "eB31HHhTTwk",
-    titre: "Culte du 5 avril 2026",
-  },
-];
+type Video = { id: string; titre: string }
 
-export default function Cultes() {
+// Vidéos de secours (affichées si YouTube est inaccessible)
+const FALLBACK: Video[] = [
+  { id: "aR9ZkmRe0w8", titre: "Culte du 3 mai 2026" },
+  { id: "zQikIyM9Dlc", titre: "Culte du 26 avril 2026" },
+  { id: "eB31HHhTTwk", titre: "Culte du 5 avril 2026" },
+]
+
+// Découvre automatiquement l'ID de la chaîne à partir d'une vidéo connue
+// via l'API oEmbed publique de YouTube (pas de clé API nécessaire).
+// Résultat mis en cache 30 jours — se renouvelle silencieusement en arrière-plan.
+async function getChannelId(): Promise<string | null> {
+  // Priorité : variable d'environnement si définie manuellement
+  if (process.env.YOUTUBE_CHANNEL_ID) return process.env.YOUTUBE_CHANNEL_ID
+
+  try {
+    const seedVideoId = FALLBACK[0].id
+    const res = await fetch(
+      `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${seedVideoId}&format=json`,
+      { next: { revalidate: 60 * 60 * 24 * 30 } } // 30 jours
+    )
+    if (!res.ok) return null
+    const data = await res.json()
+    // author_url = "https://www.youtube.com/channel/UCxxxxxxxx"
+    const channelId = (data.author_url as string)
+      ?.split('/channel/')?.[1]
+      ?.split(/[?/]/)[0] ?? null
+    return channelId
+  } catch {
+    return null
+  }
+}
+
+// Récupère les 3 dernières vidéos depuis le flux RSS public de la chaîne.
+// Revalidation toutes les 10 minutes → la nouvelle vidéo du dimanche soir
+// apparaît sur le site dans les 10 minutes après la fin du live, sans intervention.
+async function getLatestVideos(): Promise<Video[]> {
+  const channelId = await getChannelId()
+  if (!channelId) return FALLBACK
+
+  try {
+    const res = await fetch(
+      `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`,
+      { next: { revalidate: 600 } } // 10 minutes
+    )
+    if (!res.ok) return FALLBACK
+
+    const xml = await res.text()
+    const entries = xml.match(/<entry>([\s\S]*?)<\/entry>/g) ?? []
+
+    const videos = entries.slice(0, 3).map((entry): Video => {
+      const id    = entry.match(/<yt:videoId>([^<]+)<\/yt:videoId>/)?.[1] ?? ''
+      const raw   = entry.match(/<title>([^<]+)<\/title>/)?.[1]?.trim() ?? ''
+      const titre = raw
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g,  '<')
+        .replace(/&gt;/g,  '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g,  "'")
+      return { id, titre }
+    }).filter(v => v.id)
+
+    return videos.length > 0 ? videos : FALLBACK
+  } catch {
+    return FALLBACK
+  }
+}
+
+export default async function Cultes() {
+  const videos = await getLatestVideos()
+
   return (
     <section id="cultes" className="py-24 px-6 bg-teal-50">
       <div className="max-w-5xl mx-auto text-center">
@@ -31,8 +87,8 @@ export default function Cultes() {
         </p>
 
         <div className="grid md:grid-cols-3 gap-6 mb-10">
-          {videos.map((v, i) => (
-            <div key={i} className="aspect-video bg-teal-light rounded-sm overflow-hidden shadow-sm">
+          {videos.map((v) => (
+            <div key={v.id} className="aspect-video bg-teal-light rounded-sm overflow-hidden shadow-sm">
               <iframe
                 src={`https://www.youtube.com/embed/${v.id}`}
                 title={v.titre}
@@ -57,5 +113,5 @@ export default function Cultes() {
         </a>
       </div>
     </section>
-  );
+  )
 }

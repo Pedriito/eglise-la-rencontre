@@ -31,12 +31,14 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
     },
   ]
 
+  // Planification visible par tous les bénévoles connectés
+  items.push({
+    label: 'Planification',
+    href: '/benevoles/admin/plans',
+    match: p => p.startsWith('/benevoles/admin/plans'),
+  })
+
   if (isAdmin || isEditor) {
-    items.push({
-      label: 'Planification',
-      href: '/benevoles/admin/plans',
-      match: p => p.startsWith('/benevoles/admin/plans'),
-    })
     items.push({
       label: 'Équipes',
       href: '/benevoles/admin/equipes',
@@ -62,7 +64,7 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
 
   if (isAdmin || isEditor) {
     items.push({
-      label: 'Paramètres',
+      label: 'Paramètres projection',
       href: '/benevoles/admin/parametres',
       match: p =>
         p.startsWith('/benevoles/admin/parametres') ||

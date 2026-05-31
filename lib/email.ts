@@ -1,5 +1,12 @@
 import { Resend } from 'resend'
 
+/** Retourne l'URL de base du site en évitant les liens localhost dans les emails */
+function getSiteUrl(): string {
+  const url = process.env.NEXT_PUBLIC_SITE_URL
+  if (!url || url.startsWith('http://localhost')) return 'https://www.egliselarencontre.fr'
+  return url
+}
+
 /** "25 mai", "3 décembre", etc. — format court pour les objets d'email */
 function shortDate(serviceDate: string): string {
   return new Date(serviceDate).toLocaleDateString('fr-FR', {
@@ -112,7 +119,7 @@ export async function sendCancellationNotificationEmail({
   const time = new Date(serviceDate).toLocaleTimeString('fr-FR', {
     hour: '2-digit', minute: '2-digit',
   })
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.egliselarencontre.fr'
+  const siteUrl = getSiteUrl()
   const resend = getResend()
 
   const { error: errCancel } = await resend.emails.send({
@@ -178,7 +185,7 @@ export async function sendReminderEmail({
   const time = new Date(serviceDate).toLocaleTimeString('fr-FR', {
     hour: '2-digit', minute: '2-digit',
   })
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.egliselarencontre.fr'
+  const siteUrl = getSiteUrl()
   const resend = getResend()
 
   const responseUrl = isExternal
@@ -246,7 +253,7 @@ export async function sendExternalGuestInvitationEmail({
   const time = new Date(serviceDate).toLocaleTimeString('fr-FR', {
     hour: '2-digit', minute: '2-digit',
   })
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.egliselarencontre.fr'
+  const siteUrl = getSiteUrl()
   const resend = getResend()
 
   const { error } = await resend.emails.send({
@@ -309,7 +316,7 @@ export async function sendPlanAssignmentEmail({
   const time = new Date(serviceDate).toLocaleTimeString('fr-FR', {
     hour: '2-digit', minute: '2-digit',
   })
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.egliselarencontre.fr'
+  const siteUrl = getSiteUrl()
   const resend = getResend()
 
   const { error: errPlan } = await resend.emails.send({

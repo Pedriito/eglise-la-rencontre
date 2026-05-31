@@ -6,6 +6,8 @@ import { buildAllSlides, type Slide } from '@/lib/parseSlides'
 import { updateSlideLyrics, searchSongsForProjection, type SongSearchResult } from '@/app/benevoles/admin/plans/actions'
 import { fetchBibleVerse, BIBLE_VERSIONS } from '@/lib/bible'
 import { createClient } from '@/lib/supabase/client'
+import { SermonPdfPanel } from './SermonPdfPanel'
+import { getEmbedUrl, getYoutubeThumbnail, getPlatformLabel } from '@/lib/videoEmbed'
 
 type Song = {
   planSongId: string
@@ -18,16 +20,23 @@ type Song = {
   } | null
 }
 
+type Announcement = { id: string; title: string | null; body: string; order_index: number; image_url: string | null; video_url: string | null }
+type Sermon = { id: string; title: string; url: string }
+type PlanVideo = { id: string; title: string | null; url: string; order_index: number }
+
 type Props = {
   planId: string
   songs: Song[]
+  announcements: Announcement[]
+  sermons: Sermon[]
+  videos: PlanVideo[]
   initialSongIdx: number
   onClose: () => void
 }
 
 function slideKey(si: number, di: number) { return `${si}-${di}` }
 
-export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props) {
+export function ProjectionView({ planId, songs, announcements, sermons, videos, initialSongIdx, onClose }: Props) {
   const router = useRouter()
   const [current, setCurrent]           = useState({ songIdx: initialSongIdx, slideIdx: 0 })
   const [projectorReady, setProjectorReady] = useState(false)
@@ -36,10 +45,15 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
   const [isShowingMessage, setIsShowingMessage] = useState(false)
   // Overrides de paroles
   const [slideOverrides, setSlideOverrides] = useState<Map<string, string[]>>(new Map())
-  // État d'édition
+  // État d'édition (chants)
   const [editingKey, setEditingKey]     = useState<string | null>(null)
   const [editText, setEditText]         = useState('')
   const [saveStatus, setSaveStatus]     = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  // Overrides et édition des annonces
+  const [annOverrides, setAnnOverrides] = useState<Map<string, { title: string | null; body: string }>>(new Map())
+  const [editingAnnId, setEditingAnnId] = useState<string | null>(null)
+  const [editAnnTitle, setEditAnnTitle] = useState('')
+  const [editAnnBody, setEditAnnBody]   = useState('')
   // Ajout de chant à la volée
   const [showAddSong, setShowAddSong]   = useState(false)
   const [addQuery, setAddQuery]         = useState('')
@@ -53,6 +67,10 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
   const [bibleResult, setBibleResult]       = useState<{ text: string; display: string; versionName: string } | null>(null)
   const [bibleError, setBibleError]         = useState<string | null>(null)
   const [isShowingVerse, setIsShowingVerse] = useState(false)
+  // Défilement automatique
+  const [autoAdvanceSecs, setAutoAdvanceSecs] = useState<number | null>(null)
+  const [autoResetKey, setAutoResetKey]       = useState(0)
+  const [autoLoop, setAutoLoop]               = useState(false)
   // Décompte
   const [countdownActive, setCountdownActive] = useState(false)
   const countdownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -62,6 +80,12 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
   // Médias
   const [mediaFiles, setMediaFiles] = useState<{ id: string; name: string; url: string }[]>([])
   const [projectedImageUrl, setProjectedImageUrl] = useState<string | null>(null)
+  // Prédication PDF
+  const [projectedSermonLabel, setProjectedSermonLabel] = useState<string | null>(null)
+  // Annonce projetée (id)
+  const [projectedAnnouncementId, setProjectedAnnouncementId] = useState<string | null>(null)
+  // Vidéo projetée (id)
+  const [projectedVideoId, setProjectedVideoId] = useState<string | null>(null)
 
   const allSongs   = [...songs, ...extraSongs]
   const songSlides = buildAllSlides(allSongs)
@@ -86,6 +110,35 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
   // Lignes effectives (avec override éventuel)
   function getLines(si: number, di: number, slide: Slide): string[] {
     return slideOverrides.get(slideKey(si, di)) ?? slide.lines
+  }
+
+  // Annonce effective (avec override éventuel)
+  function getEffectiveAnn(ann: Announcement) {
+    return annOverrides.get(ann.id) ?? { title: ann.title, body: ann.body }
+  }
+
+  // Ouvrir l'éditeur d'annonce
+  function openAnnEdit(ann: Announcement) {
+    const eff = getEffectiveAnn(ann)
+    setEditingAnnId(ann.id)
+    setEditAnnTitle(eff.title ?? '')
+    setEditAnnBody(eff.body)
+    setEditingKey(null)
+    setShowAddSong(false)
+  }
+
+  // Appliquer l'édition d'annonce
+  function applyAnnEdit() {
+    if (!editingAnnId) return
+    const override = { title: editAnnTitle.trim() || null, body: editAnnBody.trim() }
+    setAnnOverrides(prev => { const m = new Map(prev); m.set(editingAnnId, override); return m })
+    // Re-projeter si cette annonce est déjà en cours (conserve l'image d'origine)
+    if (projectedAnnouncementId === editingAnnId) {
+      const ann = announcements.find(a => a.id === editingAnnId)
+      channelRef.current?.postMessage({ type: 'ANNOUNCEMENT', title: override.title, body: override.body, imageUrl: ann?.image_url ?? null })
+      realtimeRef.current?.send({ type: 'broadcast', event: 'announcement', payload: { title: override.title, body: override.body } })
+    }
+    setEditingAnnId(null)
   }
 
   // Recherche debounce pour l'ajout à la volée
@@ -208,6 +261,13 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
       ch.send({ type: 'broadcast', event: 'message', payload: { text: freeMessage.trim() } })
     } else if (isShowingVerse && bibleResult) {
       ch.send({ type: 'broadcast', event: 'verse', payload: { text: bibleResult.text, display: bibleResult.display, versionName: bibleResult.versionName } })
+    } else if (projectedAnnouncementId) {
+      const ann = announcements.find(a => a.id === projectedAnnouncementId)
+      if (ann) {
+        const eff = annOverrides.get(ann.id) ?? { title: ann.title, body: ann.body }
+        ch.send({ type: 'broadcast', event: 'announcement', payload: { title: eff.title ?? null, body: eff.body } })
+        // Note : imageUrl est géré via BroadcastChannel (même navigateur), pas OBS
+      }
     } else if (!isShowingMessage && !isShowingVerse) {
       const slide = songSlides[current.songIdx]?.slides[current.slideIdx]
       if (slide && !slide.isBlank) {
@@ -219,7 +279,7 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
     } else {
       ch.send({ type: 'broadcast', event: 'blank', payload: {} })
     }
-  }, [current, isShowingMessage, freeMessage, isShowingVerse, bibleResult, countdownActive, songSlides, slideOverrides])
+  }, [current, isShowingMessage, freeMessage, isShowingVerse, bibleResult, countdownActive, songSlides, slideOverrides, projectedAnnouncementId, announcements, annOverrides])
 
   // Fenêtre projecteur
   useEffect(() => {
@@ -234,6 +294,8 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
     setCurrent({ songIdx, slideIdx })
     setIsShowingMessage(false)
     channelRef.current?.postMessage({ type: 'GOTO', songIdx, slideIdx })
+    // Repart du début du timer à chaque navigation manuelle
+    setAutoResetKey(k => k + 1)
   }, [])
 
   function projectMessage() {
@@ -286,6 +348,56 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
     realtimeRef.current?.send({ type: 'broadcast', event: 'blank', payload: {} })
   }
 
+  function projectAnnouncement(ann: Announcement) {
+    const eff = getEffectiveAnn(ann)
+    setProjectedAnnouncementId(ann.id)
+    setProjectedImageUrl(null)
+    setProjectedSermonLabel(null)
+    setIsShowingMessage(false)
+    setIsShowingVerse(false)
+    channelRef.current?.postMessage({ type: 'ANNOUNCEMENT', title: eff.title ?? null, body: eff.body, imageUrl: ann.image_url ?? null })
+    realtimeRef.current?.send({ type: 'broadcast', event: 'announcement', payload: { title: eff.title ?? null, body: eff.body } })
+  }
+
+  function clearAnnouncement() {
+    setProjectedAnnouncementId(null)
+    channelRef.current?.postMessage({ type: 'CLEAR_ANNOUNCEMENT' })
+    realtimeRef.current?.send({ type: 'broadcast', event: 'blank', payload: {} })
+  }
+
+  function projectSermonPage(dataUrl: string, label: string) {
+    setProjectedSermonLabel(label)
+    setProjectedImageUrl(dataUrl)
+    setProjectedAnnouncementId(null)
+    setIsShowingMessage(false)
+    setIsShowingVerse(false)
+    channelRef.current?.postMessage({ type: 'IMAGE', url: dataUrl })
+    realtimeRef.current?.send({ type: 'broadcast', event: 'image', payload: { url: dataUrl } })
+  }
+
+  function clearSermonPage() {
+    setProjectedSermonLabel(null)
+    clearImage()
+  }
+
+  function projectVideo(video: PlanVideo) {
+    const embedUrl = getEmbedUrl(video.url)
+    if (!embedUrl) return
+    setProjectedVideoId(video.id)
+    setProjectedImageUrl(null)
+    setProjectedAnnouncementId(null)
+    setProjectedSermonLabel(null)
+    setIsShowingMessage(false)
+    setIsShowingVerse(false)
+    channelRef.current?.postMessage({ type: 'VIDEO', embedUrl, title: video.title ?? null })
+    realtimeRef.current?.send({ type: 'broadcast', event: 'blank', payload: {} })
+  }
+
+  function clearVideo() {
+    setProjectedVideoId(null)
+    channelRef.current?.postMessage({ type: 'CLEAR_VIDEO' })
+  }
+
   const COUNTDOWN_SECONDS = 5 * 60
 
   function sendCountdownStart() {
@@ -315,6 +427,75 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
     }
   }
 
+  // ── Défilement automatique ─────────────────────────────────────────────────
+  // Refs mises à jour synchroniquement à chaque render (pas de stale closure)
+  const currentRef      = useRef(current)
+  currentRef.current    = current
+  const songSlidesRef   = useRef(songSlides)
+  songSlidesRef.current = songSlides
+  const autoLoopRef     = useRef(autoLoop)
+  autoLoopRef.current   = autoLoop
+  const announcementsRef             = useRef(announcements)
+  announcementsRef.current           = announcements
+  const projectedAnnIdRef            = useRef(projectedAnnouncementId)
+  projectedAnnIdRef.current          = projectedAnnouncementId
+  const projectAnnouncementRef       = useRef(projectAnnouncement)
+  projectAnnouncementRef.current     = projectAnnouncement
+
+  // Overlays "durs" qui suspendent le timer (message libre, verset, image/PDF, décompte).
+  // Les annonces NE suspendent PAS le timer : elles participent au cycle.
+  const isHardOverlay = isShowingMessage || isShowingVerse || !!projectedImageUrl || countdownActive
+  const hardOverlayRef = useRef(false)
+  hardOverlayRef.current = isHardOverlay
+
+  // Quand un overlay dur se ferme → reset du timer (la diapo courante repart à zéro)
+  const prevHardOverlayRef = useRef(false)
+  useEffect(() => {
+    if (!isHardOverlay && prevHardOverlayRef.current && autoAdvanceSecs) {
+      setAutoResetKey(k => k + 1)
+    }
+    prevHardOverlayRef.current = isHardOverlay
+  }, [isHardOverlay, autoAdvanceSecs])
+
+  useEffect(() => {
+    if (!autoAdvanceSecs) return
+    const id = setInterval(() => {
+      if (hardOverlayRef.current) return // message / verset / image / décompte → suspendu
+
+      const annId = projectedAnnIdRef.current
+      const anns  = announcementsRef.current
+
+      if (annId && anns.length > 0) {
+        // Cycle à travers les annonces
+        const idx  = anns.findIndex(a => a.id === annId)
+        const next = anns[idx + 1]
+        if (next) {
+          projectAnnouncementRef.current(next)
+        } else if (autoLoopRef.current && anns[0]) {
+          projectAnnouncementRef.current(anns[0]) // reboucle sur la première
+        }
+        // Sans boucle sur la dernière annonce → reste en place
+        return
+      }
+
+      // Cycle dans les diapos de chants
+      const cur  = currentRef.current
+      const ss   = songSlidesRef.current
+      const song = ss[cur.songIdx]
+      if (!song) return
+      if (cur.slideIdx + 1 < song.slides.length) {
+        goto(cur.songIdx, cur.slideIdx + 1)
+      } else if (cur.songIdx + 1 < ss.length) {
+        goto(cur.songIdx + 1, 0)
+      } else if (autoLoopRef.current) {
+        goto(0, 0) // reboucle sur le premier chant
+      }
+      // Sans boucle sur la dernière diapo → reste en place
+    }, autoAdvanceSecs * 1000)
+    return () => clearInterval(id)
+  }, [autoAdvanceSecs, autoResetKey, goto])
+  // ───────────────────────────────────────────────────────────────────────────
+
   // Navigation clavier
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -326,7 +507,7 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
         const nextInSong = currentSong?.slides[current.slideIdx + 1]
         if (nextInSong) {
           goto(current.songIdx, current.slideIdx + 1)
-        } else if (current.songIdx < songs.length - 1) {
+        } else if (current.songIdx < allSongs.length - 1) {
           goto(current.songIdx + 1, 0)
         }
       } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
@@ -343,7 +524,7 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [current, currentSong, goto, onClose, songs.length, songSlides, editingKey])
+  }, [current, currentSong, goto, onClose, allSongs.length, songSlides, editingKey])
 
   // Scroll vers la diapo active
   const activeRef = useRef<HTMLElement | null>(null)
@@ -352,7 +533,7 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
   }, [current])
 
   const isFirst = current.songIdx === 0 && current.slideIdx === 0
-  const isLast  = current.songIdx === songs.length - 1 &&
+  const isLast  = current.songIdx === allSongs.length - 1 &&
                   current.slideIdx === (currentSong?.slides.length ?? 1) - 1
 
   return (
@@ -486,6 +667,44 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
               {!isSearching && addQuery.trim() && searchResults.length === 0 && (
                 <p className="text-white/30 text-xs font-sans text-center py-2">Aucun résultat</p>
               )}
+            </div>
+          ) : editingAnnId ? (
+            /* ── Éditeur d'annonce ── */
+            <div className="border border-amber-500/40 rounded-xl p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="font-sans text-[10px] uppercase tracking-widest text-amber-400/70">✏️ Modifier l'annonce</p>
+                <button onClick={() => setEditingAnnId(null)} className="text-white/40 hover:text-white text-sm leading-none">✕</button>
+              </div>
+              <input
+                value={editAnnTitle}
+                onChange={e => setEditAnnTitle(e.target.value)}
+                placeholder="Titre (optionnel)"
+                autoFocus
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 font-sans text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-amber-500/50"
+              />
+              <textarea
+                value={editAnnBody}
+                onChange={e => setEditAnnBody(e.target.value)}
+                rows={5}
+                placeholder="Texte de l'annonce…"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 font-sans text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-amber-500/50 resize-none"
+              />
+              <p className="text-white/25 text-[10px] font-sans">Une ligne = une ligne projetée</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setEditingAnnId(null)}
+                  className="flex-1 py-2 bg-white/10 hover:bg-white/20 rounded-lg font-sans text-xs text-white transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={applyAnnEdit}
+                  disabled={!editAnnBody.trim()}
+                  className="flex-1 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 rounded-lg font-sans text-xs text-white font-semibold transition-colors"
+                >
+                  ✓ Appliquer
+                </button>
+              </div>
             </div>
           ) : editingKey ? (
             /* ── Éditeur de diapo ── */
@@ -623,6 +842,65 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
             )}
           </div>
 
+          {/* Annonces */}
+          {announcements.length > 0 && (
+            <div className="border border-white/10 rounded-xl p-3 space-y-2">
+              <p className="font-sans text-[10px] uppercase tracking-widest text-white/30">Annonces</p>
+              <div className="space-y-1">
+                {announcements.map(ann => {
+                  const isActive = projectedAnnouncementId === ann.id
+                  return (
+                    <button
+                      key={ann.id}
+                      onClick={() => isActive ? clearAnnouncement() : projectAnnouncement(ann)}
+                      className={`w-full text-left px-3 py-2 rounded-lg border transition-all ${
+                        isActive
+                          ? 'border-amber-400/60 bg-amber-500/20 text-white'
+                          : 'border-white/10 hover:border-white/30 bg-white/5 text-white/70 hover:text-white'
+                      }`}
+                    >
+                      {ann.title && (
+                        <p className="text-[9px] uppercase tracking-widest text-white/40 leading-none mb-0.5">{ann.title}</p>
+                      )}
+                      <p className="font-sans text-xs leading-snug truncate">{ann.body}</p>
+                    </button>
+                  )
+                })}
+              </div>
+              {projectedAnnouncementId && (() => {
+                const ann = announcements.find(a => a.id === projectedAnnouncementId)
+                return (
+                  <div className="space-y-1">
+                    {ann?.video_url && (
+                      <button
+                        onClick={() => projectVideo({ id: ann.id + '-video', title: ann.title, url: ann.video_url!, order_index: 0 })}
+                        className="w-full py-1.5 bg-blue-500/80 hover:bg-blue-500 rounded-lg font-sans text-xs font-semibold text-white transition-colors"
+                      >
+                        ▶ Lancer la vidéo
+                      </button>
+                    )}
+                    <button
+                      onClick={clearAnnouncement}
+                      className="w-full py-1.5 bg-amber-500/80 hover:bg-amber-500 rounded-lg font-sans text-xs font-semibold text-white transition-colors"
+                    >
+                      ✕ Effacer l'annonce
+                    </button>
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+
+          {/* Prédication PDF */}
+          {sermons.length > 0 && (
+            <SermonPdfPanel
+              sermons={sermons}
+              onProjectPage={projectSermonPage}
+              projectedLabel={projectedSermonLabel}
+              onClear={clearSermonPage}
+            />
+          )}
+
           {/* Médias */}
           {mediaFiles.length > 0 && (
             <div className="border border-white/10 rounded-xl p-3 space-y-2">
@@ -661,6 +939,47 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
             </div>
           )}
 
+          {/* Défilement automatique */}
+          <div className="border border-white/10 rounded-xl p-3 space-y-2">
+            <p className="font-sans text-[10px] uppercase tracking-widest text-white/30">Défilement auto</p>
+            <div className="flex gap-2">
+              <select
+                value={autoAdvanceSecs ?? 0}
+                onChange={e => {
+                  const v = Number(e.target.value)
+                  setAutoAdvanceSecs(v === 0 ? null : v)
+                  setAutoResetKey(k => k + 1)
+                }}
+                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 font-sans text-xs text-white focus:outline-none focus:border-white/30"
+              >
+                <option value={0} className="bg-gray-900">Désactivé</option>
+                {[1,2,3,4,5,7,10,15,20].map(s => (
+                  <option key={s} value={s} className="bg-gray-900">{s}s</option>
+                ))}
+              </select>
+              <button
+                onClick={() => setAutoLoop(v => !v)}
+                title={autoLoop ? 'Boucle activée — cliquer pour désactiver' : 'Activer la boucle'}
+                className={`px-2.5 py-1.5 rounded-lg font-sans text-xs transition-colors border ${
+                  autoLoop
+                    ? 'bg-teal/20 border-teal/50 text-teal'
+                    : 'bg-white/5 border-white/10 text-white/30 hover:text-white hover:border-white/30'
+                }`}
+              >
+                🔁
+              </button>
+            </div>
+            {autoAdvanceSecs && (
+              <p className="text-white/25 text-[10px] font-sans leading-snug">
+                {isHardOverlay
+                  ? '⏸ Suspendu'
+                  : projectedAnnouncementId
+                    ? `↻ Annonces (${announcements.findIndex(a => a.id === projectedAnnouncementId) + 1}/${announcements.length}) · ${autoAdvanceSecs}s`
+                    : `▶ ${autoAdvanceSecs}s / diapo${autoLoop ? ' · boucle ∞' : ''}`}
+              </p>
+            )}
+          </div>
+
           {/* Prev / Next */}
           <div className="flex gap-2">
             <button
@@ -680,7 +999,7 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
               onClick={() => {
                 const nextInSong = currentSong?.slides[current.slideIdx + 1]
                 if (nextInSong) goto(current.songIdx, current.slideIdx + 1)
-                else if (current.songIdx < songs.length - 1) goto(current.songIdx + 1, 0)
+                else if (current.songIdx < allSongs.length - 1) goto(current.songIdx + 1, 0)
               }}
               disabled={isLast}
               className="flex-1 py-2.5 bg-teal hover:bg-teal/80 disabled:opacity-25 rounded-xl font-sans text-sm font-semibold transition-colors"
@@ -724,6 +1043,150 @@ export function ProjectionView({ planId, songs, initialSongIdx, onClose }: Props
 
         {/* Grille de toutes les diapos */}
         <div className="flex-1 overflow-y-auto p-4">
+
+          {/* ── Section Vidéos ── */}
+          {videos.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-3">
+                <span className="font-sans text-xs text-blue-400/50 w-4">▶</span>
+                <p className="font-display text-sm text-blue-400/70 font-light">Vidéos</p>
+                <div className="flex-1 h-px bg-white/10" />
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 pl-7">
+                {videos.map(video => {
+                  const isActive = projectedVideoId === video.id
+                  const thumb    = getYoutubeThumbnail(video.url)
+                  const platform = getPlatformLabel(video.url)
+                  return (
+                    <div
+                      key={video.id}
+                      onClick={() => isActive ? clearVideo() : projectVideo(video)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={e => e.key === 'Enter' && (isActive ? clearVideo() : projectVideo(video))}
+                      className={`group relative rounded-lg border-2 transition-all overflow-hidden aspect-video flex flex-col items-center justify-center cursor-pointer ${
+                        isActive
+                          ? 'border-blue-400 ring-1 ring-blue-400/50'
+                          : 'border-blue-500/30 bg-white/5 hover:bg-white/10 hover:border-blue-400/50'
+                      }`}
+                    >
+                      {thumb ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={thumb} alt="" className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
+                      ) : (
+                        <div className="absolute inset-0 bg-blue-900/30" />
+                      )}
+                      <div className="relative z-10 text-center px-1.5">
+                        <span className="text-white text-xl drop-shadow-lg">▶</span>
+                        {video.title && (
+                          <p className="text-white/90 text-[9px] uppercase tracking-wide leading-tight mt-1 truncate w-full drop-shadow">{video.title}</p>
+                        )}
+                        {platform && (
+                          <p className="text-white/40 text-[8px] font-sans mt-0.5">{platform}</p>
+                        )}
+                      </div>
+                      {isActive && (
+                        <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-blue-400" />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+              {projectedVideoId && (
+                <div className="mt-2 pl-7">
+                  <button
+                    onClick={clearVideo}
+                    className="px-3 py-1.5 bg-blue-500/80 hover:bg-blue-500 rounded-lg font-sans text-xs font-semibold text-white transition-colors"
+                  >
+                    ✕ Arrêter la vidéo
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Section Annonces ── */}
+          {announcements.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-3">
+                <span className="font-sans text-xs text-amber-400/50 w-4">♦</span>
+                <p className="font-display text-sm text-amber-400/70 font-light">Annonces</p>
+                <div className="flex-1 h-px bg-white/10" />
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 pl-7">
+                {announcements.map(ann => {
+                  const isActive = projectedAnnouncementId === ann.id
+                  const hasOverride = annOverrides.has(ann.id)
+                  const eff = getEffectiveAnn(ann)
+                  return (
+                    <div
+                      key={ann.id}
+                      onClick={() => isActive ? clearAnnouncement() : projectAnnouncement(ann)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={e => e.key === 'Enter' && (isActive ? clearAnnouncement() : projectAnnouncement(ann))}
+                      className={`group relative rounded-lg border-2 transition-all overflow-hidden aspect-video flex flex-col justify-start px-2 py-2 cursor-pointer ${
+                        isActive
+                          ? 'border-amber-400 bg-amber-500/20 ring-1 ring-amber-400/50'
+                          : 'border-amber-500/30 bg-white/5 hover:bg-white/10 hover:border-amber-400/50'
+                      }`}
+                    >
+                      {/* Miniature en fond si image */}
+                      {ann.image_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={ann.image_url} alt="" className="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-30 transition-opacity" />
+                      )}
+                      {eff.title && (
+                        <p className={`relative z-10 text-[9px] uppercase tracking-widest leading-none mb-1 truncate w-full ${hasOverride ? 'text-amber-300/80' : 'text-amber-400/70'}`}>
+                          {eff.title}
+                        </p>
+                      )}
+                      <div className="flex-1 overflow-hidden relative z-10">
+                        {eff.body.split('\n').slice(0, 4).map((line, i) => (
+                          <p key={i} className={`text-[11px] leading-tight text-left truncate w-full ${hasOverride ? 'text-amber-200/80' : 'text-white/80'}`}>
+                            {line}
+                          </p>
+                        ))}
+                      </div>
+                      {isActive && (
+                        <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-400" />
+                      )}
+                      {hasOverride && (
+                        <span className="absolute bottom-1 right-1 text-[8px] text-amber-400" title="Modifié">✏️</span>
+                      )}
+                      {/* Indicateur vidéo */}
+                      {ann.video_url && (
+                        <span className="absolute bottom-1 left-1 text-[8px] text-blue-400/80 z-10" title="Vidéo associée">▶</span>
+                      )}
+                      {/* Bouton édition au hover */}
+                      <button
+                        onClick={e => { e.stopPropagation(); openAnnEdit(ann) }}
+                        className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 bg-black/70 hover:bg-amber-500/80 rounded p-0.5 transition-all text-[10px] leading-none"
+                        title="Modifier l'annonce"
+                      >
+                        ✏️
+                      </button>
+                      {/* Bouton lancer la vidéo au hover */}
+                      {ann.video_url && (
+                        <button
+                          onClick={e => {
+                            e.stopPropagation()
+                            projectVideo({ id: ann.id + '-video', title: ann.title, url: ann.video_url!, order_index: 0 })
+                          }}
+                          className="absolute bottom-1 right-5 opacity-0 group-hover:opacity-100 bg-black/70 hover:bg-blue-500/80 rounded p-0.5 transition-all text-[10px] leading-none"
+                          title="Lancer la vidéo"
+                        >
+                          ▶
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── Section Chants ── */}
           {songSlides.map((ss, si) => {
             if (ss.slides.length === 0) return null
             return (

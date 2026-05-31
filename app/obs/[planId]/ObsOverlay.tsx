@@ -6,10 +6,11 @@ import { CountdownDisplay } from '@/app/_components/CountdownDisplay'
 
 type DisplayState =
   | { kind: 'blank' }
-  | { kind: 'slide';     lines: string[]; section: string | null }
-  | { kind: 'message';   text: string }
-  | { kind: 'verse';     text: string; display: string; versionName: string }
-  | { kind: 'countdown'; seconds: number }
+  | { kind: 'slide';        lines: string[]; section: string | null }
+  | { kind: 'message';      text: string }
+  | { kind: 'verse';        text: string; display: string; versionName: string }
+  | { kind: 'announcement'; title: string | null; body: string }
+  | { kind: 'countdown';    seconds: number }
 
 function formatSection(raw: string): string {
   const s = raw.replace(/\s*:\s*$/, '').trim()
@@ -78,6 +79,11 @@ export function ObsOverlay({ planId }: { planId: string }) {
       .on('broadcast', { event: 'verse' }, ({ payload }) => {
         stopTimer()
         setDisplay({ kind: 'verse', text: payload.text ?? '', display: payload.display ?? '', versionName: payload.versionName ?? '' })
+        setVisible(true)
+      })
+      .on('broadcast', { event: 'announcement' }, ({ payload }) => {
+        stopTimer()
+        setDisplay({ kind: 'announcement', title: payload.title ?? null, body: payload.body ?? '' })
         setVisible(true)
       })
       .on('broadcast', { event: 'blank' }, () => {
@@ -163,6 +169,28 @@ export function ObsOverlay({ planId }: { planId: string }) {
                       )
                     })}
                   </div>
+                )}
+
+                {/* ── Annonce ── */}
+                {display.kind === 'announcement' && (
+                  <>
+                    {display.title && (
+                      <p className="text-white/50 text-sm uppercase tracking-[0.35em] mb-3 font-sans">
+                        {display.title}
+                      </p>
+                    )}
+                    <div className="space-y-2">
+                      {display.body.split('\n').map((line, i) => {
+                        const maxLen = Math.max(...display.body.split('\n').map(l => l.length), 1)
+                        const fs = `clamp(1.8rem, ${Math.min(72 / maxLen, 4.5).toFixed(2)}vw, 3.8rem)`
+                        return (
+                          <p key={i} className="text-white font-sans font-bold leading-tight uppercase" style={{ fontSize: fs }}>
+                            {line}
+                          </p>
+                        )
+                      })}
+                    </div>
+                  </>
                 )}
 
                 {/* ── Verset biblique ── */}

@@ -1,14 +1,25 @@
 export type ProjectionSettings = {
   id: string
+  // Fond chants
   bg_type: 'color' | 'gradient' | 'image'
   bg_color: string
   bg_gradient: string | null
   bg_image_url: string | null
   bg_blur: number
   overlay_opacity: number
+  // Police & texte
   font_family: string
   text_color: string
   text_shadow: boolean
+  text_transform: 'uppercase' | 'capitalize' | 'small-caps' | 'none'
+  // Fond annonces + casse annonces
+  ann_bg_type: 'color' | 'gradient' | 'image'
+  ann_bg_color: string
+  ann_bg_gradient: string | null
+  ann_bg_image_url: string | null
+  ann_bg_blur: number
+  ann_bg_overlay_opacity: number
+  ann_text_transform: 'uppercase' | 'capitalize' | 'small-caps' | 'none'
 }
 
 export const SETTINGS_ID = '00000000-0000-0000-0000-000000000002'
@@ -24,6 +35,14 @@ export const DEFAULT_SETTINGS: ProjectionSettings = {
   font_family: 'Inter',
   text_color: '#ffffff',
   text_shadow: false,
+  text_transform: 'uppercase',
+  ann_bg_type: 'color',
+  ann_bg_color: '#1e293b',
+  ann_bg_gradient: null,
+  ann_bg_image_url: null,
+  ann_bg_blur: 0,
+  ann_bg_overlay_opacity: 0,
+  ann_text_transform: 'none',
 }
 
 export const PROJECTION_FONTS = [
@@ -47,6 +66,18 @@ export const PRESET_GRADIENTS: { name: string; value: string }[] = [
 ]
 
 /** Retourne le style CSS de fond selon les paramètres */
+export function getAnnBgStyle(s: ProjectionSettings): React.CSSProperties {
+  return getBgStyle({
+    ...s,
+    bg_type: s.ann_bg_type,
+    bg_color: s.ann_bg_color,
+    bg_gradient: s.ann_bg_gradient,
+    bg_image_url: s.ann_bg_image_url,
+    bg_blur: s.ann_bg_blur,
+    overlay_opacity: s.ann_bg_overlay_opacity,
+  })
+}
+
 export function getBgStyle(s: ProjectionSettings): React.CSSProperties {
   if (s.bg_type === 'gradient' && s.bg_gradient) {
     return { background: s.bg_gradient }
@@ -64,12 +95,29 @@ export function getBgStyle(s: ProjectionSettings): React.CSSProperties {
 
 /** Retourne le style CSS du texte selon les paramètres */
 export function getTextStyle(s: ProjectionSettings): React.CSSProperties {
+  const tt = s.text_transform ?? 'uppercase'
   return {
     color: s.text_color,
     fontFamily: `'${s.font_family}', sans-serif`,
     textShadow: s.text_shadow
       ? '0 2px 12px rgba(0,0,0,0.8), 0 1px 3px rgba(0,0,0,0.9)'
       : undefined,
+    textTransform: tt === 'small-caps' ? 'none' : tt === 'none' ? 'none' : tt,
+    fontVariant: tt === 'small-caps' ? 'small-caps' : undefined,
+  }
+}
+
+/** Retourne le style CSS du texte pour les annonces */
+export function getAnnTextStyle(s: ProjectionSettings): React.CSSProperties {
+  const tt = s.ann_text_transform ?? 'none'
+  return {
+    color: s.text_color,
+    fontFamily: `'${s.font_family}', sans-serif`,
+    textShadow: s.text_shadow
+      ? '0 2px 12px rgba(0,0,0,0.8), 0 1px 3px rgba(0,0,0,0.9)'
+      : undefined,
+    textTransform: tt === 'small-caps' || tt === 'none' ? 'none' : tt,
+    fontVariant: tt === 'small-caps' ? 'small-caps' : undefined,
   }
 }
 

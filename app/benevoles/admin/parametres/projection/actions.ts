@@ -32,6 +32,14 @@ export async function saveProjectionSettings(
       font_family: s.font_family,
       text_color: s.text_color,
       text_shadow: s.text_shadow,
+      text_transform: s.text_transform,
+      ann_bg_type: s.ann_bg_type,
+      ann_bg_color: s.ann_bg_color,
+      ann_bg_gradient: s.ann_bg_gradient,
+      ann_bg_image_url: s.ann_bg_image_url,
+      ann_bg_blur: s.ann_bg_blur,
+      ann_bg_overlay_opacity: s.ann_bg_overlay_opacity,
+      ann_text_transform: s.ann_text_transform,
       updated_at: new Date().toISOString(),
     })
   if (error) return { ok: false, error: error.message }

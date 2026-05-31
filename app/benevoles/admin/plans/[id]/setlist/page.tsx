@@ -4,10 +4,13 @@ import { SetlistView } from './SetlistView'
 
 export default async function SetlistPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ projection?: string }>
 }) {
   const { id } = await params
+  const { projection } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/benevoles/login')
@@ -17,13 +20,28 @@ export default async function SetlistPage({
     .select('permission')
     .eq('id', user.id)
     .single()
-  if (me?.permission !== 'admin' && me?.permission !== 'editor') redirect('/benevoles/dashboard')
+  // Mode live accessible à tous les bénévoles connectés (prod, louange, chanteurs…)
 
-  const [{ data: plan }, { data: rawSongs }] = await Promise.all([
+  const [{ data: plan }, { data: rawSongs }, { data: announcements }, { data: sermons }, { data: videos }] = await Promise.all([
     supabase.from('plans').select('id, title').eq('id', id).single(),
     supabase
       .from('plan_songs')
       .select('id, order_index, key_selected, songs(id, title), arrangements(id, name, chord_chart, chord_chart_key)')
+      .eq('plan_id', id)
+      .order('order_index'),
+    supabase
+      .from('plan_announcements')
+      .select('id, title, body, order_index, image_url, video_url')
+      .eq('plan_id', id)
+      .order('order_index'),
+    supabase
+      .from('plan_sermons')
+      .select('id, title, url')
+      .eq('plan_id', id)
+      .order('created_at'),
+    supabase
+      .from('plan_videos')
+      .select('id, title, url, order_index')
       .eq('plan_id', id)
       .order('order_index'),
   ])
@@ -64,6 +82,10 @@ export default async function SetlistPage({
       planId={plan.id}
       planTitle={plan.title}
       songs={songs}
+      announcements={(announcements ?? []) as { id: string; title: string | null; body: string; order_index: number; image_url: string | null; video_url: string | null }[]}
+      sermons={(sermons ?? []) as { id: string; title: string; url: string }[]}
+      videos={(videos ?? []) as { id: string; title: string | null; url: string; order_index: number }[]}
+      autoProjection={projection === '1'}
     />
   )
 }

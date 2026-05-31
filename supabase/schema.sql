@@ -195,3 +195,45 @@ create policy "Répondre à ses affectations" on public.plan_assignments
 
 -- Les admins/editors gèrent tout via service role (API routes)
 -- Le reste des écritures passe par le client admin côté serveur uniquement
+
+-- ------------------------------------------------------------
+-- PLAN_ANNOUNCEMENTS
+-- Diapos d'annonces projetables par plan
+-- ------------------------------------------------------------
+create table if not exists public.plan_announcements (
+  id          uuid primary key default gen_random_uuid(),
+  plan_id     uuid not null references public.plans(id) on delete cascade,
+  title       text,
+  body        text not null,
+  order_index integer not null default 0,
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists plan_announcements_plan_id_idx on public.plan_announcements(plan_id);
+
+alter table public.plan_announcements enable row level security;
+
+create policy "Authenticated users can read plan_announcements"
+  on public.plan_announcements for select
+  using (auth.role() = 'authenticated');
+
+-- ------------------------------------------------------------
+-- PLAN_SERMONS
+-- PDF de prédication par plan
+-- ------------------------------------------------------------
+create table if not exists public.plan_sermons (
+  id           uuid primary key default gen_random_uuid(),
+  plan_id      uuid not null references public.plans(id) on delete cascade,
+  title        text not null,
+  url          text not null,
+  storage_path text,
+  created_at   timestamptz not null default now()
+);
+
+create index if not exists plan_sermons_plan_id_idx on public.plan_sermons(plan_id);
+
+alter table public.plan_sermons enable row level security;
+
+create policy "Authenticated users can read plan_sermons"
+  on public.plan_sermons for select
+  using (auth.role() = 'authenticated');

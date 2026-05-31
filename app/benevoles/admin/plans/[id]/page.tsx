@@ -6,6 +6,9 @@ import { SongsSection } from './SongsSection'
 import { StatusDot } from '../../../_components/StatusDot'
 import { FlashMessage } from '../../../_components/FlashMessage'
 import { AddAssignmentForm } from './AddAssignmentForm'
+import AnnoncesSection from './AnnoncesSection'
+import SermonSection from './SermonSection'
+import VideoSection from './VideoSection'
 
 const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
 const TEAMS_WITH_INVITE = new Set(['Prédicateurs', 'Louange'])
@@ -39,7 +42,6 @@ export default async function PlanDetailPage({
   if (!user) redirect('/benevoles/login')
 
   const { data: me } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
-  if (me?.permission !== 'admin' && me?.permission !== 'editor') redirect('/benevoles/dashboard')
 
   const [
     { data: plan },
@@ -50,6 +52,9 @@ export default async function PlanDetailPage({
     { data: teamMemberships },
     { data: planSongs },
     { data: allSongs },
+    { data: announcements },
+    { data: sermons },
+    { data: videos },
   ] = await Promise.all([
     supabase.from('plans').select('id, title, service_date, notes, plan_type').eq('id', id).single(),
     supabase
@@ -69,6 +74,21 @@ export default async function PlanDetailPage({
       .from('songs')
       .select('id, title, arrangements(id, name, chord_chart_key, keys_available)')
       .order('title'),
+    supabase
+      .from('plan_announcements')
+      .select('id, title, body, order_index')
+      .eq('plan_id', id)
+      .order('order_index'),
+    supabase
+      .from('plan_sermons')
+      .select('id, title, url, storage_path, created_at')
+      .eq('plan_id', id)
+      .order('created_at'),
+    supabase
+      .from('plan_videos')
+      .select('id, title, url, order_index')
+      .eq('plan_id', id)
+      .order('order_index'),
   ])
 
   if (!plan) redirect('/benevoles/admin/plans')
@@ -104,7 +124,9 @@ export default async function PlanDetailPage({
 
   const pendingCount = assignments.filter(a => a.status === 'pending' && a.user_id !== INVITE_EXT_ID).length
 
-  const isAdmin = me?.permission === 'admin'
+  const isAdmin   = me?.permission === 'admin'
+  const isEditor  = me?.permission === 'editor'
+  const canManage = isAdmin || isEditor
 
   // Équipes visibles selon le rôle :
   // - admin : tout
@@ -121,8 +143,14 @@ export default async function PlanDetailPage({
     t => t.name === COORDINATION_NAME && myTeamIdsInPlan.has(t.id)
   )
   const canSeeAllTeams = isAdmin || isCoordinator
+
+  // Équipes dont l'utilisateur est membre (indépendamment de ce plan)
+  const myTeamMemberIds = new Set(
+    teamMemberships?.filter(tm => tm.user_id === user.id).map(tm => tm.team_id) ?? []
+  )
+
   function isTeamVisible(team: { id: string }): boolean {
-    return canSeeAllTeams || myTeamIdsInPlan.has(team.id)
+    return canSeeAllTeams || myTeamMemberIds.has(team.id)
   }
 
   const date = new Date(plan.service_date).toLocaleDateString('fr-FR', {
@@ -149,12 +177,20 @@ export default async function PlanDetailPage({
           >
             ♩ Mode live
           </Link>
-          <form action={deletePlan}>
-            <input type="hidden" name="plan_id" value={id} />
-            <button type="submit" className="text-xs text-dark/30 hover:text-red-400 transition-colors font-sans">
-              Supprimer
-            </button>
-          </form>
+          <Link
+            href={`/benevoles/admin/plans/${id}/setlist?projection=1`}
+            className="font-sans text-xs font-semibold px-3 py-1.5 bg-dark text-white rounded-lg hover:bg-dark/80 transition-colors"
+          >
+            ⬛ Projection
+          </Link>
+          {isAdmin && (
+            <form action={deletePlan}>
+              <input type="hidden" name="plan_id" value={id} />
+              <button type="submit" className="text-xs text-dark/30 hover:text-red-400 transition-colors font-sans">
+                Supprimer
+              </button>
+            </form>
+          )}
         </div>
       </header>
 
@@ -230,7 +266,7 @@ export default async function PlanDetailPage({
                             <span className="text-xs text-red-400 font-sans" title="Indisponible ce jour-là">⚠</span>
                           )}
                           <StatusDot status={a.status} />
-                          {canSendInvite && (
+                          {canManage && canSendInvite && (
                             <form action={sendSingleInvitation}>
                               <input type="hidden" name="assignment_id" value={a.id} />
                               <input type="hidden" name="plan_id" value={id} />
@@ -239,30 +275,34 @@ export default async function PlanDetailPage({
                               </button>
                             </form>
                           )}
-                          <form action={removeAssignment}>
-                            <input type="hidden" name="plan_id" value={id} />
-                            <input type="hidden" name="assignment_id" value={a.id} />
-                            <button type="submit" className="text-dark/20 hover:text-red-400 transition-colors font-sans text-lg leading-none">
-                              ×
-                            </button>
-                          </form>
+                          {canManage && (
+                            <form action={removeAssignment}>
+                              <input type="hidden" name="plan_id" value={id} />
+                              <input type="hidden" name="assignment_id" value={a.id} />
+                              <button type="submit" className="text-dark/20 hover:text-red-400 transition-colors font-sans text-lg leading-none">
+                                ×
+                              </button>
+                            </form>
+                          )}
                         </div>
                       </div>
                     )
                   })}
                 </div>
 
-                {/* Formulaire d'ajout */}
-                <div className="px-4 py-3 border-t border-teal/10 bg-teal-50/20">
-                  <AddAssignmentForm
-                    planId={id}
-                    teamId={team.id}
-                    teamPositions={teamPositions}
-                    teamProfiles={teamProfiles}
-                    isInviteTeam={isInviteTeam}
-                    hidePositions={hidePositions}
-                  />
-                </div>
+                {/* Formulaire d'ajout — admin/editor uniquement */}
+                {canManage && (
+                  <div className="px-4 py-3 border-t border-teal/10 bg-teal-50/20">
+                    <AddAssignmentForm
+                      planId={id}
+                      teamId={team.id}
+                      teamPositions={teamPositions}
+                      teamProfiles={teamProfiles}
+                      isInviteTeam={isInviteTeam}
+                      hidePositions={hidePositions}
+                    />
+                  </div>
+                )}
               </div>
             )
           })}
@@ -274,6 +314,48 @@ export default async function PlanDetailPage({
           planSongs={(planSongs ?? []) as any}
           allSongs={(allSongs ?? []) as any}
         />
+
+        {/* ── Annonces ────────────────────────────────────────────────── */}
+        <section className="bg-white rounded-2xl border border-teal/20 overflow-hidden">
+          <div className="px-5 py-3 border-b border-teal/10 bg-teal-50/50">
+            <p className="font-sans text-xs text-dark/50 uppercase tracking-widest font-medium">Annonces</p>
+          </div>
+          <div className="p-4">
+            <AnnoncesSection
+              planId={id}
+              initial={(announcements ?? []) as any}
+              canManage={canManage}
+            />
+          </div>
+        </section>
+
+        {/* ── Prédication ─────────────────────────────────────────────── */}
+        <section className="bg-white rounded-2xl border border-teal/20 overflow-hidden">
+          <div className="px-5 py-3 border-b border-teal/10 bg-teal-50/50">
+            <p className="font-sans text-xs text-dark/50 uppercase tracking-widest font-medium">Prédication</p>
+          </div>
+          <div className="p-4">
+            <SermonSection
+              planId={id}
+              initial={(sermons ?? []) as any}
+              canManage={canManage}
+            />
+          </div>
+        </section>
+
+        {/* ── Vidéos ──────────────────────────────────────────────────── */}
+        <section className="bg-white rounded-2xl border border-teal/20 overflow-hidden">
+          <div className="px-5 py-3 border-b border-teal/10 bg-teal-50/50">
+            <p className="font-sans text-xs text-dark/50 uppercase tracking-widest font-medium">Vidéos</p>
+          </div>
+          <div className="p-4">
+            <VideoSection
+              planId={id}
+              initial={(videos ?? []) as any}
+              canManage={canManage}
+            />
+          </div>
+        </section>
 
         {/* Affectations sans équipe (ancien format sans team_id) */}
         {noTeamAssignments.length > 0 && (

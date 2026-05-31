@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
 
@@ -13,11 +13,33 @@ const cormorant = Cormorant_Garamond({
   weight: ["300", "400", "500", "600"],
 });
 
+export const viewport: Viewport = {
+  themeColor: "#5A9EA6",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export const metadata: Metadata = {
   title: "Église La Rencontre — Lieusaint",
   description:
     "Église La Rencontre à Lieusaint (77127). Cultes le dimanche 10h-12h. Venez nous rejoindre.",
   keywords: ["église", "La Rencontre", "Lieusaint", "Seine-et-Marne", "culte", "protestant", "évangélique"],
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "La Rencontre",
+  },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
   openGraph: {
     title: "Église La Rencontre — Lieusaint",
     description: "Église La Rencontre à Lieusaint (77127). Cultes le dimanche 10h-12h.",
