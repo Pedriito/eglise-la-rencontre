@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { buildAllSlides, type Slide } from '@/lib/parseSlides'
 import { CountdownDisplay, COUNTDOWN_SECONDS } from '@/app/_components/CountdownDisplay'
-import { type ProjectionSettings, DEFAULT_SETTINGS, getBgStyle, getAnnBgStyle, getTextStyle, getAnnTextStyle, loadGoogleFont } from '@/lib/projectionSettings'
+import { type ProjectionSettings, DEFAULT_SETTINGS, getBgStyle, getAnnBgStyle, getTextStyle, getAnnTextStyle, loadGoogleFont, mergeSettings, calcFontSize, calcAnnFontSize } from '@/lib/projectionSettings'
 
 type Song = {
   planSongId: string
@@ -18,7 +18,8 @@ type Song = {
 type Props = { planId: string; songs: Song[]; settings?: ProjectionSettings }
 
 export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props) {
-  const settings = settingsProp ?? DEFAULT_SETTINGS
+  // Fusion avec les defaults pour gérer les nouvelles colonnes nulles en DB
+  const settings = mergeSettings(settingsProp ?? null)
   const [current, setCurrent]         = useState<{ songIdx: number; slideIdx: number }>({ songIdx: 0, slideIdx: 0 })
   const [projectedImageUrl, setProjectedImageUrl] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -58,8 +59,9 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
     audio.currentTime = 0
   }
 
-  // Charger la Google Font si nécessaire
-  useEffect(() => { loadGoogleFont(settings.font_family) }, [settings.font_family])
+  // Charger les Google Fonts si nécessaire
+  useEffect(() => { loadGoogleFont(settings.font_family) },     [settings.font_family])
+  useEffect(() => { loadGoogleFont(settings.ann_font_family) }, [settings.ann_font_family])
 
   // Traduit et nettoie les noms de sections (retire les deux-points, traduit en français)
   function formatSection(raw: string): string {
@@ -82,14 +84,12 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
   const slideKey     = `${current.songIdx}-${current.slideIdx}`
   const displayLines = slideOverrides.get(slideKey) ?? currentSlide?.lines ?? []
 
-  // Police cohérente : basée sur la ligne la plus longue de tout le chant actif,
-  // pas seulement de la diapo courante — évite les sauts de taille entre diapos.
+  // Police cohérente : basée sur la ligne la plus longue de tout le chant actif
   const allSongLines = currentSong?.slides
     .filter(s => !s.isBlank && s.lines.length > 0)
     .flatMap(s => s.lines) ?? []
   const songMaxLen = Math.max(...allSongLines.map(l => l.length), displayLines.reduce((m, l) => Math.max(m, l.length), 1), 1)
-  // clamp : min 2.5rem, max 7rem — plus généreux qu'avant pour remplir l'écran
-  const slideFs = `clamp(2.5rem, ${Math.min(95 / songMaxLen, 8).toFixed(2)}vw, 7rem)`
+  const slideFs = calcFontSize(songMaxLen, settings.font_size_scale ?? 1.0)
 
   // Gestion du countdown (tick)
   useEffect(() => {
@@ -314,43 +314,38 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
         const lines       = announcement.body.split('\n')
         const maxLen      = Math.max(...lines.map(l => l.length), 1)
 
-        // ── Paysage : image plein fond + texte centré par-dessus ──────────────
+        const annPad  = `${(100 - (settings.ann_text_max_width ?? 94)) / 2}%`
+        const annScale = settings.ann_font_size_scale ?? 1.0
+
+        // ── Paysage : image plein fond + texte en bas ─────────────────────────
         if (hasImage && isLandscape) {
           return (
             <div className="absolute inset-0 z-10">
-              {/* Image de fond plein écran */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={announcement.imageUrl!} alt="" className="absolute inset-0 w-full h-full object-cover" />
-              {/* Dégradé sombre en bas pour lisibilité du texte */}
               <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.1) 100%)' }} />
-              {/* Texte en bas */}
-              <div className="absolute bottom-0 left-0 right-0 px-[8%] pb-[6%]">
+              <div className="absolute bottom-0 left-0 right-0 pb-[6%]" style={{ paddingLeft: annPad, paddingRight: annPad }}>
                 {announcement.title && (
-                  <p className="text-base uppercase tracking-[0.4em] mb-4 font-sans" style={{ color: settings.text_color + '80' }}>
+                  <p className="text-base uppercase tracking-[0.4em] mb-4 font-sans" style={{ color: settings.ann_text_color + '80' }}>
                     {announcement.title}
                   </p>
                 )}
                 <div className="space-y-3">
-                  {lines.map((line, i) => {
-                    const fs = `clamp(1.8rem, ${Math.min(70 / maxLen, 6).toFixed(2)}vw, 5rem)`
-                    return (
-                      <p key={i} className="font-semibold leading-tight drop-shadow-lg" style={{ ...annTxtStyle, fontSize: fs }}>
-                        {line}
-                      </p>
-                    )
-                  })}
+                  {lines.map((line, i) => (
+                    <p key={i} className="font-semibold leading-tight drop-shadow-lg" style={{ ...annTxtStyle, fontSize: calcAnnFontSize(maxLen, annScale) }}>
+                      {line}
+                    </p>
+                  ))}
                 </div>
               </div>
             </div>
           )
         }
 
-        // ── Portrait : image à droite (40%), texte à gauche (60%) ────────────
+        // ── Portrait : image à droite, texte à gauche ────────────────────────
         if (hasImage && isPortrait) {
-          const fs = `clamp(1.6rem, ${Math.min(55 / maxLen, 5.5).toFixed(2)}vw, 4.5rem)`
           return (
             <div className="absolute inset-0 z-10 flex">
-              {/* Fond de la moitié gauche (couleur/dégradé des paramètres) */}
               <div className="w-[58%] h-full flex flex-col justify-center px-[5%]" style={annBgStyle}>
                 {settings.ann_bg_type === 'image' && settings.ann_bg_image_url && (
                   <>
@@ -362,20 +357,19 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
                 )}
                 <div className="relative z-10">
                   {announcement.title && (
-                    <p className="text-sm uppercase tracking-[0.4em] mb-6 font-sans" style={{ color: settings.text_color + '60' }}>
+                    <p className="text-sm uppercase tracking-[0.4em] mb-6 font-sans" style={{ color: settings.ann_text_color + '60' }}>
                       {announcement.title}
                     </p>
                   )}
                   <div className="space-y-4">
                     {lines.map((line, i) => (
-                      <p key={i} className="font-semibold leading-tight" style={{ ...annTxtStyle, fontSize: fs }}>
+                      <p key={i} className="font-semibold leading-tight" style={{ ...annTxtStyle, fontSize: calcAnnFontSize(maxLen * 0.6, annScale) }}>
                         {line}
                       </p>
                     ))}
                   </div>
                 </div>
               </div>
-              {/* Image portrait à droite */}
               <div className="w-[42%] h-full overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={announcement.imageUrl!} alt="" className="w-full h-full object-cover" />
@@ -384,11 +378,9 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
           )
         }
 
-        // ── Pas d'image (ou orientation pas encore détectée) : layout standard ─
-        const fs = `clamp(2rem, ${Math.min(80 / maxLen, 7).toFixed(2)}vw, 6rem)`
+        // ── Standard (sans image) ─────────────────────────────────────────────
         return (
           <>
-            {/* Fond */}
             <div className="absolute inset-0 z-0" style={annBgStyle}>
               {settings.ann_bg_type === 'image' && settings.ann_bg_image_url && (
                 <>
@@ -399,15 +391,15 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
                 </>
               )}
             </div>
-            <div className="px-[8%] w-full relative z-10">
+            <div className="w-full relative z-10" style={{ paddingLeft: annPad, paddingRight: annPad }}>
               {announcement.title && (
-                <p className="text-base uppercase tracking-[0.4em] mb-8 font-sans" style={{ color: settings.text_color + '60' }}>
+                <p className="text-base uppercase tracking-[0.4em] mb-8 font-sans" style={{ color: settings.ann_text_color + '60' }}>
                   {announcement.title}
                 </p>
               )}
               <div className="space-y-5">
                 {lines.map((line, i) => (
-                  <p key={i} className="font-semibold leading-tight" style={{ ...annTxtStyle, fontSize: fs }}>
+                  <p key={i} className="font-semibold leading-tight" style={{ ...annTxtStyle, fontSize: calcAnnFontSize(maxLen, annScale) }}>
                     {line}
                   </p>
                 ))}
@@ -419,10 +411,10 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
 
       {/* Message libre */}
       {!showPrompt && countdown === null && !projectedImageUrl && !projectedVideo && !announcement && freeMessage && !verse && (
-        <div className="text-center px-16 max-w-4xl w-full relative">
+        <div className="text-center w-full relative" style={{ padding: `0 ${(100 - (settings.text_max_width ?? 94)) / 2}%` }}>
           {freeMessage.split('\n').map((line, i) => {
             const maxLen = Math.max(...freeMessage.split('\n').map(l => l.length), 1)
-            const fs = `clamp(1.8rem, ${Math.min(85 / maxLen, 6).toFixed(2)}vw, 5rem)`
+            const fs = calcFontSize(maxLen, settings.font_size_scale ?? 1.0)
             return (
               <p key={i} className="font-semibold leading-tight" style={{ ...txtStyle, fontSize: fs }}>
                 {line}
@@ -458,7 +450,7 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
 
       {/* Contenu de la diapo */}
       {!showPrompt && countdown === null && !projectedImageUrl && !projectedVideo && !announcement && !freeMessage && !verse && currentSlide && !currentSlide.isBlank && (
-        <div className="text-center px-[8%] w-full relative">
+        <div className="text-center w-full relative" style={{ padding: `0 ${(100 - (settings.text_max_width ?? 94)) / 2}%` }}>
           {currentSlide.section && (
             <p className="text-base uppercase tracking-[0.4em] mb-10 font-sans" style={{ color: settings.text_color + '40' }}>
               {formatSection(currentSlide.section)}
