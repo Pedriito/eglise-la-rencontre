@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useRef } from 'react'
+import { useState, useTransition, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ChordChart } from '@/app/benevoles/chants/[id]/ChordChart'
@@ -39,7 +39,23 @@ export function SetlistView({ planId, planTitle, songs, announcements, sermons, 
   const router = useRouter()
   const [activeIdx, setActiveIdx] = useState(0)
   const [mobileView, setMobileView] = useState<'list' | 'chart'>('list')
-  const [projecting, setProjecting] = useState(autoProjection ?? false)
+  const [projecting, setProjecting]       = useState(autoProjection ?? false)
+  const projectorWinRef = useRef<Window | null>(null)
+
+  // Ouvre la fenêtre projecteur DANS le geste utilisateur (onClick),
+  // sinon Chrome l'interprète comme un popup non sollicité et ouvre un onglet.
+  const openProjection = useCallback(() => {
+    const url      = `/benevoles/admin/plans/${planId}/setlist/projector`
+    const features = [
+      `width=${window.screen.width}`,
+      `height=${window.screen.height}`,
+      'left=0', 'top=0',
+      'toolbar=no', 'menubar=no', 'location=no', 'status=no',
+      'noopener',
+    ].join(',')
+    projectorWinRef.current = window.open(url, `projector-${planId}`, features)
+    setProjecting(true)
+  }, [planId])
   const [isPending, startTransition] = useTransition()
   const [switchError, setSwitchError] = useState<string | null>(null)
   const songRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -81,7 +97,8 @@ export function SetlistView({ planId, planTitle, songs, announcements, sermons, 
           sermons={sermons}
           videos={videos ?? []}
           initialSongIdx={activeIdx}
-          onClose={() => setProjecting(false)}
+          preOpenedWindow={projectorWinRef.current}
+          onClose={() => { setProjecting(false); projectorWinRef.current = null }}
         />
       )}
 
@@ -104,7 +121,7 @@ export function SetlistView({ planId, planTitle, songs, announcements, sermons, 
             <p className="font-sans text-xs text-dark/40">{songs.length} chant{songs.length > 1 ? 's' : ''}</p>
           </div>
           <button
-            onClick={() => setProjecting(true)}
+            onClick={openProjection}
             title="Mode vidéoprojecteur"
             className="shrink-0 px-2.5 py-1.5 bg-dark hover:bg-dark/80 text-white rounded-lg font-sans text-xs font-medium transition-colors"
           >

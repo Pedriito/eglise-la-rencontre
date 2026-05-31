@@ -31,12 +31,13 @@ type Props = {
   sermons: Sermon[]
   videos: PlanVideo[]
   initialSongIdx: number
+  preOpenedWindow?: Window | null
   onClose: () => void
 }
 
 function slideKey(si: number, di: number) { return `${si}-${di}` }
 
-export function ProjectionView({ planId, songs, announcements, sermons, videos, initialSongIdx, onClose }: Props) {
+export function ProjectionView({ planId, songs, announcements, sermons, videos, initialSongIdx, preOpenedWindow, onClose }: Props) {
   const router = useRouter()
   const [current, setCurrent]           = useState({ songIdx: initialSongIdx, slideIdx: 0 })
   const [projectorReady, setProjectorReady] = useState(false)
@@ -281,57 +282,25 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
     }
   }, [current, isShowingMessage, freeMessage, isShowingVerse, bibleResult, countdownActive, songSlides, slideOverrides, projectedAnnouncementId, announcements, annOverrides])
 
-  // Fenêtre projecteur — essaie de s'ouvrir sur l'écran secondaire
+  // Fenêtre projecteur — pré-ouverte dans le onClick de SetlistView (contexte du geste utilisateur)
   useEffect(() => {
-    const url = `/benevoles/admin/plans/${planId}/setlist/projector`
-
-    async function openProjector() {
-      // ── Window Management API (Chrome/Edge 100+) ──────────────────────────
-      // Permet de positionner la fenêtre directement sur l'écran du projecteur.
-      if ('getScreenDetails' in window) {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const details = await (window as any).getScreenDetails()
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const secondary = details.screens.find((s: any) => !s.isPrimary)
-          if (secondary) {
-            const features = [
-              `left=${secondary.left}`,
-              `top=${secondary.top}`,
-              `width=${secondary.width}`,
-              `height=${secondary.height}`,
-              'noopener',
-            ].join(',')
-            const win = window.open(url, `projector-${planId}`, features)
-            if (win) { setProjectorWindow(win); return win }
-          }
-        } catch {
-          // Permission refusée ou API non disponible → fallback
-        }
-      }
-
-      // ── Fallback : popup dimensionnée sur l'écran principal ──────────────
-      // Ouvre une vraie fenêtre (pas un onglet) que l'utilisateur peut glisser
-      // sur l'écran du projecteur avant de passer en plein écran.
-      const s = window.screen
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sc = s as any
-      const features = [
-        `left=${sc.availLeft ?? 0}`,
-        `top=${sc.availTop ?? 0}`,
-        `width=${s.width}`,
-        `height=${s.height}`,
-        'noopener',
-      ].join(',')
-      const win = window.open(url, `projector-${planId}`, features)
-      if (win) setProjectorWindow(win)
-      return win
+    if (preOpenedWindow) {
+      setProjectorWindow(preOpenedWindow)
+      return () => { preOpenedWindow.close() }
     }
-
-    let winRef: Window | null = null
-    openProjector().then(w => { winRef = w ?? null })
-    return () => { winRef?.close() }
-  }, [planId])
+    // Fallback si pas de fenêtre pré-ouverte (ex : autoProjection via URL)
+    const url = `/benevoles/admin/plans/${planId}/setlist/projector`
+    const features = [
+      `width=${window.screen.width}`,
+      `height=${window.screen.height}`,
+      'left=0', 'top=0',
+      'toolbar=no', 'menubar=no', 'location=no', 'status=no',
+      'noopener',
+    ].join(',')
+    const win = window.open(url, `projector-${planId}`, features)
+    if (win) setProjectorWindow(win)
+    return () => { win?.close() }
+  }, [planId, preOpenedWindow])
 
   // Aller à une diapo
   const goto = useCallback((songIdx: number, slideIdx: number) => {
