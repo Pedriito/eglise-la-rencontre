@@ -281,12 +281,56 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
     }
   }, [current, isShowingMessage, freeMessage, isShowingVerse, bibleResult, countdownActive, songSlides, slideOverrides, projectedAnnouncementId, announcements, annOverrides])
 
-  // Fenêtre projecteur
+  // Fenêtre projecteur — essaie de s'ouvrir sur l'écran secondaire
   useEffect(() => {
     const url = `/benevoles/admin/plans/${planId}/setlist/projector`
-    const win = window.open(url, `projector-${planId}`, 'noopener')
-    if (win) setProjectorWindow(win)
-    return () => { win?.close() }
+
+    async function openProjector() {
+      // ── Window Management API (Chrome/Edge 100+) ──────────────────────────
+      // Permet de positionner la fenêtre directement sur l'écran du projecteur.
+      if ('getScreenDetails' in window) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const details = await (window as any).getScreenDetails()
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const secondary = details.screens.find((s: any) => !s.isPrimary)
+          if (secondary) {
+            const features = [
+              `left=${secondary.left}`,
+              `top=${secondary.top}`,
+              `width=${secondary.width}`,
+              `height=${secondary.height}`,
+              'noopener',
+            ].join(',')
+            const win = window.open(url, `projector-${planId}`, features)
+            if (win) { setProjectorWindow(win); return win }
+          }
+        } catch {
+          // Permission refusée ou API non disponible → fallback
+        }
+      }
+
+      // ── Fallback : popup dimensionnée sur l'écran principal ──────────────
+      // Ouvre une vraie fenêtre (pas un onglet) que l'utilisateur peut glisser
+      // sur l'écran du projecteur avant de passer en plein écran.
+      const s = window.screen
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sc = s as any
+      const features = [
+        `left=${sc.availLeft ?? 0}`,
+        `top=${sc.availTop ?? 0}`,
+        `width=${s.width}`,
+        `height=${s.height}`,
+        'noopener',
+      ].join(',')
+      const win = window.open(url, `projector-${planId}`, features)
+      if (win) setProjectorWindow(win)
+      return win
+    }
+
+    let winRef: Window | null = null
+    openProjector().then(w => { winRef = w ?? null })
+    return () => { winRef?.close() }
   }, [planId])
 
   // Aller à une diapo
