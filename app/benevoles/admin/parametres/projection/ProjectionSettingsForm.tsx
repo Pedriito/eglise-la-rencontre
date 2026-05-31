@@ -34,11 +34,13 @@ const FONTS = [
   'Playfair Display', 'Bebas Neue', 'Poppins', 'Lato', 'Cinzel',
 ]
 
-// Tailles disponibles (en % de la taille de base auto-calculée)
-const SIZE_OPTIONS = [
-  40, 50, 60, 70, 80, 90, 100, 110, 120, 130,
-  140, 150, 160, 175, 200, 225, 250, 300,
+// Tailles en pt affichées dans le menu — converties en scale (72pt = 1.0 = référence normale)
+const SIZE_PT_OPTIONS = [
+  8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36,
+  40, 44, 48, 54, 60, 66, 72, 80, 88, 96, 108, 120, 144, 168, 200,
 ]
+const PT_TO_SCALE = (pt: number) => pt / 72
+const SCALE_TO_PT = (scale: number) => Math.round(scale * 72)
 
 // ── Toggle ───────────────────────────────────────────────────────────────────
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
@@ -84,21 +86,19 @@ function CassePicker({ value, fontFamily, onChange }: {
 
 // ── Taille ───────────────────────────────────────────────────────────────────
 function SizePicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  const percent = Math.round(value * 100)
+  const pt = SCALE_TO_PT(value ?? 1.0)
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2">
       <select
-        value={percent}
-        onChange={e => onChange(Number(e.target.value) / 100)}
-        className="flex-1 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+        value={pt}
+        onChange={e => onChange(PT_TO_SCALE(Number(e.target.value)))}
+        className="w-28 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
       >
-        {SIZE_OPTIONS.map(pct => (
-          <option key={pct} value={pct}>
-            {pct}%{pct === 100 ? ' — Normal' : ''}
-          </option>
+        {SIZE_PT_OPTIONS.map(p => (
+          <option key={p} value={p}>{p} pt</option>
         ))}
       </select>
-      <span className="text-xs text-gray-400 shrink-0">de la taille de base</span>
+      {pt === 72 && <span className="text-xs text-gray-400">— taille normale</span>}
     </div>
   )
 }
