@@ -75,25 +75,27 @@ export default async function BenevoleProfilePage({
 
   return (
     <div className="min-h-screen bg-teal-50">
-      <header className="bg-white border-b border-teal/20 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <header className="bg-white border-b border-teal/20 px-4 md:px-6 py-4">
+        {/* Ligne 1 : retour + nom + badge */}
+        <div className="flex items-center gap-3 min-w-0">
           <Link
             href="/benevoles/admin"
-            className="text-dark/40 hover:text-dark transition-colors font-sans text-sm"
+            className="text-dark/40 hover:text-dark transition-colors font-sans text-sm shrink-0"
           >
-            ← Bénévoles
+            ←
           </Link>
-          <h1 className="font-display text-2xl text-dark font-light">
+          <h1 className="font-display text-xl md:text-2xl text-dark font-light truncate min-w-0">
             {p.first_name} {p.last_name}
           </h1>
-          <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-sans font-medium ${st.color}`}>
+          <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-sans font-medium shrink-0 ${st.color}`}>
             {st.label}
           </span>
         </div>
-        <div className="flex items-center gap-3">
+        {/* Ligne 2 : actions */}
+        <div className="flex items-center gap-2 mt-3 flex-wrap">
           <Link
             href={`/benevoles/admin/benevoles/${id}/modifier`}
-            className="px-4 py-2 rounded-lg bg-teal text-white font-sans text-xs font-medium hover:bg-teal-dark transition-colors"
+            className="px-3 py-1.5 rounded-lg bg-teal text-white font-sans text-xs font-medium hover:bg-teal-dark transition-colors"
           >
             Modifier
           </Link>
@@ -101,7 +103,7 @@ export default async function BenevoleProfilePage({
             <input type="hidden" name="user_id" value={id} />
             <button
               type="submit"
-              className="px-4 py-2 rounded-lg border border-teal/30 text-teal font-sans text-xs font-medium hover:bg-teal-50 transition-colors"
+              className="px-3 py-1.5 rounded-lg border border-teal/30 text-teal font-sans text-xs font-medium hover:bg-teal-50 transition-colors"
             >
               ✉ Renvoyer l'invitation
             </button>
@@ -109,7 +111,7 @@ export default async function BenevoleProfilePage({
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-6 py-8 space-y-6">
+      <main className="max-w-3xl mx-auto px-4 md:px-6 py-6 space-y-6">
         {flashError && <FlashMessage message={`Erreur : ${flashError}`} type="error" />}
         {flashSent && <FlashMessage message={`Invitation envoyée à ${email}.`} type="success" />}
         {flashUpdated && <FlashMessage message="Fiche mise à jour." type="success" />}
@@ -145,9 +147,9 @@ export default async function BenevoleProfilePage({
                 if (!team) return null
                 const positions = positionsByTeam[team.id] ?? []
                 return (
-                  <div key={team.id} className="flex items-start gap-4 py-3 border-b border-teal/10 last:border-0">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
+                  <div key={team.id} className="flex items-start gap-3 py-3 border-b border-teal/10 last:border-0">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
                         <span className="font-sans text-sm text-dark font-medium">{team.name}</span>
                         {tm.role === 'leader' && (
                           <span className="text-xs bg-teal/10 text-teal px-2 py-0.5 rounded-full font-sans">
@@ -192,9 +194,9 @@ export default async function BenevoleProfilePage({
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex gap-4">
-      <dt className="w-40 shrink-0 text-xs text-dark/40 font-sans uppercase tracking-widest pt-0.5">{label}</dt>
-      <dd className="font-sans text-sm text-dark">{value}</dd>
+    <div className="flex gap-3">
+      <dt className="w-28 md:w-40 shrink-0 text-xs text-dark/40 font-sans uppercase tracking-widest pt-0.5 leading-snug">{label}</dt>
+      <dd className="font-sans text-sm text-dark min-w-0 break-all">{value}</dd>
     </div>
   )
 }
