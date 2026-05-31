@@ -4,6 +4,8 @@ import Link from 'next/link'
 
 import { BenevoleList } from './BenevoleList'
 import { FlashMessage } from '../_components/FlashMessage'
+import InviteTokenPanel from './InviteTokenPanel'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 
 export default async function AdminPage({
@@ -29,6 +31,12 @@ export default async function AdminPage({
     .select('id, first_name, last_name, permission, status, created_at')
     .neq('id', INVITE_EXT_ID)
     .order('first_name')
+
+  const adminClient = createAdminClient()
+  const { data: inviteTokens } = await adminClient
+    .from('invite_tokens')
+    .select('id, token, label, expires_at, max_uses, uses_count, created_at, revoked_at')
+    .order('created_at', { ascending: false })
 
   const params = await searchParams
   const total = benevoles?.length ?? 0
@@ -65,6 +73,17 @@ export default async function AdminPage({
             </div>
           ))}
         </div>
+
+        {/* Liens d'inscription */}
+        <section className="bg-white rounded-2xl border border-teal/20 overflow-hidden">
+          <div className="px-5 py-3 border-b border-teal/10 bg-teal-50/50">
+            <p className="font-sans text-xs text-dark/50 uppercase tracking-widest font-medium">Liens d'inscription</p>
+            <p className="font-sans text-xs text-dark/30 mt-0.5">Partage un lien pour que les bénévoles s'inscrivent eux-mêmes</p>
+          </div>
+          <div className="p-4">
+            <InviteTokenPanel initial={(inviteTokens ?? []) as any} />
+          </div>
+        </section>
 
         <BenevoleList benevoles={benevoles ?? []} />
       </main>
