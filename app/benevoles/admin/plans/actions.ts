@@ -64,7 +64,7 @@ export async function addAssignment(formData: FormData) {
       external_email: externalEmail,
     })
   } else {
-    await admin.from('plan_assignments').upsert({
+    await admin.from('plan_assignments').insert({
       plan_id: planId,
       user_id: userId,
       position_id: positionId,
