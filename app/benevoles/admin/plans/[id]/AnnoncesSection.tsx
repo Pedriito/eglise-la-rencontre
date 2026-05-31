@@ -31,13 +31,18 @@ function ImagePicker({
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    if (file.size > 7 * 1024 * 1024) {
+      alert(`Image trop lourde (${(file.size / 1024 / 1024).toFixed(1)} Mo). Maximum : 7 Mo.`)
+      e.target.value = ''
+      return
+    }
     setUploading(true)
     const fd = new FormData()
     fd.append('file', file)
     const url = await uploadAnnouncementImage(fd)
     setUploading(false)
     if (url) onChange(url)
-    // reset l'input pour permettre de re-sélectionner le même fichier
+    else alert('Échec de l\'envoi. Réessaie avec une image plus légère.')
     e.target.value = ''
   }
 
