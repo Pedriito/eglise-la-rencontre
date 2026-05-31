@@ -31,8 +31,8 @@ function ImagePicker({
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 7 * 1024 * 1024) {
-      alert(`Image trop lourde (${(file.size / 1024 / 1024).toFixed(1)} Mo). Maximum : 7 Mo.`)
+    if (file.size > 1 * 1024 * 1024) {
+      alert(`Image trop lourde (${(file.size / 1024 / 1024).toFixed(1)} Mo). Maximum : 1 Mo.\nCompresse l'image avant de l'envoyer (ex : squoosh.app).`)
       e.target.value = ''
       return
     }
@@ -70,7 +70,7 @@ function ImagePicker({
           disabled={uploading || disabled}
           className="flex items-center gap-2 px-3 py-1.5 border border-dashed border-teal/30 rounded-lg font-sans text-xs text-dark/50 hover:text-teal hover:border-teal/60 transition-colors disabled:opacity-40"
         >
-          {uploading ? '⏳ Envoi…' : '🖼 Ajouter une image'}
+          {uploading ? '⏳ Envoi…' : '🖼 Ajouter une image (max 1 Mo)'}
         </button>
       )}
       <input
