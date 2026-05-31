@@ -34,10 +34,10 @@ export default async function PlanDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ error?: string; sent?: string; assignment_error?: string }>
+  searchParams: Promise<{ error?: string; sent?: string }>
 }) {
   const { id } = await params
-  const { error: flashError, sent: flashSent, assignment_error: assignmentError } = await searchParams
+  const { error: flashError, sent: flashSent } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/benevoles/login')
@@ -197,8 +197,7 @@ export default async function PlanDetailPage({
       </header>
 
       <main className="max-w-6xl mx-auto px-6 py-8 space-y-6">
-        {flashError      && <FlashMessage message={`Erreur : ${flashError}`} type="error" />}
-        {assignmentError && <FlashMessage message={`Erreur affectation : ${assignmentError}`} type="error" />}
+        {flashError && <FlashMessage message={`Erreur : ${flashError}`} type="error" />}
         {flashSent && <FlashMessage message="Invitation envoyée avec succès." type="success" />}
         {plan.notes && (
           <div className="bg-teal/10 rounded-xl px-5 py-3 font-sans text-sm text-dark/70">

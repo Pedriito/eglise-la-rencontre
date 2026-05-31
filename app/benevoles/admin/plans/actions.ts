@@ -64,14 +64,13 @@ export async function addAssignment(formData: FormData) {
       external_email: externalEmail,
     })
   } else {
-    const { error } = await admin.from('plan_assignments').insert({
+    await admin.from('plan_assignments').insert({
       plan_id: planId,
       user_id: userId,
       position_id: positionId,
       team_id: teamId,
       status: 'pending',
     })
-    if (error) redirect(`/benevoles/admin/plans/${planId}?assignment_error=${encodeURIComponent(error.message)}`)
   }
 
   redirect(`/benevoles/admin/plans/${planId}`)
