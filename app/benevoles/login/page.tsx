@@ -1,6 +1,7 @@
 import { login } from './actions'
 import Link from 'next/link'
 import { FirstLoginButton } from './FirstLoginButton'
+import { PasswordInput } from '../_components/PasswordInput'
 
 export default function LoginPage({
   searchParams,
@@ -54,14 +55,11 @@ export default function LoginPage({
                   Mot de passe oublié ?
                 </Link>
               </div>
-              <input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
                 required
                 autoComplete="current-password"
-                className="w-full px-4 py-2.5 rounded-lg border border-teal/30 bg-teal-50 text-dark placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-teal/40 font-sans text-sm"
-                placeholder="••••••••"
               />
             </div>
 

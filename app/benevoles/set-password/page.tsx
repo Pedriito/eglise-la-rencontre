@@ -1,4 +1,5 @@
 import { setPassword } from './actions'
+import { PasswordInput } from '../_components/PasswordInput'
 
 const errors: Record<string, string> = {
   mismatch: 'Les mots de passe ne correspondent pas.',
@@ -39,14 +40,12 @@ export default async function SetPasswordPage({
               <label htmlFor="password" className="block text-sm font-sans text-dark/70 mb-1.5">
                 Mot de passe
               </label>
-              <input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
                 required
                 minLength={8}
                 autoComplete="new-password"
-                className="w-full px-4 py-2.5 rounded-lg border border-teal/30 bg-teal-50 text-dark placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-teal/40 font-sans text-sm"
                 placeholder="8 caractères minimum"
               />
             </div>
@@ -55,14 +54,11 @@ export default async function SetPasswordPage({
               <label htmlFor="confirm" className="block text-sm font-sans text-dark/70 mb-1.5">
                 Confirmer le mot de passe
               </label>
-              <input
+              <PasswordInput
                 id="confirm"
                 name="confirm"
-                type="password"
                 required
                 autoComplete="new-password"
-                className="w-full px-4 py-2.5 rounded-lg border border-teal/30 bg-teal-50 text-dark placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-teal/40 font-sans text-sm"
-                placeholder="••••••••"
               />
             </div>
 

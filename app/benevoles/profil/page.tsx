@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { saveProfile, changePassword } from './actions'
 import { FlashMessage } from '../_components/FlashMessage'
+import { PasswordInput } from '../_components/PasswordInput'
 
 const errors: Record<string, string> = {
   failed: 'Une erreur est survenue. Réessaie.',
@@ -202,13 +203,11 @@ export default async function ProfilPage({
                 <label htmlFor="current_password" className="block text-sm font-sans text-dark/70 mb-1.5">
                   Mot de passe actuel
                 </label>
-                <input
+                <PasswordInput
                   id="current_password"
                   name="current_password"
-                  type="password"
                   required
                   autoComplete="current-password"
-                  className="w-full px-4 py-2.5 rounded-lg border border-teal/30 bg-teal-50 text-dark focus:outline-none focus:ring-2 focus:ring-teal/40 font-sans text-sm"
                 />
               </div>
 
@@ -216,15 +215,13 @@ export default async function ProfilPage({
                 <label htmlFor="new_password" className="block text-sm font-sans text-dark/70 mb-1.5">
                   Nouveau mot de passe
                 </label>
-                <input
+                <PasswordInput
                   id="new_password"
                   name="new_password"
-                  type="password"
                   required
                   minLength={8}
                   autoComplete="new-password"
                   placeholder="8 caractères minimum"
-                  className="w-full px-4 py-2.5 rounded-lg border border-teal/30 bg-teal-50 text-dark placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-teal/40 font-sans text-sm"
                 />
               </div>
 
@@ -232,14 +229,11 @@ export default async function ProfilPage({
                 <label htmlFor="confirm_password" className="block text-sm font-sans text-dark/70 mb-1.5">
                   Confirmer le nouveau mot de passe
                 </label>
-                <input
+                <PasswordInput
                   id="confirm_password"
                   name="confirm_password"
-                  type="password"
                   required
                   autoComplete="new-password"
-                  placeholder="••••••••"
-                  className="w-full px-4 py-2.5 rounded-lg border border-teal/30 bg-teal-50 text-dark placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-teal/40 font-sans text-sm"
                 />
               </div>
 
