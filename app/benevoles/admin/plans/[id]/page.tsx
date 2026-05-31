@@ -9,6 +9,7 @@ import { AddAssignmentForm } from './AddAssignmentForm'
 import AnnoncesSection from './AnnoncesSection'
 import SermonSection from './SermonSection'
 import VideoSection from './VideoSection'
+import ShareButton from './ShareButton'
 
 const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
 const TEAMS_WITH_INVITE = new Set(['Prédicateurs', 'Louange'])
@@ -171,6 +172,7 @@ export default async function PlanDetailPage({
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <ShareButton planId={id} />
           <Link
             href={`/benevoles/admin/plans/${id}/setlist`}
             className="font-sans text-xs font-semibold px-3 py-1.5 bg-teal text-white rounded-lg hover:bg-teal-dark transition-colors"
