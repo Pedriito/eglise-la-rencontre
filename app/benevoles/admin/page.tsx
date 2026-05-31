@@ -28,7 +28,7 @@ export default async function AdminPage({
     .from('profiles')
     .select('id, first_name, last_name, permission, status, created_at')
     .neq('id', INVITE_EXT_ID)
-    .order('last_name')
+    .order('first_name')
 
   const params = await searchParams
   const total = benevoles?.length ?? 0
