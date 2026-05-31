@@ -216,8 +216,13 @@ export default async function PlanDetailPage({
             const hidePositions = team.name === 'Prédicateurs'
 
             const teamMemberIds = membersByTeam[team.id]
+            // Exclure uniquement les bénévoles déjà affectés à CETTE équipe
+            // (pas ceux affectés à d'autres équipes du même plan)
+            const alreadyInThisTeam = new Set(
+              (assignmentsByTeam[team.id] ?? []).map(a => a.user_id)
+            )
             const teamProfiles = (allProfiles ?? []).filter(p => {
-              if (assignedUserIds.has(p.id)) return false
+              if (alreadyInThisTeam.has(p.id)) return false
               if (!teamMemberIds || teamMemberIds.size === 0) return true
               return teamMemberIds.has(p.id)
             })
