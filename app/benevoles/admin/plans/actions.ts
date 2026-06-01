@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { sendPlanAssignmentEmail, sendCancellationNotificationEmail, sendExternalGuestInvitationEmail } from '@/lib/email'
+import { sendPushToUser } from '@/lib/pushNotifications'
 
 const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
 
@@ -152,6 +153,15 @@ export async function sendSingleInvitation(formData: FormData) {
     })
     console.log('[sendSingleInvitation] email sent OK to', email)
     await admin.from('plan_assignments').update({ invitation_sent_at: new Date().toISOString() }).eq('id', assignmentId)
+
+    // Notification push en complément de l'email (non-bloquant)
+    const dateStr = new Date(plan.service_date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+    sendPushToUser(a.user_id, {
+      title: `📅 ${plan.title}`,
+      body:  `Tu es planifié(e) le ${dateStr}${team?.name ? ` · ${team.name}` : ''}`,
+      url:   '/benevoles/dashboard',
+      tag:   `assignment-${assignmentId}`,
+    }).catch(() => {})
   } catch (err: any) {
     console.error('[sendSingleInvitation] Resend error:', err?.message, { email, assignmentId })
     redirect(`/benevoles/admin/plans/${planId}?error=${encodeURIComponent(err?.message ?? 'Erreur envoi email')}`)

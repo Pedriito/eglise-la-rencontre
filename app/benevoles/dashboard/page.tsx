@@ -5,6 +5,7 @@ import { respondAssignment } from '../admin/plans/actions'
 import { permissionLabels } from '@/lib/labels'
 import { StatusDot } from '../_components/StatusDot'
 import { CancelAssignmentButton } from './CancelAssignmentButton'
+import { PushManager } from '../_components/PushManager'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -52,8 +53,15 @@ export default async function DashboardPage() {
   return (
     <div className="min-h-screen bg-teal-50">
       <header className="bg-white border-b border-teal/20 px-4 md:px-6 py-4">
-        <h1 className="font-display text-2xl text-dark font-light">Tableau de bord</h1>
-        <p className="text-xs text-dark/50 font-sans mt-0.5">{permissionLabels[profile?.permission ?? ''] ?? profile?.permission}</p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="font-display text-2xl text-dark font-light">Tableau de bord</h1>
+            <p className="text-xs text-dark/50 font-sans mt-0.5">{permissionLabels[profile?.permission ?? ''] ?? profile?.permission}</p>
+          </div>
+          <div className="shrink-0 pt-1">
+            <PushManager />
+          </div>
+        </div>
       </header>
 
       <main className="max-w-4xl mx-auto px-4 md:px-6 py-6 md:py-8 space-y-6">

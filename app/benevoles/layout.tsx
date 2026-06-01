@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { BenevoleNav } from './_components/BenevoleNav'
 import { PwaInstallBanner } from './_components/PwaInstallBanner'
+import { ServiceWorkerRegistrar } from './_components/ServiceWorkerRegistrar'
 
 export default async function BenevoleLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -25,6 +26,7 @@ export default async function BenevoleLayout({ children }: { children: React.Rea
         {children}
       </div>
       <PwaInstallBanner />
+      <ServiceWorkerRegistrar />
     </div>
   )
 }
