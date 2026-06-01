@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   const now = new Date()
   const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
 
-  const windows = ([7, 2] as const).map(days => {
+  const windows = ([7, 2, 1] as const).map(days => {
     const start = new Date(todayUTC)
     start.setUTCDate(start.getUTCDate() + days)
     const end = new Date(start)
@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
             })
 
             // Push notification en complément de l'email
-            const dayLabel = days <= 1 ? 'demain' : `dans ${days} jours`
+            const dayLabel = days === 1 ? 'demain' : `dans ${days} jours`
             const dateStr = new Date(plan.service_date).toLocaleDateString('fr-FR', {
               weekday: 'long', day: 'numeric', month: 'long',
             })
