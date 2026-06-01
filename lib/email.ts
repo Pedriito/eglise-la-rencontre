@@ -176,7 +176,7 @@ export async function sendReminderEmail({
   positionName: string | null
   teamName: string | null
   assignmentId: string
-  daysLeft: 7 | 2
+  daysLeft: number
   isExternal?: boolean
 }) {
   const date = new Date(serviceDate).toLocaleDateString('fr-FR', {
@@ -192,8 +192,8 @@ export async function sendReminderEmail({
     ? `${siteUrl}/benevoles/repondre-ext/${assignmentId}`
     : `${siteUrl}/benevoles/dashboard`
 
-  const label = daysLeft === 7 ? 'dans 7 jours' : 'dans 2 jours'
-  const urgentStyle = daysLeft === 2
+  const label = daysLeft === 1 ? 'demain' : `dans ${daysLeft} jours`
+  const urgentStyle = daysLeft <= 2
     ? 'background:#fff7ed;border-left:4px solid #f97316;'
     : 'background:#f0faf9;border-left:4px solid #0d9488;'
 
