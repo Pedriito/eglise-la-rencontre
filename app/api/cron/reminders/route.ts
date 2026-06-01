@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendReminderEmail } from '@/lib/email'
+import { sendPushToUser } from '@/lib/pushNotifications'
 import { NextRequest } from 'next/server'
 
 const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
@@ -89,6 +90,18 @@ export async function GET(req: NextRequest) {
               daysLeft: days,
               isExternal: false,
             })
+
+            // Push notification en complément de l'email
+            const dayLabel = days <= 1 ? 'demain' : `dans ${days} jours`
+            const dateStr = new Date(plan.service_date).toLocaleDateString('fr-FR', {
+              weekday: 'long', day: 'numeric', month: 'long',
+            })
+            await sendPushToUser(a.user_id, {
+              title: `⏰ Rappel — ${plan.title}`,
+              body:  `Tu es planifié(e) ${dayLabel} (${dateStr})${team?.name ? ` · ${team.name}` : ''}`,
+              url:   '/benevoles/dashboard',
+              tag:   `reminder-${a.id}-${days}`,
+            }).catch(() => {})
           }
           planResult.sent++
           console.log(`[cron/reminders] J-${days} — plan "${plan.title}" — assignmentId ${a.id} OK`)
