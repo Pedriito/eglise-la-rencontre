@@ -94,6 +94,27 @@ export default async function PlanDetailPage({
 
   if (!plan) redirect('/benevoles/admin/plans')
 
+  // Fréquence récente : nb de services les 60 derniers jours par bénévole
+  const cutoff = new Date()
+  cutoff.setDate(cutoff.getDate() - 60)
+  const { data: recentPlans } = await supabase
+    .from('plans')
+    .select('id')
+    .gte('service_date', cutoff.toISOString().split('T')[0])
+    .neq('id', id)
+  const recentPlanIds = (recentPlans ?? []).map(p => p.id)
+  const recentCountMap: Record<string, number> = {}
+  if (recentPlanIds.length > 0) {
+    const { data: recentAssignments } = await supabase
+      .from('plan_assignments')
+      .select('user_id')
+      .in('plan_id', recentPlanIds)
+      .neq('user_id', INVITE_EXT_ID)
+    for (const a of recentAssignments ?? []) {
+      recentCountMap[a.user_id] = (recentCountMap[a.user_id] ?? 0) + 1
+    }
+  }
+
   const assignments = (rawAssignments ?? []) as unknown as AssignmentRow[]
 
   const planDate = plan.service_date.split('T')[0]
@@ -221,11 +242,17 @@ export default async function PlanDetailPage({
             const alreadyInThisTeam = new Set(
               (assignmentsByTeam[team.id] ?? []).map(a => a.user_id)
             )
-            const teamProfiles = (allProfiles ?? []).filter(p => {
-              if (alreadyInThisTeam.has(p.id)) return false
-              if (!teamMemberIds || teamMemberIds.size === 0) return true
-              return teamMemberIds.has(p.id)
-            })
+            const teamProfiles = (allProfiles ?? [])
+              .filter(p => {
+                if (alreadyInThisTeam.has(p.id)) return false
+                if (!teamMemberIds || teamMemberIds.size === 0) return true
+                return teamMemberIds.has(p.id)
+              })
+              .map(p => ({
+                ...p,
+                unavailable: unavailableIds.has(p.id),
+                recentCount: recentCountMap[p.id] ?? 0,
+              }))
 
             return (
               <div key={team.id} className="bg-white rounded-2xl border border-teal/20 overflow-hidden flex flex-col">

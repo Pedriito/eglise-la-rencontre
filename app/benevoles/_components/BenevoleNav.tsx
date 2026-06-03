@@ -38,6 +38,13 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
     match: p => p.startsWith('/benevoles/admin/plans'),
   })
 
+  // Indisponibilités visible par tous
+  items.push({
+    label: 'Mes indispos',
+    href: '/benevoles/mes-indisponibilites',
+    match: p => p.startsWith('/benevoles/mes-indisponibilites'),
+  })
+
   if (isAdmin || isEditor) {
     items.push({
       label: 'Équipes',

@@ -131,19 +131,29 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        {/* Gestion — accessible à tous */}
-        <section>
+        {/* Raccourcis tous bénévoles */}
+        <div className="grid grid-cols-2 gap-3">
           <Link
-            href="/benevoles/gestion"
-            className="flex items-center justify-between bg-white rounded-2xl border border-teal/20 px-6 py-5 hover:border-teal/40 transition-colors group"
+            href="/benevoles/mes-indisponibilites"
+            className="flex items-center justify-between bg-white rounded-xl border border-teal/20 px-4 py-4 hover:border-teal/40 transition-colors group"
           >
             <div>
-              <p className="font-sans text-sm text-dark font-medium">Gestion des équipes</p>
-              <p className="font-sans text-xs text-dark/40 mt-0.5">Tâches et décisions en attente</p>
+              <p className="font-sans text-sm text-dark font-medium">Mes indispos</p>
+              <p className="font-sans text-[11px] text-dark/40 mt-0.5">Déclarer une absence</p>
             </div>
-            <span className="text-teal font-sans text-sm group-hover:translate-x-1 transition-transform">→</span>
+            <span className="text-teal font-sans text-sm group-hover:translate-x-0.5 transition-transform">→</span>
           </Link>
-        </section>
+          <Link
+            href="/benevoles/gestion"
+            className="flex items-center justify-between bg-white rounded-xl border border-teal/20 px-4 py-4 hover:border-teal/40 transition-colors group"
+          >
+            <div>
+              <p className="font-sans text-sm text-dark font-medium">Gestion équipes</p>
+              <p className="font-sans text-[11px] text-dark/40 mt-0.5">Tâches en attente</p>
+            </div>
+            <span className="text-teal font-sans text-sm group-hover:translate-x-0.5 transition-transform">→</span>
+          </Link>
+        </div>
 
         {/* Services à venir — éditeurs/admins */}
         {isEditorOrAdmin && (

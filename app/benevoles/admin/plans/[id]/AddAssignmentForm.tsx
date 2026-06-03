@@ -5,7 +5,13 @@ import { addAssignment } from '../actions'
 
 const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
 
-type Profile = { id: string; first_name: string; last_name: string }
+type Profile = {
+  id: string
+  first_name: string
+  last_name: string
+  unavailable: boolean   // blockout ce jour
+  recentCount: number    // nb de services les 60 derniers jours
+}
 type Position = { id: string; name: string }
 
 export function AddAssignmentForm({
@@ -26,6 +32,19 @@ export function AddAssignmentForm({
   const [selectedUserId, setSelectedUserId] = useState('')
   const isExternal = selectedUserId === INVITE_EXT_ID
 
+  const selected = teamProfiles.find(p => p.id === selectedUserId)
+
+  // Trier : disponibles en premier, indisponibles à la fin
+  const available   = teamProfiles.filter(p => !p.unavailable)
+  const unavailable = teamProfiles.filter(p => p.unavailable)
+
+  function label(p: Profile) {
+    const name = `${p.first_name} ${p.last_name}`
+    if (p.unavailable) return `✗ ${name} — indisponible`
+    if (p.recentCount >= 3) return `${name} ⚡ ${p.recentCount}×`
+    return name
+  }
+
   return (
     <form action={addAssignment} className="space-y-2">
       <input type="hidden" name="plan_id" value={planId} />
@@ -42,8 +61,29 @@ export function AddAssignmentForm({
           {isInviteTeam && (
             <option value={INVITE_EXT_ID}>Invité (Ext)</option>
           )}
-          {teamProfiles.map(p => (
-            <option key={p.id} value={p.id}>{p.first_name} {p.last_name}</option>
+
+          {/* Disponibles */}
+          {available.length > 0 && unavailable.length > 0 && (
+            <optgroup label="Disponibles">
+              {available.map(p => (
+                <option key={p.id} value={p.id}>{label(p)}</option>
+              ))}
+            </optgroup>
+          )}
+          {(available.length === 0 || unavailable.length === 0) && available.map(p => (
+            <option key={p.id} value={p.id}>{label(p)}</option>
+          ))}
+
+          {/* Indisponibles */}
+          {unavailable.length > 0 && available.length > 0 && (
+            <optgroup label="Indisponibles ce jour">
+              {unavailable.map(p => (
+                <option key={p.id} value={p.id}>{label(p)}</option>
+              ))}
+            </optgroup>
+          )}
+          {unavailable.length > 0 && available.length === 0 && unavailable.map(p => (
+            <option key={p.id} value={p.id}>{label(p)}</option>
           ))}
         </select>
 
@@ -69,6 +109,20 @@ export function AddAssignmentForm({
           +
         </button>
       </div>
+
+      {/* Avertissement si sélection indisponible */}
+      {selected?.unavailable && (
+        <p className="font-sans text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
+          ⚠ {selected.first_name} a déclaré une indisponibilité ce jour.
+        </p>
+      )}
+
+      {/* Avertissement si très fréquent */}
+      {selected && !selected.unavailable && selected.recentCount >= 3 && (
+        <p className="font-sans text-[10px] text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-2 py-1">
+          ⚡ {selected.first_name} a déjà été planifié(e) {selected.recentCount} fois ces 60 derniers jours.
+        </p>
+      )}
 
       {/* Champs supplémentaires pour invité externe */}
       {isExternal && (
