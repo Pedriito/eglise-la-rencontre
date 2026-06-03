@@ -4,6 +4,7 @@ import { useState, useTransition, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ChordChart } from '@/app/benevoles/chants/[id]/ChordChart'
+import { MediaPlayer } from '@/app/benevoles/chants/[id]/MediaPlayer'
 import { ProjectionView } from './ProjectionView'
 import { updatePlanSongArrangement } from '@/app/benevoles/admin/plans/actions'
 
@@ -17,6 +18,8 @@ type Song = {
     name: string
     chord_chart: string | null
     chord_chart_key: string | null
+    youtube_url?: string | null
+    audio_url?: string | null
   } | null
   allArrangements: { id: string; name: string; chord_chart_key: string | null; hasChart: boolean }[]
 }
@@ -347,6 +350,16 @@ export function SetlistView({ planId, planTitle, songs, announcements, sermons, 
                 >
                   Gérer les arrangements →
                 </a>
+              </div>
+            )}
+
+            {/* Lecteur média */}
+            {(active.arrangement?.youtube_url || active.arrangement?.audio_url) && (
+              <div className="mt-4">
+                <MediaPlayer
+                  youtubeUrl={active.arrangement.youtube_url ?? null}
+                  audioUrl={active.arrangement.audio_url ?? null}
+                />
               </div>
             )}
           </div>

@@ -22,13 +22,13 @@ export default async function ModifierChantPage({
 
   const { data: song } = await supabase
     .from('songs')
-    .select('id, title, arrangements(id, name, chord_chart, chord_chart_key)')
+    .select('id, title, arrangements(id, name, chord_chart, chord_chart_key, youtube_url, audio_url)')
     .eq('id', songId)
     .single()
 
   if (!song) notFound()
 
-  type Arr = { id: string; name: string; chord_chart: string | null; chord_chart_key: string | null }
+  type Arr = { id: string; name: string; chord_chart: string | null; chord_chart_key: string | null; youtube_url: string | null; audio_url: string | null }
   const arrangements = song.arrangements as unknown as Arr[]
   // Arrangement principal = celui avec chord_chart, sinon le premier
   const mainArr = arrangements.find(a => a.chord_chart) ?? arrangements[0] ?? null

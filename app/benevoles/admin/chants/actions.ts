@@ -21,6 +21,8 @@ export async function createSong(formData: FormData) {
   const chartKey   = (formData.get('chord_chart_key') as string).trim() || null
   const chart      = (formData.get('chord_chart') as string).trim() || null
   const arrName    = (formData.get('arrangement_name') as string).trim() || 'Principal'
+  const youtubeUrl = (formData.get('youtube_url') as string)?.trim() || null
+  const audioUrl   = (formData.get('audio_url') as string)?.trim() || null
 
   if (!title) redirect('/benevoles/admin/chants/nouveau?error=titre_manquant')
 
@@ -35,10 +37,12 @@ export async function createSong(formData: FormData) {
 
   // 2. Créer l'arrangement
   await admin.from('arrangements').insert({
-    song_id:        song.id,
-    name:           arrName,
-    chord_chart:    chart,
+    song_id:         song.id,
+    name:            arrName,
+    chord_chart:     chart,
     chord_chart_key: chartKey,
+    youtube_url:     youtubeUrl,
+    audio_url:       audioUrl,
   })
 
   revalidatePath('/benevoles/admin/chants')
@@ -49,12 +53,14 @@ export async function createSong(formData: FormData) {
 export async function updateSong(formData: FormData) {
   const admin = await requireAdmin()
 
-  const songId       = parseInt(formData.get('song_id') as string, 10)
+  const songId        = parseInt(formData.get('song_id') as string, 10)
   const arrangementId = formData.get('arrangement_id') as string
-  const title        = (formData.get('title') as string).trim()
-  const chartKey     = (formData.get('chord_chart_key') as string).trim() || null
-  const chart        = (formData.get('chord_chart') as string).trim() || null
-  const arrName      = (formData.get('arrangement_name') as string).trim() || 'Principal'
+  const title         = (formData.get('title') as string).trim()
+  const chartKey      = (formData.get('chord_chart_key') as string).trim() || null
+  const chart         = (formData.get('chord_chart') as string).trim() || null
+  const arrName       = (formData.get('arrangement_name') as string).trim() || 'Principal'
+  const youtubeUrl    = (formData.get('youtube_url') as string)?.trim() || null
+  const audioUrl      = (formData.get('audio_url') as string)?.trim() || null
 
   if (!title) redirect(`/benevoles/admin/chants/${songId}/modifier?error=titre_manquant`)
 
@@ -64,6 +70,8 @@ export async function updateSong(formData: FormData) {
       name:            arrName,
       chord_chart:     chart,
       chord_chart_key: chartKey,
+      youtube_url:     youtubeUrl,
+      audio_url:       audioUrl,
     }).eq('id', arrangementId),
   ])
 

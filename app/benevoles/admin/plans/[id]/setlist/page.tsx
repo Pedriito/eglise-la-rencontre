@@ -26,7 +26,7 @@ export default async function SetlistPage({
     supabase.from('plans').select('id, title').eq('id', id).single(),
     supabase
       .from('plan_songs')
-      .select('id, order_index, key_selected, songs(id, title), arrangements(id, name, chord_chart, chord_chart_key)')
+      .select('id, order_index, key_selected, songs(id, title), arrangements(id, name, chord_chart, chord_chart_key, youtube_url, audio_url)')
       .eq('plan_id', id)
       .order('order_index'),
     supabase
@@ -73,6 +73,7 @@ export default async function SetlistPage({
     arrangement:     (ps as any).arrangements as {
       id: string; name: string
       chord_chart: string | null; chord_chart_key: string | null
+      youtube_url: string | null; audio_url: string | null
     } | null,
     allArrangements: arrsBySong[(ps as any).songs?.id as number] ?? [],
   }))

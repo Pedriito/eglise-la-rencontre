@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ChordChart } from './ChordChart'
+import { MediaPlayer } from './MediaPlayer'
 
 type Arrangement = {
   id: string
@@ -13,6 +14,8 @@ type Arrangement = {
   chord_chart_key: string | null
   keys_available: string[]
   tags: string[]
+  youtube_url: string | null
+  audio_url: string | null
 }
 
 type Song = {
@@ -47,7 +50,7 @@ export default async function SongPage({
     .from('songs')
     .select(`
       id, title, ccli, themes, notes, last_scheduled_date,
-      arrangements(id, name, bpm, length_seconds, notes, chord_chart, chord_chart_key, keys_available, tags)
+      arrangements(id, name, bpm, length_seconds, notes, chord_chart, chord_chart_key, keys_available, tags, youtube_url, audio_url)
     `)
     .eq('id', songId)
     .single()
@@ -130,6 +133,11 @@ export default async function SongPage({
               <p className="font-sans text-xs text-dark/50 bg-amber-50 border border-amber-100 rounded-xl px-4 py-2">
                 {arr.notes}
               </p>
+            )}
+
+            {/* Médias */}
+            {(arr.youtube_url || arr.audio_url) && (
+              <MediaPlayer youtubeUrl={arr.youtube_url} audioUrl={arr.audio_url} />
             )}
 
             {/* Grille avec transposition */}

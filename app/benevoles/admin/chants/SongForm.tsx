@@ -1,13 +1,16 @@
 'use client'
 
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { createSong, updateSong, deleteSong } from './actions'
+import { getEmbedUrl, getPlatformLabel } from '@/lib/videoEmbed'
 
 type Arrangement = {
   id: string
   name: string
   chord_chart: string | null
   chord_chart_key: string | null
+  youtube_url: string | null
+  audio_url: string | null
 }
 
 type Props = {
@@ -22,6 +25,8 @@ type Props = {
 export function SongForm({ mode, songId, arrangement, defaultValues }: Props) {
   const [isPending, startTransition] = useTransition()
   const [isDeleting, startDeleteTransition] = useTransition()
+  const [youtubeUrl, setYoutubeUrl] = useState(arrangement?.youtube_url ?? '')
+  const [youtubeError, setYoutubeError] = useState<string | null>(null)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -99,6 +104,39 @@ export function SongForm({ mode, songId, arrangement, defaultValues }: Props) {
             placeholder={`[Couplet 1]\nAm       G\nLigne de paroles ici\nC        F\nDeuxième ligne ici\n\n[Refrain]\n...`}
             className="w-full bg-white border border-teal/20 rounded-xl px-4 py-3 font-mono text-sm text-dark placeholder:text-dark/20 focus:outline-none focus:ring-2 focus:ring-teal/30 resize-y"
           />
+        </div>
+
+        {/* YouTube */}
+        <div>
+          <label className="block font-sans text-sm text-dark/70 mb-1.5">Lien YouTube</label>
+          <input
+            name="youtube_url"
+            value={youtubeUrl}
+            onChange={e => { setYoutubeUrl(e.target.value); setYoutubeError(null) }}
+            onBlur={() => {
+              if (youtubeUrl.trim() && !getEmbedUrl(youtubeUrl.trim()))
+                setYoutubeError('URL non reconnue — colle un lien YouTube ou Vimeo')
+            }}
+            placeholder="https://youtube.com/watch?v=…"
+            className="w-full bg-white border border-teal/20 rounded-xl px-4 py-2.5 font-mono text-sm text-dark placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-teal/30"
+          />
+          {youtubeError && <p className="text-xs text-red-500 mt-1">{youtubeError}</p>}
+          {youtubeUrl.trim() && getEmbedUrl(youtubeUrl.trim()) && (
+            <p className="text-xs text-teal/60 mt-1">✓ {getPlatformLabel(youtubeUrl.trim())} reconnu</p>
+          )}
+          <p className="text-xs text-dark/35 font-sans mt-1">Pour écouter le chant en répétition ou depuis la fiche.</p>
+        </div>
+
+        {/* Audio MP3 */}
+        <div>
+          <label className="block font-sans text-sm text-dark/70 mb-1.5">Lien audio (MP3)</label>
+          <input
+            name="audio_url"
+            defaultValue={arrangement?.audio_url ?? ''}
+            placeholder="https://drive.google.com/… ou Dropbox, SoundCloud…"
+            className="w-full bg-white border border-teal/20 rounded-xl px-4 py-2.5 font-mono text-sm text-dark placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-teal/30"
+          />
+          <p className="text-xs text-dark/35 font-sans mt-1">Lien direct vers un fichier MP3 accessible publiquement.</p>
         </div>
 
         <button
