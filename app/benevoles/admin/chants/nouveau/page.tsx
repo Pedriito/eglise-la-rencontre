@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { SongForm } from '../SongForm'
+import { NewSongForm } from '../NewSongForm'
 
 export default async function NouveauChantPage({
   searchParams,
@@ -37,9 +37,7 @@ export default async function NouveauChantPage({
           </div>
         )}
 
-        <div className="bg-white rounded-2xl border border-teal/20 p-6">
-          <SongForm mode="create" />
-        </div>
+        <NewSongForm />
       </main>
     </div>
   )

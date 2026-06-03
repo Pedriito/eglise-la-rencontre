@@ -175,6 +175,8 @@ export default async function PlanDetailPage({
     return canSeeAllTeams || myTeamMemberIds.has(team.id)
   }
 
+  const isRehearsal = (plan as any).plan_type === 'rehearsal'
+
   const date = new Date(plan.service_date).toLocaleDateString('fr-FR', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
@@ -188,7 +190,12 @@ export default async function PlanDetailPage({
             ← Planification
           </Link>
           <div>
-            <h1 className="font-display text-2xl text-dark font-light">{plan.title}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="font-display text-2xl text-dark font-light">{plan.title}</h1>
+              {isRehearsal && (
+                <span className="font-sans text-xs bg-teal/10 text-teal px-2 py-0.5 rounded-full">🎵 Répétition</span>
+              )}
+            </div>
             <p className="text-xs text-dark/50 font-sans capitalize">{date} · {time}</p>
           </div>
         </div>
@@ -226,7 +233,8 @@ export default async function PlanDetailPage({
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Grille d'équipes — masquée pour les répétitions */}
+        {!isRehearsal && <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {((plan as any).plan_type === 'prayer_meeting'
             ? (teams ?? []).filter(t => PRAYER_MEETING_TEAMS.has(t.name))
             : (teams ?? [])
@@ -340,7 +348,7 @@ export default async function PlanDetailPage({
               </div>
             )
           })}
-        </div>
+        </div>}
 
         {/* ── Chants du plan ─────────────────────────────────────────── */}
         <SongsSection

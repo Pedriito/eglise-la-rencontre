@@ -22,14 +22,19 @@ function toDatetimeLocal(date: Date, h: number, m: number) {
 
 const TYPES = {
   sunday_service: {
-    label: 'Culte du dimanche',
+    label: 'Culte',
     defaultTitle: 'Culte du dimanche',
     defaultDate: () => toDatetimeLocal(nextWeekday(0), 10, 0),
   },
   prayer_meeting: {
-    label: 'Réunion de prière',
+    label: 'Prière',
     defaultTitle: 'Réunion de prière',
     defaultDate: () => toDatetimeLocal(nextWeekday(2), 20, 30),
+  },
+  rehearsal: {
+    label: '🎵 Répétition',
+    defaultTitle: 'Répétition Louange',
+    defaultDate: () => toDatetimeLocal(nextWeekday(6), 10, 0),
   },
 } as const
 
@@ -102,7 +107,7 @@ export function NouveauPlanForm({ teams, error }: { teams: Team[]; error?: strin
               />
             </div>
 
-            {planType === 'sunday_service' && (
+            {(planType === 'sunday_service' || planType === 'rehearsal') && (
               <div>
                 <label className="block text-sm font-sans text-dark/70 mb-1.5">
                   Équipe <span className="text-dark/30">(optionnel)</span>
@@ -139,7 +144,7 @@ export function NouveauPlanForm({ teams, error }: { teams: Team[]; error?: strin
               type="submit"
               className="w-full py-3 bg-teal text-white rounded-lg font-sans text-sm font-medium hover:bg-teal-dark transition-colors"
             >
-              Créer le service
+              {planType === 'rehearsal' ? 'Créer la répétition' : 'Créer le service'}
             </button>
           </form>
         </div>

@@ -13,16 +13,25 @@ type Arrangement = {
   audio_url: string | null
 }
 
+type ImportedValues = {
+  title:  string
+  artist: string | null
+  key:    string | null
+  bpm:    number | null
+  chart:  string
+}
+
 type Props = {
   mode: 'create' | 'edit'
   songId?: number
   arrangement?: Arrangement
-  defaultValues?: {
-    title: string
-  }
+  defaultValues?: { title: string }
+  importedValues?: ImportedValues
 }
 
-export function SongForm({ mode, songId, arrangement, defaultValues }: Props) {
+export function SongForm({ mode, songId, arrangement, defaultValues, importedValues }: Props) {
+  // Les valeurs importées priment sur les defaultValues
+  const iv = importedValues
   const [isPending, startTransition] = useTransition()
   const [isDeleting, startDeleteTransition] = useTransition()
   const [youtubeUrl, setYoutubeUrl] = useState(arrangement?.youtube_url ?? '')
@@ -61,7 +70,7 @@ export function SongForm({ mode, songId, arrangement, defaultValues }: Props) {
           <input
             name="title"
             required
-            defaultValue={defaultValues?.title ?? ''}
+            defaultValue={iv?.title ?? defaultValues?.title ?? ''}
             placeholder="ex. Hosanna"
             className="w-full bg-white border border-teal/20 rounded-xl px-4 py-2.5 font-sans text-sm text-dark placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-teal/30"
           />
@@ -72,7 +81,7 @@ export function SongForm({ mode, songId, arrangement, defaultValues }: Props) {
           <label className="block font-sans text-sm text-dark/70 mb-1.5">Nom de l'arrangement</label>
           <input
             name="arrangement_name"
-            defaultValue={arrangement?.name ?? 'Principal'}
+            defaultValue={iv?.artist ?? arrangement?.name ?? 'Principal'}
             placeholder="Principal"
             className="w-full bg-white border border-teal/20 rounded-xl px-4 py-2.5 font-sans text-sm text-dark placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-teal/30"
           />
@@ -84,7 +93,7 @@ export function SongForm({ mode, songId, arrangement, defaultValues }: Props) {
           <label className="block font-sans text-sm text-dark/70 mb-1.5">Tonalité de base</label>
           <input
             name="chord_chart_key"
-            defaultValue={arrangement?.chord_chart_key ?? ''}
+            defaultValue={iv?.key ?? arrangement?.chord_chart_key ?? ''}
             placeholder="ex. G, Am, Bb…"
             className="w-40 bg-white border border-teal/20 rounded-xl px-4 py-2.5 font-sans text-sm text-dark placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-teal/30"
           />
@@ -99,7 +108,7 @@ export function SongForm({ mode, songId, arrangement, defaultValues }: Props) {
           </p>
           <textarea
             name="chord_chart"
-            defaultValue={arrangement?.chord_chart ?? ''}
+            defaultValue={iv?.chart ?? arrangement?.chord_chart ?? ''}
             rows={20}
             placeholder={`[Couplet 1]\nAm       G\nLigne de paroles ici\nC        F\nDeuxième ligne ici\n\n[Refrain]\n...`}
             className="w-full bg-white border border-teal/20 rounded-xl px-4 py-3 font-mono text-sm text-dark placeholder:text-dark/20 focus:outline-none focus:ring-2 focus:ring-teal/30 resize-y"
