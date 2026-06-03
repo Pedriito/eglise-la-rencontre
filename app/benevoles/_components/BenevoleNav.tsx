@@ -60,6 +60,11 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
 
   if (isAdmin) {
     items.push({
+      label: 'Pastorale',
+      href: '/benevoles/admin/pastorale',
+      match: p => p.startsWith('/benevoles/admin/pastorale'),
+    })
+    items.push({
       label: 'Bénévoles',
       href: '/benevoles/admin',
       match: p =>
