@@ -276,10 +276,43 @@ export async function addPlanSong(formData: FormData) {
 
   const nextIndex = (existing?.order_index ?? -1) + 1
 
+  // Toujours préférer un arrangement avec grille d'accords
+  let finalArrId = arrId
+  if (!finalArrId) {
+    // Aucun arrangement spécifié → prendre le premier avec grille, sinon le premier dispo
+    const { data: arrangements } = await admin
+      .from('arrangements')
+      .select('id, chord_chart')
+      .eq('song_id', songId)
+      .order('created_at')
+    if (arrangements && arrangements.length > 0) {
+      const withChart = arrangements.find(a => a.chord_chart)
+      finalArrId = (withChart ?? arrangements[0]).id
+    }
+  } else {
+    // Arrangement spécifié sans grille → vérifier s'il en existe un meilleur
+    const { data: specifiedArr } = await admin
+      .from('arrangements')
+      .select('chord_chart')
+      .eq('id', finalArrId)
+      .single()
+    if (!specifiedArr?.chord_chart) {
+      const { data: better } = await admin
+        .from('arrangements')
+        .select('id')
+        .eq('song_id', songId)
+        .not('chord_chart', 'is', null)
+        .order('created_at')
+        .limit(1)
+        .maybeSingle()
+      if (better) finalArrId = better.id
+    }
+  }
+
   await admin.from('plan_songs').insert({
     plan_id:        planId,
     song_id:        songId,
-    arrangement_id: arrId,
+    arrangement_id: finalArrId,
     key_selected:   keySelected,
     order_index:    nextIndex,
   })
