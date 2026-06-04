@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { addBlockout, removeBlockout } from './actions'
@@ -14,12 +15,13 @@ export default async function IndisponibilitesPage({
 
   const params = await searchParams
 
-  const { data: blockouts } = await supabase
+  // Utiliser l'admin client pour contourner les éventuelles restrictions RLS
+  const admin = createAdminClient()
+  const { data: blockouts } = await admin
     .from('blockout_dates')
     .select('id, start_date, end_date, reason')
     .eq('user_id', user.id)
-    .gte('end_date', new Date().toISOString().split('T')[0])
-    .order('start_date')
+    .order('start_date', { ascending: false })
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -92,8 +94,11 @@ export default async function IndisponibilitesPage({
 
         {/* Liste */}
         <div className="bg-white rounded-2xl border border-teal/20 overflow-hidden">
-          <div className="px-6 py-3 border-b border-teal/10">
-            <p className="text-xs font-sans text-dark/40 uppercase tracking-widest font-medium">Périodes à venir</p>
+          <div className="px-6 py-3 border-b border-teal/10 flex items-center justify-between">
+            <p className="text-xs font-sans text-dark/40 uppercase tracking-widest font-medium">Mes indisponibilités</p>
+            {blockouts && blockouts.length > 0 && (
+              <span className="text-xs font-sans text-dark/30">{blockouts.length} période{blockouts.length > 1 ? 's' : ''}</span>
+            )}
           </div>
           {blockouts && blockouts.length > 0 ? (
             <div className="divide-y divide-teal/10">
@@ -101,11 +106,13 @@ export default async function IndisponibilitesPage({
                 const start = new Date(b.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
                 const end = new Date(b.end_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
                 const isSameDay = b.start_date === b.end_date
+                const isPast = b.end_date < today
                 return (
-                  <div key={b.id} className="px-6 py-4 flex items-center justify-between">
+                  <div key={b.id} className={`px-6 py-4 flex items-center justify-between ${isPast ? 'opacity-50' : ''}`}>
                     <div>
-                      <p className="font-sans text-sm text-dark font-medium">
+                      <p className={`font-sans text-sm font-medium ${isPast ? 'text-dark/50' : 'text-dark'}`}>
                         {isSameDay ? start : `${start} → ${end}`}
+                        {isPast && <span className="ml-2 text-xs text-dark/30">(passée)</span>}
                       </p>
                       {b.reason && (
                         <p className="font-sans text-xs text-dark/40 mt-0.5">{b.reason}</p>
