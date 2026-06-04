@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { PrayerRequestForm } from './PrayerRequestForm'
+import { SheetSync } from './SheetSync'
 
 export default async function PastoralePage() {
   const supabase = await createClient()
@@ -51,7 +52,7 @@ export default async function PastoralePage() {
           {/* ── Sujets de prière ── */}
           <section className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="font-display text-lg text-dark font-light">
+              <h2 className="font-display text-lg text-dark font-light flex items-center gap-2">
                 Sujets de prière
                 {prayerRequests && prayerRequests.length > 0 && (
                   <span className="ml-2 text-sm bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-sans">{prayerRequests.length}</span>
@@ -59,7 +60,10 @@ export default async function PastoralePage() {
               </h2>
             </div>
 
-            {/* Formulaire ajout */}
+            {/* Sync Google Forms + ajout manuel */}
+            <div className="flex gap-2 flex-wrap">
+              <SheetSync />
+            </div>
             <PrayerRequestForm profiles={(profiles ?? []) as any} />
 
             {/* Liste */}
