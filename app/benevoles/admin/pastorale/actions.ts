@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -36,11 +37,13 @@ export async function resolvePrayerRequest(id: string) {
   await admin.from('prayer_requests')
     .update({ status: 'resolved', resolved_at: new Date().toISOString() })
     .eq('id', id)
+  revalidatePath('/benevoles/admin/pastorale')
 }
 
 export async function deletePrayerRequest(id: string) {
   const { admin } = await requireAdmin()
   await admin.from('prayer_requests').delete().eq('id', id)
+  revalidatePath('/benevoles/admin/pastorale')
 }
 
 // ── Notes pastorales ─────────────────────────────────────────────────────────
