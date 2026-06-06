@@ -51,3 +51,10 @@ export async function revokeInviteToken(tokenId: string): Promise<void> {
     .update({ revoked_at: new Date().toISOString() })
     .eq('id', tokenId)
 }
+
+export async function resetInviteTokenUses(tokenId: string, newMaxUses: number | null): Promise<void> {
+  const { admin } = await requireAdmin()
+  await admin.from('invite_tokens')
+    .update({ uses_count: 0, max_uses: newMaxUses })
+    .eq('id', tokenId)
+}
