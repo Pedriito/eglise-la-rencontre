@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { removeAssignment, deletePlan, sendSingleInvitation } from '../actions'
 import { SongsSection } from './SongsSection'
+import { CopySetlistButton } from './CopySetlistButton'
 import { StatusDot } from '../../../_components/StatusDot'
 import { FlashMessage } from '../../../_components/FlashMessage'
 import { AddAssignmentForm } from './AddAssignmentForm'
@@ -351,11 +352,18 @@ export default async function PlanDetailPage({
         </div>}
 
         {/* ── Chants du plan ─────────────────────────────────────────── */}
-        <SongsSection
-          planId={id}
-          planSongs={(planSongs ?? []) as any}
-          allSongs={(allSongs ?? []) as any}
-        />
+        <div className="space-y-2">
+          {canManage && (planSongs ?? []).length > 0 && (
+            <div className="flex justify-end">
+              <CopySetlistButton planId={id} songCount={(planSongs ?? []).length} />
+            </div>
+          )}
+          <SongsSection
+            planId={id}
+            planSongs={(planSongs ?? []) as any}
+            allSongs={(allSongs ?? []) as any}
+          />
+        </div>
 
         {/* ── Annonces ────────────────────────────────────────────────── */}
         <section className="bg-white rounded-2xl border border-teal/20 overflow-hidden">
