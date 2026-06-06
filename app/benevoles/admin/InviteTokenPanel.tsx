@@ -1,15 +1,15 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { createInviteToken, revokeInviteToken, type InviteToken } from './invite-token-actions'
+import { createInviteToken, revokeInviteToken, resetInviteTokenUses, type InviteToken } from './invite-token-actions'
 
 type Props = { initial: InviteToken[] }
 
 const EXPIRY_OPTIONS = [
-  { label: '7 jours',   value: 7 },
-  { label: '30 jours',  value: 30 },
-  { label: '3 mois',    value: 90 },
-  { label: 'Sans limite', value: 0 },
+  { label: 'Sans limite', value: 0 },   // défaut : pas d'expiration
+  { label: '30 jours',   value: 30 },
+  { label: '7 jours',    value: 7 },
+  { label: '3 mois',     value: 90 },
 ]
 
 function shareUrl(token: string) {
@@ -44,7 +44,6 @@ export default function InviteTokenPanel({ initial }: Props) {
     startTransition(async () => {
       const res = await createInviteToken(fd)
       if (res.ok) {
-        // Recharge les tokens depuis le serveur via un refresh de page partiel
         window.location.reload()
       }
     })
@@ -55,6 +54,13 @@ export default function InviteTokenPanel({ initial }: Props) {
     startTransition(async () => {
       await revokeInviteToken(tokenId)
       setTokens(prev => prev.map(t => t.id === tokenId ? { ...t, revoked_at: new Date().toISOString() } : t))
+    })
+  }
+
+  function handleResetUses(tokenId: string) {
+    startTransition(async () => {
+      await resetInviteTokenUses(tokenId, null)  // remet uses_count à 0 et max_uses à illimité
+      setTokens(prev => prev.map(t => t.id === tokenId ? { ...t, uses_count: 0, max_uses: null } : t))
     })
   }
 
@@ -76,18 +82,42 @@ export default function InviteTokenPanel({ initial }: Props) {
                 <p className="font-sans text-xs text-teal/70 uppercase tracking-wide mb-0.5">{t.label}</p>
               )}
               <p className="font-mono text-xs text-dark/50 truncate">{shareUrl(t.token)}</p>
-              <div className="flex gap-3 mt-1">
+              <div className="flex gap-3 mt-1 flex-wrap">
                 <span className="font-sans text-[10px] text-dark/30">
                   {t.uses_count} inscription{t.uses_count !== 1 ? 's' : ''}
-                  {t.max_uses ? ` / ${t.max_uses} max` : ''}
+                  {t.max_uses
+                    ? <span className={`ml-1 font-medium ${t.uses_count >= t.max_uses - 1 ? 'text-amber-500' : 'text-dark/30'}`}>
+                        / {t.max_uses} max
+                      </span>
+                    : <span className="ml-1 text-dark/25"> (illimité)</span>
+                  }
                 </span>
                 {t.expires_at && (
                   <span className="font-sans text-[10px] text-dark/30">
                     Expire le {new Date(t.expires_at).toLocaleDateString('fr-FR')}
                   </span>
                 )}
+                {!t.expires_at && (
+                  <span className="font-sans text-[10px] text-dark/25">Sans expiration</span>
+                )}
               </div>
+
+              {/* Avertissement si max_uses = 1 */}
+              {t.max_uses === 1 && (
+                <div className="mt-2 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                  <span className="text-amber-500 text-xs">⚠️</span>
+                  <span className="font-sans text-[11px] text-amber-700">Limité à 1 inscription — ton test a consommé le seul slot.</span>
+                  <button
+                    onClick={() => handleResetUses(t.id)}
+                    disabled={isPending}
+                    className="ml-auto font-sans text-[11px] text-amber-600 underline hover:text-amber-800 disabled:opacity-40 shrink-0"
+                  >
+                    Corriger →
+                  </button>
+                </div>
+              )}
             </div>
+
             <div className="flex gap-2 shrink-0">
               <button
                 onClick={() => copyLink(t)}
@@ -126,6 +156,7 @@ export default function InviteTokenPanel({ initial }: Props) {
           <input
             name="label"
             placeholder="Label (ex : WhatsApp louange, Réunion juin…)"
+            autoComplete="off"
             className="w-full border border-teal/20 rounded-lg px-3 py-2 text-sm font-sans text-dark placeholder:text-dark/30 focus:outline-none focus:border-teal/50"
           />
           <div className="flex gap-3">
@@ -138,16 +169,23 @@ export default function InviteTokenPanel({ initial }: Props) {
               </select>
             </div>
             <div className="flex-1 space-y-1">
-              <label className="font-sans text-xs text-dark/40">Nb max d'inscriptions</label>
+              <label className="font-sans text-xs text-dark/40">
+                Nb max d'inscriptions
+                <span className="ml-1 text-dark/25 normal-case">(laisser vide = illimité)</span>
+              </label>
               <input
                 name="max_uses"
                 type="number"
                 min={0}
+                autoComplete="off"
                 placeholder="Illimité"
                 className="w-full border border-teal/20 rounded-lg px-3 py-2 text-sm font-sans text-dark placeholder:text-dark/30 focus:outline-none focus:border-teal/50"
               />
             </div>
           </div>
+          <p className="font-sans text-[11px] text-dark/35 bg-teal/5 rounded-lg px-3 py-2">
+            💡 Laisse les deux champs par défaut pour un lien permanent et illimité, idéal pour un groupe WhatsApp.
+          </p>
           <div className="flex gap-2">
             <button
               type="button"
