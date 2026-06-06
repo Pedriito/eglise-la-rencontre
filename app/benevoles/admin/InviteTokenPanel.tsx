@@ -64,8 +64,10 @@ export default function InviteTokenPanel({ initial }: Props) {
     })
   }
 
-  const active  = tokens.filter(t => !isExpired(t) && !isMaxed(t))
-  const expired = tokens.filter(t => isExpired(t) || isMaxed(t))
+  // "active" = ni révoqué ni expiré (peut être maxé → montré avec ⚠️ + bouton Corriger)
+  const active  = tokens.filter(t => !isExpired(t))
+  // "dead"   = révoqué OU date dépassée (lien définitivement inutilisable)
+  const dead    = tokens.filter(t => isExpired(t))
 
   return (
     <div className="space-y-4">
@@ -102,11 +104,13 @@ export default function InviteTokenPanel({ initial }: Props) {
                 )}
               </div>
 
-              {/* Avertissement si max_uses = 1 */}
-              {t.max_uses === 1 && (
+              {/* Avertissement si limite atteinte */}
+              {isMaxed(t) && (
                 <div className="mt-2 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
                   <span className="text-amber-500 text-xs">⚠️</span>
-                  <span className="font-sans text-[11px] text-amber-700">Limité à 1 inscription — ton test a consommé le seul slot.</span>
+                  <span className="font-sans text-[11px] text-amber-700">
+                    Limite atteinte ({t.uses_count}/{t.max_uses}) — personne ne peut plus s'inscrire avec ce lien.
+                  </span>
                   <button
                     onClick={() => handleResetUses(t.id)}
                     disabled={isPending}
@@ -212,20 +216,20 @@ export default function InviteTokenPanel({ initial }: Props) {
         </button>
       )}
 
-      {/* Tokens expirés/révoqués */}
-      {expired.length > 0 && (
+      {/* Tokens révoqués / date expirée */}
+      {dead.length > 0 && (
         <details className="mt-2">
           <summary className="font-sans text-xs text-dark/30 cursor-pointer hover:text-dark/50">
-            {expired.length} lien{expired.length > 1 ? 's' : ''} expiré{expired.length > 1 ? 's' : ''} / désactivé{expired.length > 1 ? 's' : ''}
+            {dead.length} lien{dead.length > 1 ? 's' : ''} désactivé{dead.length > 1 ? 's' : ''} / expiré{dead.length > 1 ? 's' : ''}
           </summary>
           <div className="mt-2 space-y-1.5">
-            {expired.map(t => (
+            {dead.map(t => (
               <div key={t.id} className="flex items-center justify-between gap-2 px-3 py-2 bg-dark/5 rounded-lg opacity-50">
                 <div className="min-w-0">
                   {t.label && <span className="font-sans text-xs text-dark/60 mr-2">{t.label}</span>}
                   <span className="font-sans text-[10px] text-dark/40">
                     {t.uses_count} inscription{t.uses_count !== 1 ? 's' : ''}
-                    {t.revoked_at ? ' · désactivé' : t.max_uses ? ' · limite atteinte' : ' · expiré'}
+                    {t.revoked_at ? ' · désactivé' : ' · expiré'}
                   </span>
                 </div>
               </div>
