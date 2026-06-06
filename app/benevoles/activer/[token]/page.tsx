@@ -12,7 +12,7 @@ async function activate(formData: FormData) {
     .eq('token', token)
     .single()
 
-  if (!invite || new Date(invite.expires_at) < new Date()) {
+  if (!invite || (invite.expires_at != null && new Date(invite.expires_at) < new Date())) {
     redirect('/benevoles/login?error=expired')
   }
 
@@ -59,7 +59,7 @@ export default async function ActivatePage({
     .eq('token', token)
     .single()
 
-  if (!invite || new Date(invite.expires_at) < new Date()) {
+  if (!invite || (invite.expires_at != null && new Date(invite.expires_at) < new Date())) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-teal-50 px-4">
         <div className="text-center space-y-3">
