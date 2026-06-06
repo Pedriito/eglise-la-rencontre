@@ -55,6 +55,23 @@ export async function registerViaToken(formData: FormData): Promise<RegisterResu
     }
     // Status 'invited' → renvoyer le lien d'activation
     userId = existing.id
+
+    // Vérifier que le compte auth existe (peut manquer si profil créé manuellement sans compte Supabase)
+    const { data: authUserData } = await admin.auth.admin.getUserById(existing.id)
+    if (!authUserData?.user) {
+      console.error('[register] profil sans compte auth trouvé, création du compte auth avec le même UUID', { email, userId })
+      const { error: createAuthError } = await admin.auth.admin.createUser({
+        id: existing.id, // même UUID que le profil pour éviter tout décalage
+        email,
+        email_confirm: false,
+        user_metadata: { first_name: firstName, last_name: lastName },
+      })
+      if (createAuthError) {
+        console.error('[register] createUser pour profil orphelin échoué:', createAuthError.message, { email, userId })
+        // On continue malgré tout — generateLink peut parfois réussir
+      }
+    }
+
     // Mettre à jour le prénom/nom si renseignés via ce formulaire
     await admin.from('profiles').update({ first_name: firstName, last_name: lastName, phone: phone ?? undefined }).eq('id', userId)
   } else {
