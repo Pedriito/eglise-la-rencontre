@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { logout } from '../login/actions'
+import { permissionLabels } from '@/lib/labels'
 
 type Props = {
   permission: string
@@ -131,6 +132,11 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
           >
             Mon profil
           </Link>
+          <div className="px-5 pb-1 pt-0">
+            <span className="font-sans text-[10px] uppercase tracking-widest text-teal/50 font-medium">
+              {permissionLabels[permission] ?? permission}
+            </span>
+          </div>
           <div className="px-5 py-3 flex items-center justify-between">
             {(firstName || lastName) && (
               <span className="font-sans text-xs text-dark/40 truncate">{firstName} {lastName}</span>
@@ -224,6 +230,11 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
           >
             Mon profil
           </Link>
+          <div className="px-5 pb-1 pt-0">
+            <span className="font-sans text-[10px] uppercase tracking-widest text-teal/50 font-medium">
+              {permissionLabels[permission] ?? permission}
+            </span>
+          </div>
           <div className="px-5 py-4 flex items-center justify-between border-t border-teal/10">
             {(firstName || lastName) && (
               <span className="font-sans text-sm text-dark/50 truncate">{firstName} {lastName}</span>

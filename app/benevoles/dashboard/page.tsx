@@ -311,7 +311,9 @@ export default async function DashboardPage() {
             >
               <div>
                 <p className="font-sans text-sm text-dark font-medium">{profile?.first_name} {profile?.last_name}</p>
-                <p className="font-sans text-xs text-dark/40 mt-0.5">Modifier mes informations</p>
+                <p className="font-sans text-xs text-teal/60 mt-0.5 uppercase tracking-widest font-medium">
+                  {permissionLabels[profile?.permission ?? ''] ?? profile?.permission}
+                </p>
               </div>
               <span className="text-teal font-sans text-sm group-hover:translate-x-1 transition-transform">→</span>
             </Link>
