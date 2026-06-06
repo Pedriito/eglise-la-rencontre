@@ -30,9 +30,10 @@ export async function proxy(request: NextRequest) {
   const isResetPage    = pathname === '/benevoles/mot-de-passe-oublie'
   const isActivation   = pathname.startsWith('/benevoles/activer')
   const isRepondre     = pathname.startsWith('/benevoles/repondre')
+  const isRejoindre    = pathname.startsWith('/benevoles/rejoindre')
 
   // Pas connecté → redirige vers login (sauf pages publiques)
-  if (!user && !isLoginPage && !isCallback && !isSetPassword && !isResetPage && !isActivation && !isRepondre) {
+  if (!user && !isLoginPage && !isCallback && !isSetPassword && !isResetPage && !isActivation && !isRepondre && !isRejoindre) {
     return NextResponse.redirect(new URL('/benevoles/login', request.url))
   }
 
