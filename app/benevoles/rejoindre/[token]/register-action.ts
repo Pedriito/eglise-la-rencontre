@@ -12,6 +12,7 @@ function getSiteUrl() {
 export type RegisterResult =
   | { ok: true }
   | { ok: false; error: string }
+  | { ok: false; error: string; debug?: string }
 
 export async function registerViaToken(formData: FormData): Promise<RegisterResult> {
   const token     = formData.get('token') as string
@@ -102,26 +103,46 @@ export async function registerViaToken(formData: FormData): Promise<RegisterResu
 
   // Générer le lien d'activation et envoyer l'email
   const siteUrl = getSiteUrl()
-  const { data: linkData } = await admin.auth.admin.generateLink({
+  const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
     type: 'recovery',
     email,
     options: { redirectTo: `${siteUrl}/benevoles/auth/confirm` },
   })
 
-  if (linkData?.properties?.action_link) {
-    const { data: invite } = await admin
-      .from('pending_invites')
-      .insert({ action_link: linkData.properties.action_link, email, user_id: userId })
-      .select('token')
-      .single()
+  if (!linkData?.properties?.action_link) {
+    console.error('[register] generateLink failed:', linkError?.message, { email, userId })
+    return { ok: false, error: `Erreur lors de la création du lien d'activation. Réessaie ou contacte l'équipe. (generateLink: ${linkError?.message ?? 'no action_link'})` }
+  }
 
-    if (invite) {
-      const activateUrl = `${siteUrl}/benevoles/activer/${invite.token}`
-      try {
-        await sendInviteEmail({ to: email, firstName, inviteLink: activateUrl })
-      } catch {
-        // Email error non-bloquante
-      }
+  const actionLink = linkData.properties.action_link
+
+  // Supprimer un éventuel ancien pending_invite pour éviter les conflits de clé unique
+  await admin.from('pending_invites').delete().eq('user_id', userId)
+
+  const { data: invite, error: inviteError } = await admin
+    .from('pending_invites')
+    .insert({ action_link: actionLink, email, user_id: userId })
+    .select('token')
+    .single()
+
+  if (!invite) {
+    // pending_invites a échoué → envoyer le lien directement (expire dans 1h)
+    console.error('[register] pending_invites insert failed:', inviteError?.message, { email, userId })
+    try {
+      await sendInviteEmail({ to: email, firstName, inviteLink: actionLink })
+    } catch (emailErr: unknown) {
+      const msg = emailErr instanceof Error ? emailErr.message : String(emailErr)
+      console.error('[register] sendInviteEmail fallback failed:', msg, { email })
+      return { ok: false, error: `Compte créé mais l'email d'activation n'a pas pu être envoyé. Contacte l'équipe. (${msg})` }
+    }
+  } else {
+    const activateUrl = `${siteUrl}/benevoles/activer/${invite.token}`
+    try {
+      await sendInviteEmail({ to: email, firstName, inviteLink: activateUrl })
+    } catch (emailErr: unknown) {
+      const msg = emailErr instanceof Error ? emailErr.message : String(emailErr)
+      console.error('[register] sendInviteEmail failed:', msg, { email })
+      return { ok: false, error: `Compte créé mais l'email d'activation n'a pas pu être envoyé. Contacte l'équipe. (${msg})` }
     }
   }
 
