@@ -78,7 +78,7 @@ export default async function PlanDetailPage({
       .order('title'),
     supabase
       .from('plan_announcements')
-      .select('id, title, body, order_index')
+      .select('id, title, body, order_index, image_url, video_url')
       .eq('plan_id', id)
       .order('order_index'),
     supabase
@@ -94,6 +94,13 @@ export default async function PlanDetailPage({
   ])
 
   if (!plan) redirect('/benevoles/admin/plans')
+
+  // Annonces récurrentes (globales, apparaissent sur tous les cultes)
+  const { data: recurringAnnouncements } = await supabase
+    .from('recurring_announcements')
+    .select('id, title, body, order_index, image_url, video_url, active')
+    .eq('active', true)
+    .order('order_index')
 
   // Fréquence récente : nb de services les 60 derniers jours par bénévole
   const cutoff = new Date()
@@ -374,6 +381,7 @@ export default async function PlanDetailPage({
             <AnnoncesSection
               planId={id}
               initial={(announcements ?? []) as any}
+              initialRecurring={(recurringAnnouncements ?? []) as any}
               canManage={canManage}
             />
           </div>

@@ -48,6 +48,19 @@ export default async function SetlistPage({
 
   if (!plan) notFound()
 
+  // Annonces récurrentes (globales)
+  const { data: recurringAnn } = await supabase
+    .from('recurring_announcements')
+    .select('id, title, body, order_index, image_url, video_url')
+    .eq('active', true)
+    .order('order_index')
+
+  // Merge : récurrentes en premier, puis spécifiques au plan
+  const allAnnouncements = [
+    ...(recurringAnn ?? []).map(a => ({ ...a, id: `recurring-${a.id}` })),
+    ...(announcements ?? []),
+  ]
+
   // Fetch tous les arrangements disponibles pour chaque chant du plan
   const songIds = [...new Set((rawSongs ?? []).map(ps => (ps as any).songs?.id as number).filter(Boolean))]
   const { data: allArrangementsRaw } = songIds.length > 0
@@ -83,7 +96,7 @@ export default async function SetlistPage({
       planId={plan.id}
       planTitle={plan.title}
       songs={songs}
-      announcements={(announcements ?? []) as { id: string; title: string | null; body: string; order_index: number; image_url: string | null; video_url: string | null }[]}
+      announcements={allAnnouncements as { id: string; title: string | null; body: string; order_index: number; image_url: string | null; video_url: string | null }[]}
       sermons={(sermons ?? []) as { id: string; title: string; url: string }[]}
       videos={(videos ?? []) as { id: string; title: string | null; url: string; order_index: number }[]}
       autoProjection={projection === '1'}

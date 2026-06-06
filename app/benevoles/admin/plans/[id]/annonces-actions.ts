@@ -19,6 +19,75 @@ async function getAdminIfAllowed() {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ANNONCES RÉCURRENTES (globales, apparaissent sur tous les plans)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type RecurringAnnouncement = {
+  id: string
+  title: string | null
+  body: string
+  order_index: number
+  image_url: string | null
+  video_url: string | null
+  active: boolean
+}
+
+export async function addRecurringAnnouncement(
+  title: string, body: string,
+  imageUrl: string | null = null, videoUrl: string | null = null
+): Promise<RecurringAnnouncement | null> {
+  const admin = await getAdminIfAllowed()
+  if (!admin) return null
+  const { data: existing } = await admin
+    .from('recurring_announcements')
+    .select('order_index')
+    .order('order_index', { ascending: false })
+    .limit(1)
+  const nextIndex = existing?.[0] ? existing[0].order_index + 1 : 0
+  const { data } = await admin.from('recurring_announcements').insert({
+    title: title.trim() || null, body, order_index: nextIndex,
+    image_url: imageUrl, video_url: videoUrl || null, active: true,
+  }).select().single()
+  return data as RecurringAnnouncement | null
+}
+
+export async function updateRecurringAnnouncement(
+  id: string, title: string, body: string,
+  imageUrl: string | null = null, videoUrl: string | null = null
+) {
+  const admin = await getAdminIfAllowed()
+  if (!admin) return
+  await admin.from('recurring_announcements')
+    .update({ title: title.trim() || null, body, image_url: imageUrl, video_url: videoUrl || null })
+    .eq('id', id)
+}
+
+export async function deleteRecurringAnnouncement(id: string) {
+  const admin = await getAdminIfAllowed()
+  if (!admin) return
+  await admin.from('recurring_announcements').delete().eq('id', id)
+}
+
+export async function moveRecurringAnnouncement(id: string, direction: 'up' | 'down') {
+  const admin = await getAdminIfAllowed()
+  if (!admin) return
+  const { data: all } = await admin
+    .from('recurring_announcements')
+    .select('id, order_index')
+    .order('order_index')
+  if (!all || all.length < 2) return
+  const idx = all.findIndex(a => a.id === id)
+  if (idx === -1) return
+  const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+  if (swapIdx < 0 || swapIdx >= all.length) return
+  const a = all[idx], b = all[swapIdx]
+  await Promise.all([
+    admin.from('recurring_announcements').update({ order_index: b.order_index }).eq('id', a.id),
+    admin.from('recurring_announcements').update({ order_index: a.order_index }).eq('id', b.id),
+  ])
+}
+
 export async function uploadAnnouncementImage(formData: FormData): Promise<string | null> {
   const admin = await getAdminIfAllowed()
   if (!admin) return null
