@@ -332,9 +332,11 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
         const annPad  = `${(100 - (settings.ann_text_max_width ?? 94)) / 2}%`
         const annScale = settings.ann_font_size_scale ?? 1.0
 
-        // Taille du titre : on prend le max entre le corps et le titre (× 0.7 pour compenser le tracking large)
-        // Évite que le titre soit énorme quand le corps est court (ex: "???") ou minuscule quand le corps est long
-        const titleEffectiveLen = Math.max(maxLen, Math.ceil((announcement.title?.length ?? 0) * 0.7))
+        // Taille du titre : basée sur la longueur du titre (× 0.7 pour compenser le tracking large)
+        // Le titre est le texte principal → grande police (annScale * 1.1)
+        const titleEffectiveLen = Math.max(15, Math.ceil((announcement.title?.length ?? 0) * 0.7))
+        // Taille du corps : plus petit que le titre, avec longueur min de 15 pour éviter les textes courts énormes
+        const bodyEffectiveLen = Math.max(maxLen, 15)
 
         // ── Paysage : image plein fond + texte en bas ─────────────────────────
         if (hasImage && isLandscape) {
@@ -345,13 +347,13 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
               <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.1) 100%)' }} />
               <div className="absolute bottom-0 left-0 right-0 pb-[6%]" style={{ paddingLeft: annPad, paddingRight: annPad }}>
                 {announcement.title && (
-                  <p className="uppercase tracking-[0.4em] mb-4 font-sans" style={{ color: settings.ann_text_color + '80', fontSize: calcAnnFontSize(titleEffectiveLen, annScale * 0.55) }}>
+                  <p className="uppercase tracking-[0.4em] mb-4 font-sans font-semibold" style={{ color: settings.ann_text_color + 'cc', fontSize: calcAnnFontSize(titleEffectiveLen, annScale * 1.1) }}>
                     {announcement.title}
                   </p>
                 )}
                 <div className="space-y-3">
                   {lines.map((line, i) => (
-                    <p key={i} className="font-semibold leading-tight drop-shadow-lg" style={{ ...annTxtStyle, fontSize: calcAnnFontSize(maxLen, annScale) }}>
+                    <p key={i} className="font-medium leading-tight drop-shadow-lg" style={{ ...annTxtStyle, fontSize: calcAnnFontSize(bodyEffectiveLen, annScale * 0.7) }}>
                       {line}
                     </p>
                   ))}
@@ -376,13 +378,13 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
                 )}
                 <div className="relative z-10">
                   {announcement.title && (
-                    <p className="uppercase tracking-[0.4em] mb-6 font-sans" style={{ color: settings.ann_text_color + '60', fontSize: calcAnnFontSize(titleEffectiveLen * 0.6, annScale * 0.55) }}>
+                    <p className="uppercase tracking-[0.4em] mb-6 font-sans font-semibold" style={{ color: settings.ann_text_color + 'cc', fontSize: calcAnnFontSize(titleEffectiveLen * 0.6, annScale * 1.1) }}>
                       {announcement.title}
                     </p>
                   )}
                   <div className="space-y-4">
                     {lines.map((line, i) => (
-                      <p key={i} className="font-semibold leading-tight" style={{ ...annTxtStyle, fontSize: calcAnnFontSize(maxLen * 0.6, annScale) }}>
+                      <p key={i} className="font-medium leading-tight" style={{ ...annTxtStyle, fontSize: calcAnnFontSize(bodyEffectiveLen * 0.6, annScale * 0.7) }}>
                         {line}
                       </p>
                     ))}
@@ -412,13 +414,13 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
             </div>
             <div className="w-full relative z-10" style={{ paddingLeft: annPad, paddingRight: annPad }}>
               {announcement.title && (
-                <p className="uppercase tracking-[0.4em] mb-8 font-sans" style={{ color: settings.ann_text_color + '60', fontSize: calcAnnFontSize(titleEffectiveLen, annScale * 0.55) }}>
+                <p className="uppercase tracking-[0.4em] mb-8 font-sans font-semibold" style={{ color: settings.ann_text_color + 'cc', fontSize: calcAnnFontSize(titleEffectiveLen, annScale * 1.1) }}>
                   {announcement.title}
                 </p>
               )}
               <div className="space-y-5">
                 {lines.map((line, i) => (
-                  <p key={i} className="font-semibold leading-tight" style={{ ...annTxtStyle, fontSize: calcAnnFontSize(maxLen, annScale) }}>
+                  <p key={i} className="font-medium leading-tight" style={{ ...annTxtStyle, fontSize: calcAnnFontSize(bodyEffectiveLen, annScale * 0.7) }}>
                     {line}
                   </p>
                 ))}
