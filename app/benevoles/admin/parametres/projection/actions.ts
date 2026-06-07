@@ -45,12 +45,13 @@ export async function saveProjectionSettings(
       ann_bg_blur:             s.ann_bg_blur,
       ann_bg_overlay_opacity:  s.ann_bg_overlay_opacity,
       // texte annonces
-      ann_font_family:         s.ann_font_family,
-      ann_text_color:          s.ann_text_color,
-      ann_text_shadow:         s.ann_text_shadow,
-      ann_text_transform:      s.ann_text_transform,
-      ann_font_size_scale:     s.ann_font_size_scale,
-      ann_text_max_width:      s.ann_text_max_width,
+      ann_font_family:             s.ann_font_family,
+      ann_text_color:              s.ann_text_color,
+      ann_text_shadow:             s.ann_text_shadow,
+      ann_text_transform:          s.ann_text_transform,
+      ann_title_font_size_scale:   s.ann_title_font_size_scale,
+      ann_font_size_scale:         s.ann_font_size_scale,
+      ann_text_max_width:          s.ann_text_max_width,
       updated_at: new Date().toISOString(),
     })
   if (error) return { ok: false, error: error.message }

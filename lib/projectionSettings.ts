@@ -26,7 +26,8 @@ export type ProjectionSettings = {
   ann_text_color: string
   ann_text_shadow: boolean
   ann_text_transform: 'uppercase' | 'capitalize' | 'small-caps' | 'none'
-  ann_font_size_scale: number
+  ann_title_font_size_scale: number  // taille du titre (label)
+  ann_font_size_scale: number        // taille du corps
   ann_text_max_width: number
 }
 
@@ -60,7 +61,8 @@ export const DEFAULT_SETTINGS: ProjectionSettings = {
   ann_text_color: '#ffffff',
   ann_text_shadow: false,
   ann_text_transform: 'none',
-  ann_font_size_scale: 1.0,
+  ann_title_font_size_scale: 1.1,
+  ann_font_size_scale: 0.7,
   ann_text_max_width: 94,
 }
 

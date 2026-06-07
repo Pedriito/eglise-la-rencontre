@@ -15,7 +15,7 @@ type ProjectionSettings = {
   ann_bg_type: BgType; ann_bg_color: string; ann_bg_gradient: string | null
   ann_bg_image_url: string | null; ann_bg_blur: number; ann_bg_overlay_opacity: number
   ann_font_family: string; ann_text_color: string; ann_text_shadow: boolean
-  ann_text_transform: TextTransform; ann_font_size_scale: number; ann_text_max_width: number
+  ann_text_transform: TextTransform; ann_title_font_size_scale: number; ann_font_size_scale: number; ann_text_max_width: number
 }
 
 type MediaFile = { id: string; name: string; url: string }
@@ -278,12 +278,13 @@ export default function ProjectionSettingsForm({ initial, mediaFiles }: Props) {
     ann_bg_gradient:     initial.ann_bg_gradient     ?? null,
     ann_bg_image_url:    initial.ann_bg_image_url    ?? null,
     ann_bg_blur:         initial.ann_bg_blur         ?? 0,
-    ann_bg_overlay_opacity: initial.ann_bg_overlay_opacity ?? 0,
-    ann_font_family:     initial.ann_font_family     ?? 'Inter',
-    ann_text_color:      initial.ann_text_color      ?? '#ffffff',
-    ann_text_shadow:     initial.ann_text_shadow     ?? false,
-    ann_font_size_scale: initial.ann_font_size_scale ?? 1.0,
-    ann_text_max_width:  initial.ann_text_max_width  ?? 94,
+    ann_bg_overlay_opacity:    initial.ann_bg_overlay_opacity    ?? 0,
+    ann_font_family:           initial.ann_font_family           ?? 'Inter',
+    ann_text_color:            initial.ann_text_color            ?? '#ffffff',
+    ann_text_shadow:           initial.ann_text_shadow           ?? false,
+    ann_title_font_size_scale: initial.ann_title_font_size_scale ?? 1.1,
+    ann_font_size_scale:       initial.ann_font_size_scale       ?? 0.7,
+    ann_text_max_width:        initial.ann_text_max_width        ?? 94,
   })
   const [isPending, startTransition] = useTransition()
   const [saved, setSaved]     = useState(false)
@@ -430,6 +431,17 @@ export default function ProjectionSettingsForm({ initial, mediaFiles }: Props) {
       {/* ── Texte annonces ── */}
       <div className="bg-white rounded-2xl border border-teal-200 p-6 space-y-5">
         <p className="font-sans text-xs text-gray-400 uppercase tracking-widest">Texte — Annonces</p>
+        {HR}
+        {/* Taille titre */}
+        <div className="space-y-2">
+          <label className="font-sans text-xs text-gray-400 uppercase tracking-widest">Taille du titre</label>
+          <SizePicker value={s.ann_title_font_size_scale} onChange={v => update('ann_title_font_size_scale', v)} />
+        </div>
+        {/* Taille corps */}
+        <div className="space-y-2">
+          <label className="font-sans text-xs text-gray-400 uppercase tracking-widest">Taille du corps</label>
+          <SizePicker value={s.ann_font_size_scale} onChange={v => update('ann_font_size_scale', v)} />
+        </div>
         {HR}
         <TextSettingsPicker
           fontFamily={s.ann_font_family} textColor={s.ann_text_color} textShadow={s.ann_text_shadow}
