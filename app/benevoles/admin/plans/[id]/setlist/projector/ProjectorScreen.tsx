@@ -332,6 +332,10 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
         const annPad  = `${(100 - (settings.ann_text_max_width ?? 94)) / 2}%`
         const annScale = settings.ann_font_size_scale ?? 1.0
 
+        // Taille du titre : on prend le max entre le corps et le titre (× 0.7 pour compenser le tracking large)
+        // Évite que le titre soit énorme quand le corps est court (ex: "???") ou minuscule quand le corps est long
+        const titleEffectiveLen = Math.max(maxLen, Math.ceil((announcement.title?.length ?? 0) * 0.7))
+
         // ── Paysage : image plein fond + texte en bas ─────────────────────────
         if (hasImage && isLandscape) {
           return (
@@ -341,7 +345,7 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
               <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.1) 100%)' }} />
               <div className="absolute bottom-0 left-0 right-0 pb-[6%]" style={{ paddingLeft: annPad, paddingRight: annPad }}>
                 {announcement.title && (
-                  <p className="uppercase tracking-[0.4em] mb-4 font-sans" style={{ color: settings.ann_text_color + '80', fontSize: calcAnnFontSize(maxLen, annScale * 0.55) }}>
+                  <p className="uppercase tracking-[0.4em] mb-4 font-sans" style={{ color: settings.ann_text_color + '80', fontSize: calcAnnFontSize(titleEffectiveLen, annScale * 0.55) }}>
                     {announcement.title}
                   </p>
                 )}
@@ -372,7 +376,7 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
                 )}
                 <div className="relative z-10">
                   {announcement.title && (
-                    <p className="uppercase tracking-[0.4em] mb-6 font-sans" style={{ color: settings.ann_text_color + '60', fontSize: calcAnnFontSize(maxLen * 0.6, annScale * 0.55) }}>
+                    <p className="uppercase tracking-[0.4em] mb-6 font-sans" style={{ color: settings.ann_text_color + '60', fontSize: calcAnnFontSize(titleEffectiveLen * 0.6, annScale * 0.55) }}>
                       {announcement.title}
                     </p>
                   )}
@@ -408,7 +412,7 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
             </div>
             <div className="w-full relative z-10" style={{ paddingLeft: annPad, paddingRight: annPad }}>
               {announcement.title && (
-                <p className="uppercase tracking-[0.4em] mb-8 font-sans" style={{ color: settings.ann_text_color + '60', fontSize: calcAnnFontSize(maxLen, annScale * 0.55) }}>
+                <p className="uppercase tracking-[0.4em] mb-8 font-sans" style={{ color: settings.ann_text_color + '60', fontSize: calcAnnFontSize(titleEffectiveLen, annScale * 0.55) }}>
                   {announcement.title}
                 </p>
               )}
