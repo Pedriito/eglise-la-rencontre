@@ -341,7 +341,7 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
               <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.1) 100%)' }} />
               <div className="absolute bottom-0 left-0 right-0 pb-[6%]" style={{ paddingLeft: annPad, paddingRight: annPad }}>
                 {announcement.title && (
-                  <p className="text-base uppercase tracking-[0.4em] mb-4 font-sans" style={{ color: settings.ann_text_color + '80' }}>
+                  <p className="uppercase tracking-[0.4em] mb-4 font-sans" style={{ color: settings.ann_text_color + '80', fontSize: calcAnnFontSize(maxLen, annScale * 0.55) }}>
                     {announcement.title}
                   </p>
                 )}
@@ -372,7 +372,7 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
                 )}
                 <div className="relative z-10">
                   {announcement.title && (
-                    <p className="text-sm uppercase tracking-[0.4em] mb-6 font-sans" style={{ color: settings.ann_text_color + '60' }}>
+                    <p className="uppercase tracking-[0.4em] mb-6 font-sans" style={{ color: settings.ann_text_color + '60', fontSize: calcAnnFontSize(maxLen * 0.6, annScale * 0.55) }}>
                       {announcement.title}
                     </p>
                   )}
@@ -408,7 +408,7 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
             </div>
             <div className="w-full relative z-10" style={{ paddingLeft: annPad, paddingRight: annPad }}>
               {announcement.title && (
-                <p className="text-base uppercase tracking-[0.4em] mb-8 font-sans" style={{ color: settings.ann_text_color + '60' }}>
+                <p className="uppercase tracking-[0.4em] mb-8 font-sans" style={{ color: settings.ann_text_color + '60', fontSize: calcAnnFontSize(maxLen, annScale * 0.55) }}>
                   {announcement.title}
                 </p>
               )}
