@@ -3,7 +3,8 @@
 import { useEffect, useState, useRef } from 'react'
 import { buildAllSlides, type Slide } from '@/lib/parseSlides'
 import { CountdownDisplay, COUNTDOWN_SECONDS } from '@/app/_components/CountdownDisplay'
-import { type ProjectionSettings, DEFAULT_SETTINGS, getBgStyle, getAnnBgStyle, getTextStyle, getAnnTextStyle, loadGoogleFont, mergeSettings, calcFontSize, calcAnnFontSize } from '@/lib/projectionSettings'
+import { type ProjectionSettings, DEFAULT_SETTINGS, getBgStyle, getAnnBgStyle, getTextStyle, getAnnTextStyle, loadGoogleFont, mergeSettings, calcFontSize, calcAnnFontSize, SETTINGS_ID } from '@/lib/projectionSettings'
+import { createClient } from '@/lib/supabase/client'
 
 type Song = {
   planSongId: string
@@ -19,7 +20,21 @@ type Props = { planId: string; songs: Song[]; settings?: ProjectionSettings }
 
 export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props) {
   // Fusion avec les defaults pour gérer les nouvelles colonnes nulles en DB
-  const settings = mergeSettings(settingsProp ?? null)
+  const [settings, setSettings] = useState<ProjectionSettings>(mergeSettings(settingsProp ?? null))
+
+  // Écouter les changements de settings en temps réel (modifiés depuis la page Paramètres)
+  useEffect(() => {
+    const supabase = createClient()
+    const ch = supabase
+      .channel('projection-settings-live')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'projection_settings', filter: `id=eq.${SETTINGS_ID}` },
+        (payload) => { setSettings(mergeSettings(payload.new as Partial<ProjectionSettings>)) }
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [])
   const [current, setCurrent]         = useState<{ songIdx: number; slideIdx: number }>({ songIdx: 0, slideIdx: 0 })
   const [projectedImageUrl, setProjectedImageUrl] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
