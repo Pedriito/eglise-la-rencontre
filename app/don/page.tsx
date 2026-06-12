@@ -27,18 +27,13 @@ export default function DonPage() {
             </p>
           </div>
 
-          {/* Note sur le nom */}
-          <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 mb-4 text-sm text-amber-800 font-sans">
-            <strong>Note :</strong> Notre association est référencée sous l'ancien nom <em>« Église Horizon Sénart »</em> sur HelloAsso. Il s'agit bien de l'<strong>Église La Rencontre</strong> à Lieusaint.
-          </div>
-
           {/* Widget HelloAsso */}
           <div className="bg-white rounded-2xl border border-teal/20 overflow-hidden shadow-sm">
             <iframe
               id="haWidget"
               allowTransparency={true}
               scrolling="auto"
-              src="https://www.helloasso.com/associations/eglise-horizon-senart/formulaires/5/widget"
+              src="https://www.helloasso.com/associations/eglise-la-rencontre/formulaires/5/widget"
               style={{ width: '100%', height: '750px', border: 'none' }}
               title="Formulaire de don — Église La Rencontre"
             />
