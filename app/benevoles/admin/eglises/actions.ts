@@ -80,6 +80,16 @@ export async function createChurch(formData: FormData): Promise<{ ok: boolean; e
     church_name: name,
   })
 
+  // 5. Créer les équipes par défaut pour cette église
+  const DEFAULT_TEAMS = [
+    'Coordination des célébrations', 'Prédicateurs', 'Louange', 'Sécurité',
+    'Production', 'Médias et communication', 'Accueil', 'Café', 'Ménage',
+    'Dimes & Offrandes', 'Évènementiel', 'Enfance Flèches', 'Équipiers de prière',
+  ]
+  await admin.from('teams').insert(
+    DEFAULT_TEAMS.map(name => ({ name, church_id: church.id }))
+  )
+
   revalidatePath('/benevoles/admin/eglises')
   return { ok: true }
 }

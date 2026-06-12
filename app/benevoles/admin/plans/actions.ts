@@ -13,13 +13,13 @@ async function requireAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/benevoles/login')
-  const { data: profile } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
-  if (profile?.permission !== 'admin' && profile?.permission !== 'editor') redirect('/benevoles/dashboard')
-  return createAdminClient()
+  const { data: profile } = await supabase.from('profiles').select('permission, church_id').eq('id', user.id).single()
+  if (!profile || !['admin', 'editor', 'super_admin'].includes(profile.permission)) redirect('/benevoles/dashboard')
+  return { admin: createAdminClient(), church_id: profile.church_id as string }
 }
 
 export async function createPlan(formData: FormData) {
-  const admin = await requireAdmin()
+  const { admin, church_id } = await requireAdmin()
   const title = formData.get('title') as string
   const serviceDate = formData.get('service_date') as string
   const teamId = formData.get('team_id') as string || null
@@ -28,7 +28,7 @@ export async function createPlan(formData: FormData) {
 
   const { data, error } = await admin
     .from('plans')
-    .insert({ title, service_date: serviceDate, team_id: teamId, notes, plan_type: planType })
+    .insert({ title, service_date: serviceDate, team_id: teamId, notes, plan_type: planType, church_id })
     .select('id')
     .single()
 
@@ -37,14 +37,14 @@ export async function createPlan(formData: FormData) {
 }
 
 export async function deletePlan(formData: FormData) {
-  const admin = await requireAdmin()
+  const { admin } = await requireAdmin()
   const planId = formData.get('plan_id') as string
   await admin.from('plans').delete().eq('id', planId)
   redirect('/benevoles/admin/plans')
 }
 
 export async function addAssignment(formData: FormData) {
-  const admin = await requireAdmin()
+  const { admin } = await requireAdmin()
   const planId = formData.get('plan_id') as string
   const userId = formData.get('user_id') as string
   const positionId = formData.get('position_id') as string || null
@@ -78,7 +78,7 @@ export async function addAssignment(formData: FormData) {
 }
 
 export async function removeAssignment(formData: FormData) {
-  const admin = await requireAdmin()
+  const { admin } = await requireAdmin()
   const planId = formData.get('plan_id') as string
   const assignmentId = formData.get('assignment_id') as string
   await admin.from('plan_assignments').delete().eq('id', assignmentId)
@@ -86,7 +86,7 @@ export async function removeAssignment(formData: FormData) {
 }
 
 export async function sendSingleInvitation(formData: FormData) {
-  const admin = await requireAdmin()
+  const { admin } = await requireAdmin()
   const assignmentId = formData.get('assignment_id') as string
   const planId = formData.get('plan_id') as string
 
@@ -259,7 +259,7 @@ export async function cancelAssignment(formData: FormData) {
 // ── CHANTS DU PLAN ─────────────────────────────────────────────────────────
 
 export async function addPlanSong(formData: FormData) {
-  const admin = await requireAdmin()
+  const { admin } = await requireAdmin()
   const planId     = formData.get('plan_id') as string
   const songId     = parseInt(formData.get('song_id') as string, 10)
   const arrId      = (formData.get('arrangement_id') as string) || null
@@ -322,7 +322,7 @@ export async function addPlanSong(formData: FormData) {
 }
 
 export async function removePlanSong(formData: FormData) {
-  const admin = await requireAdmin()
+  const { admin } = await requireAdmin()
   const planSongId = formData.get('plan_song_id') as string
   const planId     = formData.get('plan_id') as string
 
@@ -333,7 +333,7 @@ export async function removePlanSong(formData: FormData) {
 }
 
 export async function movePlanSong(formData: FormData) {
-  const admin = await requireAdmin()
+  const { admin } = await requireAdmin()
   const planSongId = formData.get('plan_song_id') as string
   const planId     = formData.get('plan_id') as string
   const direction  = formData.get('direction') as 'up' | 'down'
@@ -369,7 +369,7 @@ export async function updatePlanSongArrangement(
   arrangementId: string,
   planId: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const admin = await requireAdmin()
+  const { admin } = await requireAdmin()
   const { error } = await admin
     .from('plan_songs')
     .update({ arrangement_id: arrangementId })
@@ -389,7 +389,7 @@ export async function updateSlideLyrics(
   newLines: string[],        // nouvelles paroles
   planId: string,            // pour revalider la page setlist
 ): Promise<{ ok: boolean; error?: string }> {
-  const admin = await requireAdmin()
+  const { admin } = await requireAdmin()
 
   const { data: arr, error: fetchErr } = await admin
     .from('arrangements')
@@ -438,7 +438,7 @@ export type SongSearchResult = {
 }
 
 export async function searchSongsForProjection(query: string): Promise<SongSearchResult[]> {
-  const admin = await requireAdmin()
+  const { admin } = await requireAdmin()
   const q = query.trim()
   if (!q) return []
 
