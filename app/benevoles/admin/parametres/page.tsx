@@ -18,6 +18,30 @@ export default async function ParametresPage() {
 
       <main className="max-w-2xl mx-auto px-4 md:px-6 py-6 md:py-8 space-y-8">
 
+        {/* Site web */}
+        <section>
+          <p className="font-sans text-xs text-dark/40 uppercase tracking-widest mb-3 px-1">Site web</p>
+          <div className="space-y-2">
+            <Link
+              href="/benevoles/admin/site"
+              className="flex items-center gap-4 bg-white rounded-2xl border border-teal/20 px-5 py-4 hover:border-teal/40 transition-colors group"
+            >
+              <div className="w-9 h-9 rounded-xl bg-teal/10 flex items-center justify-center shrink-0 group-hover:bg-teal/20 transition-colors">
+                <svg className="w-4 h-4 text-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <p className="font-sans text-sm font-medium text-dark">Contenu du site</p>
+                <p className="font-sans text-xs text-dark/40 mt-0.5">Horaires, adresse, liens, textes</p>
+              </div>
+              <svg className="w-4 h-4 text-dark/25 group-hover:text-teal transition-colors ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+        </section>
+
         {/* Projection */}
         <section>
           <p className="font-sans text-xs text-dark/40 uppercase tracking-widest mb-3 px-1">Projection</p>

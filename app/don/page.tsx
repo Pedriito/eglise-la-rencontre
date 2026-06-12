@@ -1,13 +1,16 @@
 import type { Metadata } from 'next'
 import Navbar from '../components/Navbar'
 import Footer from '../components/sections/Footer'
+import { getChurchSettings } from '@/lib/churchSettings'
 
 export const metadata: Metadata = {
   title: 'Faire un don — Église La Rencontre',
   description: 'Soutenez le ministère de l\'Église La Rencontre à Lieusaint en faisant un don. Dons déductibles des impôts.',
 }
 
-export default function DonPage() {
+export default async function DonPage() {
+  const s = await getChurchSettings()
+
   return (
     <>
       <Navbar />
@@ -21,9 +24,9 @@ export default function DonPage() {
               Faire un don
             </h1>
             <p className="font-sans text-sm text-dark/50 max-w-xl mx-auto leading-relaxed">
-              Vos dons soutiennent le développement de l'Église La Rencontre et permettent
+              Vos dons soutiennent le développement de {s.church_name} et permettent
               d'organiser les cultes et les événements.
-              Ils sont déductibles des impôts à hauteur de <strong>66 %</strong>.
+              Ils sont déductibles des impôts à hauteur de <strong>{s.tax_deduction_pct} %</strong>.
             </p>
           </div>
 
@@ -33,9 +36,9 @@ export default function DonPage() {
               id="haWidget"
               allowTransparency={true}
               scrolling="auto"
-              src="https://www.helloasso.com/associations/eglise-la-rencontre/formulaires/5/widget"
+              src={s.helloasso_widget_url}
               style={{ width: '100%', height: '750px', border: 'none' }}
-              title="Formulaire de don — Église La Rencontre"
+              title={`Formulaire de don — ${s.church_name}`}
             />
           </div>
 

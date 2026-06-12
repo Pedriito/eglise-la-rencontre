@@ -1,6 +1,9 @@
-import WaveDivider from "../WaveDivider";
+import WaveDivider from "../WaveDivider"
+import { getChurchSettings } from "@/lib/churchSettings"
 
-export default function Contact() {
+export default async function Contact() {
+  const s = await getChurchSettings()
+
   return (
     <section id="contact" className="py-24 px-6 bg-teal-50">
       <div className="max-w-4xl mx-auto text-center">
@@ -24,12 +27,12 @@ export default function Contact() {
             </div>
             <h3 className="font-display text-xl font-semibold text-dark mb-2">Adresse</h3>
             <p className="font-sans text-sm text-dark/70 leading-relaxed">
-              441, avenue Marguerite Perrey<br />
-              77127 Lieusaint<br />
-              Seine-et-Marne
+              {s.address_street}<br />
+              {s.address_zip} {s.address_city}<br />
+              {s.address_dept}
             </p>
             <a
-              href="https://maps.google.com/?q=441+avenue+Marguerite+Perrey+77127+Lieusaint"
+              href={s.maps_url}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 mt-4 font-sans text-xs tracking-widest uppercase text-teal hover:text-teal-dark transition-colors"
@@ -50,10 +53,10 @@ export default function Contact() {
             </div>
             <h3 className="font-display text-xl font-semibold text-dark mb-2">Email</h3>
             <a
-              href="mailto:contact@egliselarencontre.fr"
+              href={`mailto:${s.email}`}
               className="font-sans text-sm text-teal hover:text-teal-dark transition-colors"
             >
-              contact@egliselarencontre.fr
+              {s.email}
             </a>
             <p className="font-sans text-sm text-dark/50 mt-4 leading-relaxed">
               Pour toute question, demande de renseignement ou simplement pour nous dire bonjour.
@@ -62,5 +65,5 @@ export default function Contact() {
         </div>
       </div>
     </section>
-  );
+  )
 }

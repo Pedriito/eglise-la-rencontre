@@ -1,6 +1,9 @@
-import WaveDivider from "../WaveDivider";
+import WaveDivider from "../WaveDivider"
+import { getChurchSettings } from "@/lib/churchSettings"
 
-export default function Hero() {
+export default async function Hero() {
+  const s = await getChurchSettings()
+
   return (
     <section
       id="accueil"
@@ -9,18 +12,24 @@ export default function Hero() {
     >
       <div className="max-w-2xl mx-auto">
         <p className="font-sans text-xs tracking-[0.35em] uppercase text-white/60 mb-6">
-          Lieusaint · Seine-et-Marne
+          {s.address_city} · {s.address_dept}
         </p>
 
         <h1 className="font-display text-5xl md:text-7xl font-light text-white leading-tight mb-6">
-          Église<br />
-          <span className="font-semibold italic">La Rencontre</span>
+          {s.church_name.split(' ').length > 1 ? (
+            <>
+              {s.church_name.split(' ').slice(0, -2).join(' ')}<br />
+              <span className="font-semibold italic">{s.church_name.split(' ').slice(-2).join(' ')}</span>
+            </>
+          ) : (
+            <span className="font-semibold italic">{s.church_name}</span>
+          )}
         </h1>
 
         <WaveDivider color="rgba(255,255,255,0.5)" className="my-6" />
 
         <p className="font-display text-xl md:text-2xl font-light text-white/80 mb-10 leading-relaxed">
-          Un lieu où tout commence par une rencontre.
+          {s.tagline}
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -45,5 +54,5 @@ export default function Hero() {
         </svg>
       </div>
     </section>
-  );
+  )
 }
