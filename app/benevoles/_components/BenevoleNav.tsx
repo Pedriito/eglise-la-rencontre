@@ -85,7 +85,7 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
 
   if (isAdmin || isEditor) {
     items.push({
-      label: 'Paramètres',
+      label: 'Paramètres vidéoprojection',
       href: '/benevoles/admin/parametres',
       match: p =>
         p.startsWith('/benevoles/admin/parametres') ||
