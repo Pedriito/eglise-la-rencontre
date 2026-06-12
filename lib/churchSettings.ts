@@ -17,6 +17,7 @@ export type ChurchSettings = {
   tax_deduction_pct: number
   pastors_names: string
   pastors_photo_url: string
+  youtube_channel_id: string | null
 }
 
 export type ChurchSchedule = {
@@ -44,6 +45,7 @@ export const DEFAULT_CHURCH_SETTINGS: ChurchSettings = {
   tax_deduction_pct: 66,
   pastors_names: 'Audrey et Nicolas Salafranque',
   pastors_photo_url: '/audrey_nico.png',
+  youtube_channel_id: null,
 }
 
 export const getChurchSettings = cache(async (): Promise<ChurchSettings> => {

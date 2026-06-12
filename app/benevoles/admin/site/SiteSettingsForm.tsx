@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef } from 'react'
+import Image from 'next/image'
 import { saveChurchSettings } from './actions'
 import type { ChurchSettings } from '@/lib/churchSettings'
 
@@ -8,6 +9,8 @@ export default function SiteSettingsForm({ initial }: { initial: ChurchSettings 
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -30,6 +33,43 @@ export default function SiteSettingsForm({ initial }: { initial: ChurchSettings 
         <Field label="Nom de l'église" name="church_name" defaultValue={initial.church_name} />
         <Field label="Phrase d'accroche (tagline)" name="tagline" defaultValue={initial.tagline} />
         <Field label="Noms des pasteurs" name="pastors_names" defaultValue={initial.pastors_names} />
+
+        {/* Photo des pasteurs */}
+        <input type="hidden" name="pastors_photo_url" value={initial.pastors_photo_url} />
+        <div className="space-y-2">
+          <label className="font-sans text-xs text-dark/50">Photo des pasteurs</label>
+          <div className="flex items-center gap-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={photoPreview ?? initial.pastors_photo_url}
+              alt="Photo pasteurs"
+              className="w-24 h-16 object-cover rounded-lg border border-teal/20"
+            />
+            <div className="space-y-1.5">
+              <input
+                ref={fileRef}
+                name="pastors_photo_file"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={e => {
+                  const f = e.target.files?.[0]
+                  if (f) setPhotoPreview(URL.createObjectURL(f))
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="px-3 py-1.5 rounded-lg border border-teal/20 font-sans text-xs text-dark/60 hover:bg-teal/5"
+              >
+                Changer la photo…
+              </button>
+              {photoPreview && (
+                <p className="font-sans text-[11px] text-teal">Nouvelle photo sélectionnée — sera uploadée à l'enregistrement</p>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Adresse */}
@@ -49,6 +89,12 @@ export default function SiteSettingsForm({ initial }: { initial: ChurchSettings 
         <p className="font-sans text-xs text-dark/40 uppercase tracking-widest">Contact & réseaux</p>
         <Field label="Email de contact" name="email" defaultValue={initial.email} type="email" />
         <Field label="URL YouTube" name="youtube_url" defaultValue={initial.youtube_url} type="url" />
+        <Field
+          label="ID de la chaîne YouTube (optionnel)"
+          name="youtube_channel_id"
+          defaultValue={initial.youtube_channel_id ?? ''}
+          hint="UCxxxxxxxxxxxxxxx — trouvable dans l'URL de ta chaîne. Permet l'affichage auto des dernières vidéos sur le site."
+        />
       </div>
 
       {/* Dons */}

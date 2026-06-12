@@ -1,50 +1,39 @@
 import WaveDivider from "../WaveDivider"
+import { getChurchSettings } from "@/lib/churchSettings"
 
 type Video = { id: string; titre: string }
 
-// Vidéos de secours (affichées si YouTube est inaccessible)
 const FALLBACK: Video[] = [
   { id: "aR9ZkmRe0w8", titre: "Culte du 3 mai 2026" },
   { id: "zQikIyM9Dlc", titre: "Culte du 26 avril 2026" },
   { id: "eB31HHhTTwk", titre: "Culte du 5 avril 2026" },
 ]
 
-// Découvre automatiquement l'ID de la chaîne à partir d'une vidéo connue
-// via l'API oEmbed publique de YouTube (pas de clé API nécessaire).
-// Résultat mis en cache 30 jours — se renouvelle silencieusement en arrière-plan.
-async function getChannelId(): Promise<string | null> {
-  // Priorité : variable d'environnement si définie manuellement
-  if (process.env.YOUTUBE_CHANNEL_ID) return process.env.YOUTUBE_CHANNEL_ID
+// Résout l'ID de chaîne : priorité DB, puis découverte via oEmbed sur une vidéo connue
+async function getChannelId(dbChannelId: string | null, seedVideoId: string): Promise<string | null> {
+  if (dbChannelId) return dbChannelId
 
   try {
-    const seedVideoId = FALLBACK[0].id
     const res = await fetch(
       `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${seedVideoId}&format=json`,
-      { next: { revalidate: 60 * 60 * 24 * 30 } } // 30 jours
+      { next: { revalidate: 60 * 60 * 24 * 30 } }
     )
     if (!res.ok) return null
     const data = await res.json()
-    // author_url = "https://www.youtube.com/channel/UCxxxxxxxx"
-    const channelId = (data.author_url as string)
-      ?.split('/channel/')?.[1]
-      ?.split(/[?/]/)[0] ?? null
-    return channelId
+    return (data.author_url as string)?.split('/channel/')?.[1]?.split(/[?/]/)[0] ?? null
   } catch {
     return null
   }
 }
 
-// Récupère les 3 dernières vidéos depuis le flux RSS public de la chaîne.
-// Revalidation toutes les 10 minutes → la nouvelle vidéo du dimanche soir
-// apparaît sur le site dans les 10 minutes après la fin du live, sans intervention.
-async function getLatestVideos(): Promise<Video[]> {
-  const channelId = await getChannelId()
+async function getLatestVideos(dbChannelId: string | null): Promise<Video[]> {
+  const channelId = await getChannelId(dbChannelId, FALLBACK[0].id)
   if (!channelId) return FALLBACK
 
   try {
     const res = await fetch(
       `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`,
-      { next: { revalidate: 600 } } // 10 minutes
+      { next: { revalidate: 600 } }
     )
     if (!res.ok) return FALLBACK
 
@@ -55,11 +44,8 @@ async function getLatestVideos(): Promise<Video[]> {
       const id    = entry.match(/<yt:videoId>([^<]+)<\/yt:videoId>/)?.[1] ?? ''
       const raw   = entry.match(/<title>([^<]+)<\/title>/)?.[1]?.trim() ?? ''
       const titre = raw
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g,  '<')
-        .replace(/&gt;/g,  '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g,  "'")
+        .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
       return { id, titre }
     }).filter(v => v.id)
 
@@ -70,7 +56,8 @@ async function getLatestVideos(): Promise<Video[]> {
 }
 
 export default async function Cultes() {
-  const videos = await getLatestVideos()
+  const s = await getChurchSettings()
+  const videos = await getLatestVideos(s.youtube_channel_id)
 
   return (
     <section id="cultes" className="py-24 px-6 bg-teal-50">
@@ -100,17 +87,19 @@ export default async function Cultes() {
           ))}
         </div>
 
-        <a
-          href="https://www.youtube.com/@eglise.larencontre"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 font-sans text-sm tracking-widest uppercase text-teal hover:text-teal-dark transition-colors"
-        >
-          Voir toutes les vidéos
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-          </svg>
-        </a>
+        {s.youtube_url && (
+          <a
+            href={s.youtube_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 font-sans text-sm tracking-widest uppercase text-teal hover:text-teal-dark transition-colors"
+          >
+            Voir toutes les vidéos
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+            </svg>
+          </a>
+        )}
       </div>
     </section>
   )

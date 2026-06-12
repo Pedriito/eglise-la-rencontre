@@ -1,7 +1,11 @@
-import Image from "next/image";
-import WaveDivider from "../WaveDivider";
+import Image from "next/image"
+import WaveDivider from "../WaveDivider"
+import { getChurchSettings } from "@/lib/churchSettings"
 
-export default function Pasteurs() {
+export default async function Pasteurs() {
+  const s = await getChurchSettings()
+  const isExternal = s.pastors_photo_url.startsWith('http')
+
   return (
     <section id="pasteurs" className="py-24 px-6 bg-white">
       <div className="max-w-4xl mx-auto text-center">
@@ -15,19 +19,28 @@ export default function Pasteurs() {
 
         <div className="flex flex-col items-center">
           <div className="rounded-xl overflow-hidden mb-6 ring-4 ring-teal-light">
-            <Image
-              src="/audrey_nico.png"
-              alt="Audrey et Nicolas Salafranque"
-              width={600}
-              height={400}
-              className="w-full max-w-lg h-auto object-cover"
-            />
+            {isExternal ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={s.pastors_photo_url}
+                alt={s.pastors_names}
+                className="w-full max-w-lg h-auto object-cover"
+              />
+            ) : (
+              <Image
+                src={s.pastors_photo_url}
+                alt={s.pastors_names}
+                width={600}
+                height={400}
+                className="w-full max-w-lg h-auto object-cover"
+              />
+            )}
           </div>
           <h3 className="font-display text-2xl font-semibold text-dark">
-            Audrey et Nicolas Salafranque
+            {s.pastors_names}
           </h3>
         </div>
       </div>
     </section>
-  );
+  )
 }

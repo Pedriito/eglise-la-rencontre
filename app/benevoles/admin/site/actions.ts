@@ -18,6 +18,22 @@ async function requireAdmin() {
 export async function saveChurchSettings(formData: FormData): Promise<{ ok: boolean; error?: string }> {
   const admin = await requireAdmin()
 
+  // Upload photo des pasteurs si un fichier est fourni
+  let pastors_photo_url = (formData.get('pastors_photo_url') as string) || '/audrey_nico.png'
+  const photoFile = formData.get('pastors_photo_file') as File | null
+  if (photoFile && photoFile.size > 0) {
+    const ext = photoFile.name.split('.').pop() ?? 'jpg'
+    const path = `site/pastors-${Date.now()}.${ext}`
+    const buffer = Buffer.from(await photoFile.arrayBuffer())
+    const { error: storageError } = await admin.storage
+      .from('media')
+      .upload(path, buffer, { contentType: photoFile.type, upsert: true })
+    if (!storageError) {
+      const { data: urlData } = admin.storage.from('media').getPublicUrl(path)
+      pastors_photo_url = urlData.publicUrl
+    }
+  }
+
   const { error } = await admin.from('church_settings').upsert({
     id: CHURCH_SETTINGS_ID,
     church_name:          (formData.get('church_name') as string)?.trim(),
@@ -28,10 +44,12 @@ export async function saveChurchSettings(formData: FormData): Promise<{ ok: bool
     address_dept:         (formData.get('address_dept') as string)?.trim(),
     email:                (formData.get('email') as string)?.trim().toLowerCase(),
     youtube_url:          (formData.get('youtube_url') as string)?.trim(),
+    youtube_channel_id:   (formData.get('youtube_channel_id') as string)?.trim() || null,
     maps_url:             (formData.get('maps_url') as string)?.trim(),
     helloasso_widget_url: (formData.get('helloasso_widget_url') as string)?.trim(),
     tax_deduction_pct:    Number(formData.get('tax_deduction_pct') || 66),
     pastors_names:        (formData.get('pastors_names') as string)?.trim(),
+    pastors_photo_url,
     updated_at:           new Date().toISOString(),
   })
 
