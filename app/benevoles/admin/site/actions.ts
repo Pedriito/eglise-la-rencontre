@@ -14,7 +14,7 @@ async function requireAdmin() {
     .select('permission, church_id')
     .eq('id', user.id)
     .single()
-  if (me?.permission !== 'admin') redirect('/benevoles/dashboard')
+  if (!['admin', 'super_admin'].includes(me?.permission ?? '')) redirect('/benevoles/dashboard')
   const church_id = me.church_id as string
   return { admin: createAdminClient(), church_id }
 }

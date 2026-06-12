@@ -21,7 +21,8 @@ type NavItem = {
 export function BenevoleNav({ permission, firstName, lastName }: Props) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
-  const isAdmin = permission === 'admin'
+  const isSuperAdmin = permission === 'super_admin'
+  const isAdmin = permission === 'admin' || isSuperAdmin
   const isEditor = permission === 'editor'
 
   const items: NavItem[] = [
@@ -80,6 +81,14 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
       label: 'Site web',
       href: '/benevoles/admin/site',
       match: p => p.startsWith('/benevoles/admin/site'),
+    })
+  }
+
+  if (isSuperAdmin) {
+    items.push({
+      label: 'Églises',
+      href: '/benevoles/admin/eglises',
+      match: p => p.startsWith('/benevoles/admin/eglises'),
     })
   }
 

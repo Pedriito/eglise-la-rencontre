@@ -1,4 +1,5 @@
 export const permissionLabels: Record<string, string> = {
+  super_admin: 'Super-admin',
   admin:  'Administrateur',
   editor: 'Éditeur',
   viewer: 'Lecture seule',
