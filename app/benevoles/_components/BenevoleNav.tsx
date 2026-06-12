@@ -75,9 +75,17 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
     })
   }
 
+  if (isAdmin) {
+    items.push({
+      label: 'Site web',
+      href: '/benevoles/admin/site',
+      match: p => p.startsWith('/benevoles/admin/site'),
+    })
+  }
+
   if (isAdmin || isEditor) {
     items.push({
-      label: 'Paramètres projection',
+      label: 'Paramètres',
       href: '/benevoles/admin/parametres',
       match: p =>
         p.startsWith('/benevoles/admin/parametres') ||
