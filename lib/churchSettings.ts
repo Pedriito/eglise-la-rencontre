@@ -1,7 +1,9 @@
 import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 
-export const CHURCH_SETTINGS_ID = '00000000-0000-0000-0000-000000000001'
+// UUID de l'église actuelle — remplace par env var pour un déploiement multi-tenant
+export const CHURCH_SETTINGS_ID = '00000000-0000-0000-0000-000000000001' // legacy PK, non utilisé pour les requêtes
+export const DEFAULT_CHURCH_ID  = process.env.CHURCH_ID ?? '00000000-0000-0000-0000-000000000010'
 
 export type ChurchSettings = {
   church_name: string
@@ -48,13 +50,14 @@ export const DEFAULT_CHURCH_SETTINGS: ChurchSettings = {
   youtube_channel_id: null,
 }
 
-export const getChurchSettings = cache(async (): Promise<ChurchSettings> => {
+export const getChurchSettings = cache(async (churchId?: string): Promise<ChurchSettings> => {
+  const id = churchId ?? DEFAULT_CHURCH_ID
   try {
     const supabase = await createClient()
     const { data } = await supabase
       .from('church_settings')
       .select('*')
-      .eq('id', CHURCH_SETTINGS_ID)
+      .eq('church_id', id)
       .single()
     return data ?? DEFAULT_CHURCH_SETTINGS
   } catch {
@@ -62,12 +65,14 @@ export const getChurchSettings = cache(async (): Promise<ChurchSettings> => {
   }
 })
 
-export const getChurchSchedules = cache(async (): Promise<ChurchSchedule[]> => {
+export const getChurchSchedules = cache(async (churchId?: string): Promise<ChurchSchedule[]> => {
+  const id = churchId ?? DEFAULT_CHURCH_ID
   try {
     const supabase = await createClient()
     const { data } = await supabase
       .from('church_schedules')
       .select('*')
+      .eq('church_id', id)
       .eq('active', true)
       .order('sort_order')
     return data ?? []

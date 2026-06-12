@@ -4,26 +4,30 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import { CHURCH_SETTINGS_ID, type ChurchSchedule } from '@/lib/churchSettings'
 
 async function requireAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/benevoles/login')
-  const { data: me } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
+  const { data: me } = await supabase
+    .from('profiles')
+    .select('permission, church_id')
+    .eq('id', user.id)
+    .single()
   if (me?.permission !== 'admin') redirect('/benevoles/dashboard')
-  return createAdminClient()
+  const church_id = me.church_id as string
+  return { admin: createAdminClient(), church_id }
 }
 
 export async function saveChurchSettings(formData: FormData): Promise<{ ok: boolean; error?: string }> {
-  const admin = await requireAdmin()
+  const { admin, church_id } = await requireAdmin()
 
   // Upload photo des pasteurs si un fichier est fourni
   let pastors_photo_url = (formData.get('pastors_photo_url') as string) || '/audrey_nico.png'
   const photoFile = formData.get('pastors_photo_file') as File | null
   if (photoFile && photoFile.size > 0) {
     const ext = photoFile.name.split('.').pop() ?? 'jpg'
-    const path = `site/pastors-${Date.now()}.${ext}`
+    const path = `site/${church_id}/pastors-${Date.now()}.${ext}`
     const buffer = Buffer.from(await photoFile.arrayBuffer())
     const { error: storageError } = await admin.storage
       .from('media')
@@ -35,7 +39,7 @@ export async function saveChurchSettings(formData: FormData): Promise<{ ok: bool
   }
 
   const { error } = await admin.from('church_settings').upsert({
-    id: CHURCH_SETTINGS_ID,
+    church_id,
     church_name:          (formData.get('church_name') as string)?.trim(),
     tagline:              (formData.get('tagline') as string)?.trim(),
     address_street:       (formData.get('address_street') as string)?.trim(),
@@ -51,7 +55,7 @@ export async function saveChurchSettings(formData: FormData): Promise<{ ok: bool
     pastors_names:        (formData.get('pastors_names') as string)?.trim(),
     pastors_photo_url,
     updated_at:           new Date().toISOString(),
-  })
+  }, { onConflict: 'church_id' })
 
   if (error) return { ok: false, error: error.message }
   revalidatePath('/', 'layout')
@@ -59,10 +63,11 @@ export async function saveChurchSettings(formData: FormData): Promise<{ ok: bool
 }
 
 export async function saveSchedule(formData: FormData): Promise<{ ok: boolean; error?: string }> {
-  const admin = await requireAdmin()
+  const { admin, church_id } = await requireAdmin()
   const id = formData.get('id') as string | null
 
   const payload = {
+    church_id,
     sort_order:   Number(formData.get('sort_order') || 0),
     day_of_week:  (formData.get('day_of_week') as string)?.trim(),
     event_name:   (formData.get('event_name') as string)?.trim(),
@@ -72,7 +77,7 @@ export async function saveSchedule(formData: FormData): Promise<{ ok: boolean; e
   }
 
   const { error } = id
-    ? await admin.from('church_schedules').update(payload).eq('id', id)
+    ? await admin.from('church_schedules').update(payload).eq('id', id).eq('church_id', church_id)
     : await admin.from('church_schedules').insert(payload)
 
   if (error) return { ok: false, error: error.message }
@@ -81,15 +86,15 @@ export async function saveSchedule(formData: FormData): Promise<{ ok: boolean; e
 }
 
 export async function deleteSchedule(id: string): Promise<void> {
-  const admin = await requireAdmin()
-  await admin.from('church_schedules').delete().eq('id', id)
+  const { admin, church_id } = await requireAdmin()
+  await admin.from('church_schedules').delete().eq('id', id).eq('church_id', church_id)
   revalidatePath('/', 'layout')
 }
 
 export async function reorderSchedules(ids: string[]): Promise<void> {
-  const admin = await requireAdmin()
+  const { admin, church_id } = await requireAdmin()
   await Promise.all(ids.map((id, i) =>
-    admin.from('church_schedules').update({ sort_order: i + 1 }).eq('id', id)
+    admin.from('church_schedules').update({ sort_order: i + 1 }).eq('id', id).eq('church_id', church_id)
   ))
   revalidatePath('/', 'layout')
 }
