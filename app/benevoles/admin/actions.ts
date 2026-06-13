@@ -16,7 +16,7 @@ export async function inviteBenevole(formData: FormData) {
     .eq('id', user.id)
     .single()
 
-  if (profile?.permission !== 'admin') redirect('/benevoles/dashboard')
+  if (!['admin', 'super_admin'].includes(profile?.permission ?? '')) redirect('/benevoles/dashboard')
 
   const firstName  = formData.get('first_name') as string
   const lastName   = formData.get('last_name') as string
@@ -104,7 +104,7 @@ export async function resendInviteFromList(_: unknown, formData: FormData): Prom
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Non authentifié' }
   const { data: me } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
-  if (me?.permission !== 'admin') return { ok: false, error: 'Accès refusé' }
+  if (!['admin', 'super_admin'].includes(me?.permission ?? '')) return { ok: false, error: 'Accès refusé' }
 
   const targetId = formData.get('user_id') as string
   const admin = createAdminClient()
@@ -160,7 +160,7 @@ export async function resendInvite(formData: FormData) {
   if (!user) redirect('/benevoles/login')
 
   const { data: me } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
-  if (me?.permission !== 'admin') redirect('/benevoles/dashboard')
+  if (!['admin', 'super_admin'].includes(me?.permission ?? '')) redirect('/benevoles/dashboard')
 
   const targetId = formData.get('user_id') as string
   const admin = createAdminClient()
@@ -224,7 +224,7 @@ export async function updateBenevoleAdmin(formData: FormData) {
   if (!user) redirect('/benevoles/login')
 
   const { data: me } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
-  if (me?.permission !== 'admin') redirect('/benevoles/dashboard')
+  if (!['admin', 'super_admin'].includes(me?.permission ?? '')) redirect('/benevoles/dashboard')
 
   const userId     = formData.get('user_id') as string
   const firstName  = (formData.get('first_name') as string)?.trim()
@@ -261,7 +261,7 @@ export async function deleteBenevole(formData: FormData) {
   if (!user) redirect('/benevoles/login')
 
   const { data: me } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
-  if (me?.permission !== 'admin') redirect('/benevoles/dashboard')
+  if (!['admin', 'super_admin'].includes(me?.permission ?? '')) redirect('/benevoles/dashboard')
 
   const userId = formData.get('user_id') as string
   if (userId === user.id) redirect('/benevoles/admin?error=self')

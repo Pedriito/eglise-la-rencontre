@@ -154,7 +154,7 @@ export default async function PlanDetailPage({
 
   const pendingCount = assignments.filter(a => a.status === 'pending' && a.user_id !== INVITE_EXT_ID).length
 
-  const isAdmin   = me?.permission === 'admin'
+  const isAdmin   = ['admin', 'super_admin'].includes(me?.permission ?? '')
   const isEditor  = me?.permission === 'editor'
   const canManage = isAdmin || isEditor
 

@@ -10,7 +10,7 @@ async function requireAdmin() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/benevoles/login')
   const { data: profile } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
-  if (profile?.permission !== 'admin' && profile?.permission !== 'editor') redirect('/benevoles/dashboard')
+  if (!['admin', 'editor', 'super_admin'].includes(profile?.permission ?? '')) redirect('/benevoles/dashboard')
   return createAdminClient()
 }
 

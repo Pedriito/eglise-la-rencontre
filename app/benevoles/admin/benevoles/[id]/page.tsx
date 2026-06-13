@@ -20,7 +20,7 @@ export default async function BenevoleProfilePage({
   if (!user) redirect('/benevoles/login')
 
   const { data: me } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
-  if (me?.permission !== 'admin') redirect('/benevoles/dashboard')
+  if (!['admin', 'super_admin'].includes(me?.permission ?? '')) redirect('/benevoles/dashboard')
 
   const admin = createAdminClient()
 

@@ -10,7 +10,7 @@ export default async function ProjectionSettingsPage() {
   if (!user) redirect('/benevoles/login')
 
   const { data: me } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
-  if (me?.permission !== 'admin' && me?.permission !== 'editor') redirect('/benevoles/dashboard')
+  if (!['admin', 'editor', 'super_admin'].includes(me?.permission ?? '')) redirect('/benevoles/dashboard')
 
   const [{ data: rawSettings }, { data: mediaFiles }] = await Promise.all([
     supabase.from('projection_settings').select('*').eq('id', SETTINGS_ID).single(),

@@ -55,7 +55,7 @@ export default async function GestionTeamPage({
     .eq('id', user.id)
     .single()
 
-  const isAdmin = myProfile?.permission === 'admin' || myProfile?.permission === 'editor'
+  const isAdmin = ['admin', 'editor', 'super_admin'].includes(myProfile?.permission ?? '')
 
   // Vérification d'accès
   if (!isAdmin) {

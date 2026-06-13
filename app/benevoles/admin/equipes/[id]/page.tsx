@@ -19,7 +19,7 @@ export default async function TeamPage({
   if (!user) redirect('/benevoles/login')
 
   const { data: me } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
-  const isAdmin = me?.permission === 'admin'
+  const isAdmin = ['admin', 'super_admin'].includes(me?.permission ?? '')
   const isEditor = me?.permission === 'editor'
 
   // Tous les membres de l'équipe peuvent voir la page en lecture seule

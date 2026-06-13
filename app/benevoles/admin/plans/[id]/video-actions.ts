@@ -9,7 +9,7 @@ async function getAdminIfAllowed() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return null
     const { data: me } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
-    if (me?.permission !== 'admin' && me?.permission !== 'editor') return null
+    if (!['admin', 'editor', 'super_admin'].includes(me?.permission ?? '')) return null
     return createAdminClient()
   } catch { return null }
 }

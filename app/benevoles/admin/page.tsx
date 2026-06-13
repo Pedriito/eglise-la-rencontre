@@ -23,7 +23,7 @@ export default async function AdminPage({
     .eq('id', user.id)
     .single()
 
-  if (me?.permission !== 'admin') redirect('/benevoles/dashboard')
+  if (!['admin', 'super_admin'].includes(me?.permission ?? '')) redirect('/benevoles/dashboard')
 
   const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
   const { data: benevoles } = await supabase

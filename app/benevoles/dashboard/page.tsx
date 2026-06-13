@@ -30,7 +30,7 @@ export default async function DashboardPage() {
       .limit(10),
   ])
 
-  const isEditorOrAdmin = profile?.permission === 'admin' || profile?.permission === 'editor'
+  const isEditorOrAdmin = ['admin', 'editor', 'super_admin'].includes(profile?.permission ?? '')
 
   // Pour les éditeurs/admins : tous les services à venir
   const { data: allPlans } = isEditorOrAdmin

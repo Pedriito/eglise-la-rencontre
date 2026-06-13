@@ -12,7 +12,7 @@ export async function copySetlist(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/benevoles/login')
   const { data: me } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
-  if (me?.permission !== 'admin' && me?.permission !== 'editor') return { ok: false, copied: 0, error: 'Non autorisé' }
+  if (!['admin', 'editor', 'super_admin'].includes(me?.permission ?? '')) return { ok: false, copied: 0, error: 'Non autorisé' }
 
   const admin = createAdminClient()
 

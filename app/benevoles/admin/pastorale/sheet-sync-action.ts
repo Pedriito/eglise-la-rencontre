@@ -48,7 +48,7 @@ export async function fetchSheetRows(): Promise<{ rows: SheetRow[]; error?: stri
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/benevoles/login')
   const { data: me } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
-  if (me?.permission !== 'admin') return { rows: [], error: 'Non autorisé' }
+  if (!['admin', 'super_admin'].includes(me?.permission ?? '')) return { rows: [], error: 'Non autorisé' }
 
   try {
     const res = await fetch(SHEET_CSV_URL, { cache: 'no-store' })
@@ -85,7 +85,7 @@ export async function importSheetRows(rowIndexes: number[]): Promise<{ ok: boole
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/benevoles/login')
   const { data: me } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
-  if (me?.permission !== 'admin') return { ok: false, imported: 0, error: 'Non autorisé' }
+  if (!['admin', 'super_admin'].includes(me?.permission ?? '')) return { ok: false, imported: 0, error: 'Non autorisé' }
 
   const admin = createAdminClient()
 

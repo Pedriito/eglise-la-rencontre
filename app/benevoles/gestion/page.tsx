@@ -22,7 +22,7 @@ export default async function GestionPage() {
     .eq('id', user.id)
     .single()
 
-  const isAdmin = profile?.permission === 'admin' || profile?.permission === 'editor'
+  const isAdmin = ['admin', 'editor', 'super_admin'].includes(profile?.permission ?? '')
 
   // Équipes accessibles
   let teams: { id: string; name: string }[] = []
