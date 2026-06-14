@@ -7,6 +7,8 @@ import { ChordChart } from '@/app/benevoles/chants/[id]/ChordChart'
 import { MediaPlayer } from '@/app/benevoles/chants/[id]/MediaPlayer'
 import { ProjectionView } from './ProjectionView'
 import { updatePlanSongArrangement } from '@/app/benevoles/admin/plans/actions'
+import { SlideStyleModal } from './SlideStyleModal'
+import { type SlideStyle, getPresetById } from '@/lib/slidePresets'
 
 type Song = {
   planSongId: string
@@ -20,6 +22,7 @@ type Song = {
     chord_chart_key: string | null
     youtube_url?: string | null
     audio_url?: string | null
+    slide_style?: SlideStyle | null
   } | null
   allArrangements: { id: string; name: string; chord_chart_key: string | null; hasChart: boolean }[]
 }
@@ -43,6 +46,8 @@ export function SetlistView({ planId, planTitle, songs, announcements, sermons, 
   const [activeIdx, setActiveIdx] = useState(0)
   const [mobileView, setMobileView] = useState<'list' | 'chart'>('list')
   const [projecting, setProjecting]       = useState(autoProjection ?? false)
+  const [styleModalSong, setStyleModalSong] = useState<Song | null>(null)
+  const [songStyles, setSongStyles] = useState<Record<string, SlideStyle | null>>({})  // arrangementId → style
   const projectorWinRef = useRef<Window | null>(null)
 
   // Ouvre la fenêtre projecteur DANS le geste utilisateur (onClick),
@@ -280,10 +285,30 @@ export function SetlistView({ planId, planTitle, songs, announcements, sermons, 
         {active ? (
           <div className="hidden md:block max-w-2xl mx-auto px-6 py-6">
             {/* Titre */}
-            <div className="mb-4">
-              <h2 className="font-display text-2xl text-dark font-light">{active.song.title}</h2>
-              {active.arrangement?.name && (
-                <p className="font-sans text-xs text-dark/40 mt-0.5">{active.arrangement.name}</p>
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="font-display text-2xl text-dark font-light">{active.song.title}</h2>
+                {active.arrangement?.name && (
+                  <p className="font-sans text-xs text-dark/40 mt-0.5">{active.arrangement.name}</p>
+                )}
+              </div>
+              {active.arrangement && (
+                <button
+                  onClick={() => setStyleModalSong(active)}
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-teal/30 hover:border-teal/60 hover:bg-teal/5 transition-colors group"
+                  title="Apparence de la projection"
+                >
+                  {(() => {
+                    const style = songStyles[active.arrangement.id] !== undefined
+                      ? songStyles[active.arrangement.id]
+                      : active.arrangement.slide_style ?? null
+                    const preset = getPresetById(style?.preset)
+                    return preset
+                      ? <span className="w-3 h-3 rounded-full" style={{ background: preset.thumbnail }} />
+                      : null
+                  })()}
+                  <span className="font-sans text-xs text-teal">Apparence</span>
+                </button>
               )}
             </div>
 
@@ -369,6 +394,24 @@ export function SetlistView({ planId, planTitle, songs, announcements, sermons, 
           </div>
         )}
       </main>
+
+      {/* Modal apparence diapo */}
+      {styleModalSong && styleModalSong.arrangement && (
+        <SlideStyleModal
+          songTitle={styleModalSong.song.title}
+          arrangementId={styleModalSong.arrangement.id}
+          planId={planId}
+          initialStyle={
+            songStyles[styleModalSong.arrangement.id] !== undefined
+              ? songStyles[styleModalSong.arrangement.id]
+              : styleModalSong.arrangement.slide_style ?? null
+          }
+          onClose={() => setStyleModalSong(null)}
+          onSaved={(newStyle) => {
+            setSongStyles(prev => ({ ...prev, [styleModalSong.arrangement!.id]: newStyle }))
+          }}
+        />
+      )}
     </div>
   )
 }

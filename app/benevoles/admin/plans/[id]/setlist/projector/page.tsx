@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import { ProjectorScreen } from './ProjectorScreen'
 import { DEFAULT_SETTINGS, SETTINGS_ID } from '@/lib/projectionSettings'
+import type { SlideStyle } from '@/lib/slidePresets'
 
 export default async function ProjectorPage({
   params,
@@ -17,7 +18,7 @@ export default async function ProjectorPage({
     supabase.from('plans').select('id, title').eq('id', id).single(),
     supabase
       .from('plan_songs')
-      .select('id, order_index, key_selected, songs(id, title), arrangements(id, name, chord_chart, chord_chart_key)')
+      .select('id, order_index, key_selected, songs(id, title), arrangements(id, name, chord_chart, chord_chart_key, slide_style)')
       .eq('plan_id', id)
       .order('order_index'),
     supabase.from('projection_settings').select('*').eq('id', SETTINGS_ID).single(),
@@ -32,6 +33,7 @@ export default async function ProjectorPage({
     arrangement: (ps as any).arrangements as {
       id: string; name: string
       chord_chart: string | null; chord_chart_key: string | null
+      slide_style: SlideStyle | null
     } | null,
   }))
 

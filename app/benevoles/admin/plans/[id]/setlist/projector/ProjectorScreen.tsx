@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { buildAllSlides, type Slide } from '@/lib/parseSlides'
 import { CountdownDisplay, COUNTDOWN_SECONDS } from '@/app/_components/CountdownDisplay'
 import { type ProjectionSettings, DEFAULT_SETTINGS, getBgStyle, getAnnBgStyle, getTextStyle, getAnnTextStyle, loadGoogleFont, mergeSettings, calcFontSize, calcAnnFontSize, SETTINGS_ID } from '@/lib/projectionSettings'
+import { PRESET_KEYFRAMES, getPresetById, type SlideStyle } from '@/lib/slidePresets'
 import { createClient } from '@/lib/supabase/client'
 
 type Song = {
@@ -13,6 +14,7 @@ type Song = {
   arrangement: {
     id: string; name: string
     chord_chart: string | null; chord_chart_key: string | null
+    slide_style: SlideStyle | null
   } | null
 }
 
@@ -252,10 +254,22 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
   const txtStyle     = getTextStyle(settings)
   const annTxtStyle  = getAnnTextStyle(settings)
 
+  // Par chant : fond animé + layout (depuis songs original, pas SongSlides)
+  const currentSlideStyle = songs[current.songIdx]?.arrangement?.slide_style ?? null
+  const activePreset  = getPresetById(currentSlideStyle?.preset)
+  const activeBgStyle = activePreset ? activePreset.bgStyle : bgStyle
+  const activeLayout  = currentSlideStyle?.layout ?? 'fullscreen'
+  const activeBandColor = currentSlideStyle?.band_color ?? 'rgba(0,0,0,0.70)'
+  const activeTxtStyle  = currentSlideStyle?.text_color
+    ? { ...txtStyle, color: currentSlideStyle.text_color }
+    : txtStyle
+
   return (
+    <>
+    <style>{PRESET_KEYFRAMES}</style>
     <div
       className="fixed inset-0 z-[9999] flex flex-col items-center justify-center select-none cursor-none overflow-hidden"
-      style={bgStyle}
+      style={activeBgStyle}
       onClick={!isFullscreen ? enterFullscreen : undefined}
     >
       {/* Overlay sombre pour les fonds image */}
@@ -469,17 +483,38 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
         </div>
       )}
 
-      {/* Contenu de la diapo */}
-      {!showPrompt && countdown === null && !projectedImageUrl && !projectedVideo && !announcement && !freeMessage && !verse && currentSlide && !currentSlide.isBlank && (
+      {/* Contenu de la diapo — layout plein écran */}
+      {!showPrompt && countdown === null && !projectedImageUrl && !projectedVideo && !announcement && !freeMessage && !verse && currentSlide && !currentSlide.isBlank && activeLayout === 'fullscreen' && (
         <div className="text-center w-full relative" style={{ padding: `0 ${(100 - (settings.text_max_width ?? 94)) / 2}%` }}>
           {currentSlide.section && (
-            <p className="text-base uppercase tracking-[0.4em] mb-10 font-sans" style={{ color: settings.text_color + '40' }}>
+            <p className="text-base uppercase tracking-[0.4em] mb-10 font-sans" style={{ color: (activeTxtStyle.color as string ?? settings.text_color) + '40' }}>
               {formatSection(currentSlide.section)}
             </p>
           )}
           <div className="space-y-6">
             {displayLines.map((line, i) => (
-              <p key={i} className="font-semibold leading-tight" style={{ ...txtStyle, fontSize: slideFs }}>
+              <p key={i} className="font-semibold leading-tight" style={{ ...activeTxtStyle, fontSize: slideFs }}>
+                {line}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Contenu de la diapo — layout bande centrale */}
+      {!showPrompt && countdown === null && !projectedImageUrl && !projectedVideo && !announcement && !freeMessage && !verse && currentSlide && !currentSlide.isBlank && activeLayout === 'band' && (
+        <div
+          className="absolute left-0 right-0 top-1/2 -translate-y-1/2"
+          style={{ backgroundColor: activeBandColor, padding: '4% 6%' }}
+        >
+          {currentSlide.section && (
+            <p className="text-sm uppercase tracking-[0.35em] mb-5 font-sans text-center" style={{ color: (activeTxtStyle.color as string ?? settings.text_color) + '50' }}>
+              {formatSection(currentSlide.section)}
+            </p>
+          )}
+          <div className="space-y-5 text-center">
+            {displayLines.map((line, i) => (
+              <p key={i} className="font-semibold leading-tight" style={{ ...activeTxtStyle, fontSize: slideFs }}>
                 {line}
               </p>
             ))}
@@ -508,6 +543,7 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
         </p>
       )}
     </div>
+    </>
   )
 }
 
