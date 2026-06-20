@@ -4,11 +4,11 @@ import { useState } from "react";
 import Image from "next/image";
 
 const links = [
-  { label: "Accueil", href: "#accueil" },
-  { label: "Horaires", href: "#horaires" },
-  { label: "Cultes", href: "#cultes" },
-  { label: "Pasteurs", href: "#pasteurs" },
-  { label: "Contact", href: "#contact" },
+  { label: "Accueil", href: "/#accueil" },
+  { label: "Horaires", href: "/#horaires" },
+  { label: "Cultes", href: "/#cultes" },
+  { label: "Pasteurs", href: "/#pasteurs" },
+  { label: "Contact", href: "/#contact" },
 ];
 
 export default function Navbar() {
@@ -17,7 +17,7 @@ export default function Navbar() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-teal backdrop-blur-sm" style={{ background: "linear-gradient(135deg, #3D7D85 0%, #5A9EA6 100%)" }}>
       <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
-        <a href="#accueil" className="flex items-center">
+        <a href="/" className="flex items-center">
           <Image
             src="/logo.png"
             alt="Église La Rencontre"
