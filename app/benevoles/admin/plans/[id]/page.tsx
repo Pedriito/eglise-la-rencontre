@@ -64,7 +64,7 @@ export default async function PlanDetailPage({
       .select('id, status, user_id, position_id, team_id, external_name, external_email, invitation_sent_at, profiles(first_name, last_name), positions(id, name, team_id)')
       .eq('plan_id', id),
     supabase.from('teams').select('id, name, positions(id, name)').order('name'),
-    supabase.from('profiles').select('id, first_name, last_name').order('last_name'),
+    supabase.from('profiles').select('id, first_name, last_name').order('first_name'),
     supabase.from('blockout_dates').select('user_id, start_date, end_date'),
     supabase.from('team_members').select('user_id, team_id'),
     supabase
