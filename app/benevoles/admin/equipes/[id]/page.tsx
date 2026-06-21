@@ -44,7 +44,7 @@ export default async function TeamPage({
       .select('user_id, role, frequency, profiles(id, first_name, last_name)')
       .eq('team_id', id)
       .order('role'),
-    supabase.from('profiles').select('id, first_name, last_name').order('last_name'),
+    supabase.from('profiles').select('id, first_name, last_name').order('first_name'),
   ])
 
   if (!team) redirect('/benevoles/admin/equipes')
