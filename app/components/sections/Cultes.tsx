@@ -1,5 +1,6 @@
 import WaveDivider from "../WaveDivider"
 import { getChurchSettings } from "@/lib/churchSettings"
+import { CultesGrid } from "./CultesGrid"
 
 type Video = { id: string; titre: string }
 
@@ -73,19 +74,7 @@ export default async function Cultes() {
           Retrouvez tous nos cultes sur notre chaîne YouTube
         </p>
 
-        <div className="grid md:grid-cols-3 gap-6 mb-10">
-          {videos.map((v) => (
-            <div key={v.id} className="aspect-video bg-teal-light rounded-sm overflow-hidden shadow-sm">
-              <iframe
-                src={`https://www.youtube.com/embed/${v.id}`}
-                title={v.titre}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="w-full h-full"
-              />
-            </div>
-          ))}
-        </div>
+        <CultesGrid videos={videos} />
 
         {s.youtube_url && (
           <a

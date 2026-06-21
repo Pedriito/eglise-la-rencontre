@@ -14,7 +14,7 @@ export default async function Footer() {
         <p className="font-sans text-xs text-white/40 mb-6">
           {s.address_street} · {s.address_zip} {s.address_city} · {s.address_dept}
         </p>
-        <div className="flex justify-center gap-6">
+        <div className="flex justify-center flex-wrap gap-6">
           {s.youtube_url && (
             <a
               href={s.youtube_url}
@@ -30,6 +30,12 @@ export default async function Footer() {
             className="font-sans text-xs tracking-widest uppercase text-white/40 hover:text-white/80 transition-colors"
           >
             Email
+          </a>
+          <a
+            href="/benevoles/dashboard"
+            className="font-sans text-xs tracking-widest uppercase text-white/20 hover:text-white/50 transition-colors"
+          >
+            Espace bénévoles
           </a>
         </div>
         <p className="font-sans text-xs text-white/20 mt-8">

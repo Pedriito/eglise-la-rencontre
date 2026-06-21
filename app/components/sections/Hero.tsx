@@ -34,10 +34,10 @@ export default async function Hero() {
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <a
-            href="#horaires"
+            href="#premiere-visite"
             className="px-8 py-3 bg-white text-teal-dark font-sans text-sm tracking-widest uppercase font-medium hover:bg-teal-50 transition-colors rounded-sm"
           >
-            Nous rejoindre
+            Préparer ma venue
           </a>
           <a
             href="#cultes"

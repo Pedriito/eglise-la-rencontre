@@ -5,9 +5,8 @@ import Image from "next/image";
 
 const links = [
   { label: "Accueil", href: "/#accueil" },
-  { label: "Horaires", href: "/#horaires" },
+  { label: "Qui sommes-nous", href: "/#vision" },
   { label: "Cultes", href: "/#cultes" },
-  { label: "Pasteurs", href: "/#pasteurs" },
   { label: "Contact", href: "/#contact" },
 ];
 
@@ -43,12 +42,6 @@ export default function Navbar() {
           >
             Faire un don
           </a>
-          <a
-            href="/benevoles/dashboard"
-            className="font-sans text-xs tracking-wide text-white/50 hover:text-white/80 transition-colors border border-white/20 rounded-full px-3 py-1"
-          >
-            Espace bénévoles
-          </a>
         </nav>
 
         <button
@@ -80,13 +73,6 @@ export default function Navbar() {
             className="font-sans text-sm font-medium text-teal-dark bg-white hover:bg-white/90 transition-colors rounded-full px-4 py-2 text-center"
           >
             Faire un don
-          </a>
-          <a
-            href="/benevoles/dashboard"
-            onClick={() => setOpen(false)}
-            className="font-sans text-xs tracking-wide text-white/50 hover:text-white/80 transition-colors"
-          >
-            Espace bénévoles
           </a>
         </nav>
       )}
