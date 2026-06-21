@@ -9,7 +9,7 @@ async function requireAdminOrLeader(teamId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/benevoles/login')
   const { data: profile } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
-  if (profile?.permission === 'admin') return createAdminClient()
+  if (['admin', 'super_admin'].includes(profile?.permission ?? '')) return createAdminClient()
   if (profile?.permission === 'editor') {
     const { data: membership } = await supabase
       .from('team_members')
