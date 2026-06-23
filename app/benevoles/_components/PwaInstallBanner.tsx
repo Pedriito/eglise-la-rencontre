@@ -59,7 +59,7 @@ export function PwaInstallBanner() {
       >
         Installer
       </button>
-      <button onClick={dismiss} className="text-white/30 hover:text-white transition-colors shrink-0 leading-none text-lg">✕</button>
+      <button onClick={dismiss} aria-label="Fermer" className="text-white/30 hover:text-white transition-colors shrink-0 leading-none text-lg">✕</button>
     </div>
   )
 

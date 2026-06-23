@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { addAssignment } from '../actions'
+import { IconWarning } from '@/app/benevoles/_components/Icons'
 
 const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
 
@@ -113,7 +114,7 @@ export function AddAssignmentForm({
       {/* Avertissement si sélection indisponible */}
       {selected?.unavailable && (
         <p className="font-sans text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
-          ⚠ {selected.first_name} a déclaré une indisponibilité ce jour.
+          <span className="inline-flex items-center gap-1"><IconWarning className="w-3 h-3 shrink-0" /> {selected.first_name} a déclaré une indisponibilité ce jour.</span>
         </p>
       )}
 

@@ -3,6 +3,7 @@
 import { useState, useTransition, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { IconProjector, IconMusicalNote } from '@/app/benevoles/_components/Icons'
 import { ChordChart } from '@/app/benevoles/chants/[id]/ChordChart'
 import { MediaPlayer } from '@/app/benevoles/chants/[id]/MediaPlayer'
 import { ProjectionView } from './ProjectionView'
@@ -131,9 +132,9 @@ export function SetlistView({ planId, planTitle, songs, announcements, sermons, 
           <button
             onClick={openProjection}
             title="Mode vidéoprojecteur"
-            className="shrink-0 px-2.5 py-1.5 bg-dark hover:bg-dark/80 text-white rounded-lg font-sans text-xs font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 shrink-0 px-2.5 py-1.5 bg-dark hover:bg-dark/80 text-white rounded-lg font-sans text-xs font-medium transition-colors"
           >
-            ⬛ Projection
+            <IconProjector className="w-3.5 h-3.5" /> Projection
           </button>
         </div>
 
@@ -170,7 +171,7 @@ export function SetlistView({ planId, planTitle, songs, announcements, sermons, 
                   </p>
                 </div>
                 {isActive && (
-                  <span className="text-teal text-xs shrink-0">♩</span>
+                  <IconMusicalNote className="w-3.5 h-3.5 text-teal shrink-0" />
                 )}
               </button>
             )
@@ -218,7 +219,7 @@ export function SetlistView({ planId, planTitle, songs, announcements, sermons, 
               ← Liste
             </button>
             <p className="font-sans text-sm text-dark/50 truncate flex-1">{planTitle}</p>
-            <span className="font-sans text-xs text-dark/25 tabular-nums shrink-0">{songs.length} chant{songs.length > 1 ? 's' : ''}</span>
+            <span className="font-sans text-xs text-dark/50 tabular-nums shrink-0">{songs.length} chant{songs.length > 1 ? 's' : ''}</span>
           </div>
 
           {/* Scroll continu : tous les chants empilés */}
@@ -230,7 +231,7 @@ export function SetlistView({ planId, planTitle, songs, announcements, sermons, 
               >
                 {/* En-tête du chant */}
                 <div className="px-4 pt-6 pb-3 flex items-baseline gap-3">
-                  <span className="font-sans text-xs text-dark/20 tabular-nums shrink-0">{idx + 1}</span>
+                  <span className="font-sans text-xs text-dark/40 tabular-nums shrink-0">{idx + 1}</span>
                   <h2 className="font-display text-xl text-dark font-light leading-tight">{s.song.title}</h2>
                   {s.keySelected && (
                     <span className="font-sans text-sm text-teal font-semibold shrink-0">{s.keySelected}</span>
@@ -269,7 +270,7 @@ export function SetlistView({ planId, planTitle, songs, announcements, sermons, 
                 {/* Séparateur entre chants */}
                 {idx < songs.length - 1 && (
                   <div className="mx-4 my-4 border-t-2 border-dashed border-teal/15 flex items-center justify-center">
-                    <span className="bg-teal-50 px-3 text-xs text-dark/20 font-sans -mt-2.5 relative">
+                    <span className="bg-teal-50 px-3 text-xs text-dark/40 font-sans -mt-2.5 relative">
                       {songs[idx + 1]?.song.title}
                     </span>
                   </div>
@@ -356,7 +357,7 @@ export function SetlistView({ planId, planTitle, songs, announcements, sermons, 
                             disabled={isPending}
                             className="inline-flex items-center gap-2 px-4 py-2 bg-teal/10 hover:bg-teal/20 disabled:opacity-50 border border-teal/20 rounded-lg font-sans text-sm text-teal transition-colors"
                           >
-                            {a.hasChart ? '♩' : '○'}
+                            {a.hasChart ? <IconMusicalNote className="w-3.5 h-3.5 shrink-0" /> : <span className="w-3.5 h-3.5 rounded-full border border-teal/40 shrink-0 inline-block" />}
                             <span>{a.name}</span>
                             {a.chord_chart_key && <span className="text-teal/60 text-xs">{a.chord_chart_key}</span>}
                             {a.hasChart && <span className="text-xs text-teal/50">· grille dispo</span>}

@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect } from 'react'
 import Link from 'next/link'
 import { deleteBenevole, resendInviteFromList } from './actions'
+import { IconEnvelope } from '@/app/benevoles/_components/Icons'
 import { permissionLabels, statusLabels } from '@/lib/labels'
 
 type Benevole = {
@@ -39,7 +40,7 @@ function ResendButton({ benevoleId, onSuccess }: { benevoleId: string; onSuccess
         title="Renvoyer l'invitation"
         className="text-2xl text-teal/50 hover:text-teal transition-colors leading-none cursor-pointer disabled:opacity-40"
       >
-        {pending ? '…' : '✉'}
+        {pending ? '…' : <IconEnvelope className="w-4 h-4" />}
       </button>
       {error && (
         <div className="absolute right-0 top-8 z-10 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-600 font-sans whitespace-nowrap shadow">

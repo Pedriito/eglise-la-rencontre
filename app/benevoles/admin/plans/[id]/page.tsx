@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { removeAssignment, deletePlan, sendSingleInvitation } from '../actions'
+import { IconEnvelope, IconMusicalNote, IconPlay, IconProjector, IconWarning } from '@/app/benevoles/_components/Icons'
 import { SongsSection } from './SongsSection'
 import { CopySetlistButton } from './CopySetlistButton'
 import { StatusDot } from '../../../_components/StatusDot'
@@ -13,8 +14,6 @@ import VideoSection from './VideoSection'
 import ShareButton from './ShareButton'
 
 const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
-const TEAMS_WITH_INVITE = new Set(['Prédicateurs', 'Louange'])
-const PRAYER_MEETING_TEAMS = new Set(['Prédicateurs', 'Louange', 'Production'])
 
 type TeamPosition = { id: string; name: string }
 type AssignmentRow = {
@@ -63,7 +62,7 @@ export default async function PlanDetailPage({
       .from('plan_assignments')
       .select('id, status, user_id, position_id, team_id, external_name, external_email, invitation_sent_at, profiles(first_name, last_name), positions(id, name, team_id)')
       .eq('plan_id', id),
-    supabase.from('teams').select('id, name, positions(id, name)').order('name'),
+    supabase.from('teams').select('id, name, allows_guests, is_coordination, hide_positions, is_prayer_meeting, positions(id, name)').order('name'),
     supabase.from('profiles').select('id, first_name, last_name').order('first_name'),
     supabase.from('blockout_dates').select('user_id, start_date, end_date'),
     supabase.from('team_members').select('user_id, team_id'),
@@ -158,11 +157,6 @@ export default async function PlanDetailPage({
   const isEditor  = me?.permission === 'editor'
   const canManage = isAdmin || isEditor
 
-  // Équipes visibles selon le rôle :
-  // - admin : tout
-  // - affecté à "Coordination des célébrations" dans ce plan : tout
-  // - sinon : uniquement les équipes où l'utilisateur est affecté dans ce plan
-  const COORDINATION_NAME = 'Coordination des célébrations'
   const myTeamIdsInPlan = new Set(
     assignments
       .filter(a => a.user_id === user.id)
@@ -170,7 +164,7 @@ export default async function PlanDetailPage({
       .filter((id): id is string => !!id)
   )
   const isCoordinator = (teams ?? []).some(
-    t => t.name === COORDINATION_NAME && myTeamIdsInPlan.has(t.id)
+    t => (t as any).is_coordination && myTeamIdsInPlan.has(t.id)
   )
   const canSeeAllTeams = isAdmin || isCoordinator
 
@@ -201,7 +195,7 @@ export default async function PlanDetailPage({
             <div className="flex items-center gap-2">
               <h1 className="font-display text-2xl text-dark font-light">{plan.title}</h1>
               {isRehearsal && (
-                <span className="font-sans text-xs bg-teal/10 text-teal px-2 py-0.5 rounded-full">🎵 Répétition</span>
+                <span className="inline-flex items-center gap-1 font-sans text-xs bg-teal/10 text-teal px-2 py-0.5 rounded-full"><IconMusicalNote className="w-3 h-3" /> Répétition</span>
               )}
             </div>
             <p className="text-xs text-dark/50 font-sans capitalize">{date} · {time}</p>
@@ -211,15 +205,15 @@ export default async function PlanDetailPage({
           <ShareButton planId={id} />
           <Link
             href={`/benevoles/admin/plans/${id}/setlist`}
-            className="font-sans text-xs font-semibold px-3 py-1.5 bg-teal text-white rounded-lg hover:bg-teal-dark transition-colors"
+            className="inline-flex items-center gap-1.5 font-sans text-xs font-semibold px-3 py-1.5 bg-teal text-white rounded-lg hover:bg-teal-dark transition-colors"
           >
-            ♩ Mode live
+            <IconPlay className="w-3.5 h-3.5" /> Mode live
           </Link>
           <Link
             href={`/benevoles/admin/plans/${id}/setlist?projection=1`}
-            className="font-sans text-xs font-semibold px-3 py-1.5 bg-dark text-white rounded-lg hover:bg-dark/80 transition-colors"
+            className="inline-flex items-center gap-1.5 font-sans text-xs font-semibold px-3 py-1.5 bg-dark text-white rounded-lg hover:bg-dark/80 transition-colors"
           >
-            ⬛ Projection
+            <IconProjector className="w-3.5 h-3.5" /> Projection
           </Link>
           {isAdmin && (
             <form action={deletePlan}>
@@ -244,13 +238,13 @@ export default async function PlanDetailPage({
         {/* Grille d'équipes — masquée pour les répétitions */}
         {!isRehearsal && <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {((plan as any).plan_type === 'prayer_meeting'
-            ? (teams ?? []).filter(t => PRAYER_MEETING_TEAMS.has(t.name))
+            ? (teams ?? []).filter(t => (t as any).is_prayer_meeting)
             : (teams ?? [])
           ).filter(isTeamVisible).map(team => {
             const teamPositions = team.positions as unknown as TeamPosition[]
             const teamAssignments = assignmentsByTeam[team.id] ?? []
-            const isInviteTeam = TEAMS_WITH_INVITE.has(team.name)
-            const hidePositions = team.name === 'Prédicateurs'
+            const isInviteTeam = (team as any).allows_guests
+            const hidePositions = (team as any).hide_positions
 
             const teamMemberIds = membersByTeam[team.id]
             // Exclure uniquement les bénévoles déjà affectés à CETTE équipe
@@ -283,7 +277,7 @@ export default async function PlanDetailPage({
                 {/* Membres affectés */}
                 <div className="divide-y divide-teal/10 flex-1">
                   {teamAssignments.length === 0 && (
-                    <p className="px-5 py-4 text-xs text-dark/25 font-sans italic">Aucun bénévole</p>
+                    <p className="px-5 py-4 text-xs text-dark/50 font-sans italic">Aucun bénévole</p>
                   )}
                   {teamAssignments.map(a => {
                     const isInvite = a.user_id === INVITE_EXT_ID
@@ -307,21 +301,21 @@ export default async function PlanDetailPage({
                           )}
                           {a.invitation_sent_at && (
                             <p className="text-xs text-teal/60 font-sans mt-0.5" title={`Envoyée le ${new Date(a.invitation_sent_at).toLocaleString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`}>
-                              ✉ envoyée le {new Date(a.invitation_sent_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                              <span className="inline-flex items-center gap-1"><IconEnvelope className="w-3 h-3" /> envoyée le {new Date(a.invitation_sent_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
                             </p>
                           )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           {!isInvite && unavailableIds.has(a.user_id) && (
-                            <span className="text-xs text-red-400 font-sans" title="Indisponible ce jour-là">⚠</span>
+                            <span className="text-red-400" title="Indisponible ce jour-là"><IconWarning className="w-3.5 h-3.5" /></span>
                           )}
                           <StatusDot status={a.status} />
                           {canManage && canSendInvite && (
                             <form action={sendSingleInvitation}>
                               <input type="hidden" name="assignment_id" value={a.id} />
                               <input type="hidden" name="plan_id" value={id} />
-                              <button type="submit" title="Envoyer l'invitation" className="text-dark/40 hover:text-teal transition-colors text-xl leading-none">
-                                ✉
+                              <button type="submit" title="Envoyer l'invitation" aria-label="Envoyer l'invitation" className="text-dark/40 hover:text-teal transition-colors">
+                                <IconEnvelope className="w-4 h-4" />
                               </button>
                             </form>
                           )}
@@ -329,7 +323,7 @@ export default async function PlanDetailPage({
                             <form action={removeAssignment}>
                               <input type="hidden" name="plan_id" value={id} />
                               <input type="hidden" name="assignment_id" value={a.id} />
-                              <button type="submit" className="text-dark/20 hover:text-red-400 transition-colors font-sans text-lg leading-none">
+                              <button type="submit" aria-label="Retirer" className="text-dark/20 hover:text-red-400 transition-colors font-sans text-lg leading-none">
                                 ×
                               </button>
                             </form>
@@ -432,7 +426,7 @@ export default async function PlanDetailPage({
                     <form action={removeAssignment}>
                       <input type="hidden" name="plan_id" value={id} />
                       <input type="hidden" name="assignment_id" value={a.id} />
-                      <button type="submit" className="text-dark/20 hover:text-red-400 font-sans text-lg leading-none">×</button>
+                      <button type="submit" aria-label="Retirer" className="text-dark/20 hover:text-red-400 font-sans text-lg leading-none">×</button>
                     </form>
                   </div>
                 </div>

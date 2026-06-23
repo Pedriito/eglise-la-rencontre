@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import type { PlanItem } from './page'
+import { IconCalendar, IconMusicalNote } from '@/app/benevoles/_components/Icons'
 
 const TYPE_COLORS: Record<string, { bg: string; border: string; dot: string }> = {
   sunday_service: { bg: 'bg-teal/15',    border: 'border-teal/40',    dot: 'bg-teal' },
@@ -13,7 +14,7 @@ const TYPE_COLORS: Record<string, { bg: string; border: string; dot: string }> =
 const TYPE_LABELS: Record<string, string> = {
   sunday_service: 'Culte',
   prayer_meeting: 'Prière',
-  rehearsal:      '🎵 Répétition',
+  rehearsal:      'Répétition',
 }
 
 const DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
@@ -99,7 +100,7 @@ export function PlanCalendar({ plans, monthParam, icalUrl }: Props) {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-teal/20 font-sans text-xs text-dark/50 hover:text-teal hover:border-teal/40 transition-colors"
             title="Copier le lien d'abonnement iCal (Google Calendar, Apple Calendar…)"
           >
-            {copied ? '✓ Copié !' : '📅 Abonner'}
+            {copied ? '✓ Copié !' : <><IconCalendar className="w-3.5 h-3.5" /> Abonner</>}
           </button>
         </div>
       </div>

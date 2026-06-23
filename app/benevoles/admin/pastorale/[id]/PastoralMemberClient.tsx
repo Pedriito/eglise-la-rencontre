@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { addPastoralNote, deletePastoralNote, resolvePrayerRequest, deletePrayerRequest, addPrayerRequest } from '../actions'
+import { IconHome, IconPhone, IconChat, IconDocument } from '@/app/benevoles/_components/Icons'
 
 type Profile = { id: string; first_name: string; last_name: string; email: string; phone: string | null; city: string | null; birthdate: string | null; status: string; created_at: string }
 type PrayerRequest = { id: string; subject: string; notes: string | null; status: string; created_at: string; resolved_at: string | null }
@@ -9,10 +10,10 @@ type PastoralNote = { id: string; note_date: string; type: string; notes: string
 type Assignment = { id: string; status: string; plan_id: string; plans: { title: string; service_date: string } }
 
 const TYPE_OPTIONS = [
-  { value: 'visit',   label: '🏠 Visite' },
-  { value: 'call',    label: '📞 Appel' },
-  { value: 'message', label: '💬 Message' },
-  { value: 'other',   label: '📝 Autre' },
+  { value: 'visit',   label: 'Visite',  Icon: IconHome },
+  { value: 'call',    label: 'Appel',   Icon: IconPhone },
+  { value: 'message', label: 'Message', Icon: IconChat },
+  { value: 'other',   label: 'Autre',   Icon: IconDocument },
 ]
 
 const STATUS_COLORS: Record<string, string> = {
@@ -144,12 +145,14 @@ export function PastoralMemberClient({ profileId, profile, prayerRequests: initi
               <div key={n.id} className="bg-white rounded-xl border border-teal/15 px-4 py-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="font-sans text-[10px] text-dark/30 uppercase tracking-wide mb-0.5">
-                      {TYPE_OPTIONS.find(t => t.value === n.type)?.label ?? n.type} · {new Date(n.note_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    <p className="inline-flex items-center gap-1 font-sans text-[10px] text-dark/50 uppercase tracking-wide mb-0.5">
+                      {(() => { const t = TYPE_OPTIONS.find(o => o.value === n.type); return t ? <><t.Icon className="w-3 h-3" />{t.label}</> : n.type })()}
+                      {' · '}
+                      {new Date(n.note_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
                     </p>
                     <p className="font-sans text-sm text-dark leading-snug whitespace-pre-wrap">{n.notes}</p>
                   </div>
-                  <button onClick={() => handleDeleteNote(n.id)} disabled={isPending}
+                  <button onClick={() => handleDeleteNote(n.id)} disabled={isPending} aria-label="Supprimer la note"
                     className="text-dark/20 hover:text-red-400 transition-colors font-sans text-lg leading-none shrink-0">×</button>
                 </div>
               </div>
@@ -197,9 +200,9 @@ export function PastoralMemberClient({ profileId, profile, prayerRequests: initi
                     </p>
                   </div>
                   <div className="flex gap-1 shrink-0">
-                    <button onClick={() => handleResolve(pr.id)} disabled={isPending}
+                    <button onClick={() => handleResolve(pr.id)} disabled={isPending} aria-label="Marquer exaucé"
                       className="text-xs text-green-600 hover:text-green-700 font-sans px-2 py-1 rounded hover:bg-green-100 transition-colors" title="Exaucé">✓</button>
-                    <button onClick={() => handleDeletePrayer(pr.id)} disabled={isPending}
+                    <button onClick={() => handleDeletePrayer(pr.id)} disabled={isPending} aria-label="Supprimer"
                       className="text-dark/25 hover:text-red-400 font-sans text-lg leading-none px-1">×</button>
                   </div>
                 </div>

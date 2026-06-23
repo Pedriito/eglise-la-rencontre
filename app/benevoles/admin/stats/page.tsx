@@ -12,7 +12,7 @@ function rate(confirmed: number, responded: number) {
 
 function RateBar({ confirmed, declined, pending }: { confirmed: number; declined: number; pending: number }) {
   const total = confirmed + declined + pending
-  if (total === 0) return <span className="text-xs text-dark/25 font-sans">—</span>
+  if (total === 0) return <span className="text-xs text-dark/50 font-sans">—</span>
   const pctC = Math.round((confirmed / total) * 100)
   const pctD = Math.round((declined / total) * 100)
   const pctP = 100 - pctC - pctD
@@ -206,7 +206,22 @@ export default async function StatsPage() {
           <section>
             <h2 className="font-display text-lg text-dark/40 font-light mb-3">Par équipe</h2>
             <div className="bg-white rounded-2xl border border-teal/20 overflow-hidden">
-              <div className="overflow-x-auto">
+              {/* Mobile : cartes */}
+              <div className="md:hidden divide-y divide-teal/10">
+                {teamStats.map(t => (
+                  <div key={t.id} className="px-4 py-3.5 flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="font-sans text-sm text-dark font-medium truncate">{t.name}</p>
+                      <p className="font-sans text-xs text-dark/50 mt-0.5">{t.members} membre{t.members > 1 ? 's' : ''} · {t.total} affectation{t.total > 1 ? 's' : ''}</p>
+                    </div>
+                    <div className="shrink-0">
+                      <RateBar confirmed={t.confirmed} declined={t.declined} pending={t.pending} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {/* Desktop : tableau */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full min-w-[560px]">
                   <thead>
                     <tr className="border-b border-teal/10">
@@ -224,7 +239,7 @@ export default async function StatsPage() {
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <span className="font-sans text-sm text-dark tabular-nums font-medium">{t.total}</span>
-                            <span className="font-sans text-xs text-dark/30 tabular-nums hidden sm:block">
+                            <span className="font-sans text-xs text-dark/30 tabular-nums">
                               {t.confirmed}✓ {t.declined}✕
                             </span>
                           </div>
@@ -246,7 +261,28 @@ export default async function StatsPage() {
           <section>
             <h2 className="font-display text-lg text-dark/40 font-light mb-3">Bénévoles les plus actifs</h2>
             <div className="bg-white rounded-2xl border border-teal/20 overflow-hidden">
-              <div className="overflow-x-auto">
+              {/* Mobile : cartes */}
+              <div className="md:hidden divide-y divide-teal/10">
+                {topVols.map((v, i) => {
+                  const r = rate(v.confirmed, v.confirmed + v.declined)
+                  return (
+                    <div key={v.userId} className="px-4 py-3.5 flex items-center gap-3">
+                      <span className="font-sans text-xs text-dark/30 tabular-nums w-5 shrink-0">{i + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-sans text-sm text-dark font-medium truncate">{v.name}</p>
+                        <p className="font-sans text-xs text-dark/50 mt-0.5">{v.confirmed} confirmé{v.confirmed > 1 ? 's' : ''} / {v.total}</p>
+                      </div>
+                      {r != null && (
+                        <span className={`font-sans text-sm tabular-nums font-semibold shrink-0 ${r >= 80 ? 'text-green-600' : r >= 50 ? 'text-amber-500' : 'text-red-400'}`}>
+                          {r} %
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+              {/* Desktop : tableau */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full min-w-[480px]">
                   <thead>
                     <tr className="border-b border-teal/10">
@@ -261,7 +297,7 @@ export default async function StatsPage() {
                       const r = rate(v.confirmed, v.confirmed + v.declined)
                       return (
                         <tr key={v.userId} className={i % 2 === 0 ? '' : 'bg-teal-50/40'}>
-                          <td className="px-6 py-4 font-sans text-sm text-dark/25 tabular-nums">{i + 1}</td>
+                          <td className="px-6 py-4 font-sans text-sm text-dark/40 tabular-nums">{i + 1}</td>
                           <td className="px-6 py-4 font-sans text-sm text-dark font-medium">{v.name}</td>
                           <td className="px-6 py-4">
                             <span className="font-sans text-sm text-dark tabular-nums font-medium">{v.confirmed}</span>
@@ -273,7 +309,7 @@ export default async function StatsPage() {
                                 {r} %
                               </span>
                             ) : (
-                              <span className="text-xs text-dark/25 font-sans">—</span>
+                              <span className="text-xs text-dark/50 font-sans">—</span>
                             )}
                           </td>
                         </tr>

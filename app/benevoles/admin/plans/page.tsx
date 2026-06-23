@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { PlanCalendar } from './PlanCalendar'
+import { ICalCopySection } from './ICalCopySection'
+import { IconCalendar, IconMusicalNote } from '@/app/benevoles/_components/Icons'
 
 export type PlanItem = {
   id: string
@@ -94,7 +96,7 @@ export default async function PlansPage({
         </td>
         <td className="px-6 py-4 font-sans text-sm text-dark font-medium">
           <Link href={`/benevoles/admin/plans/${plan.id}`} className="flex items-center gap-2">
-            {plan.plan_type === 'rehearsal' && <span className="text-[10px]">🎵</span>}
+            {plan.plan_type === 'rehearsal' && <IconMusicalNote className="w-3 h-3 text-teal/60 shrink-0" />}
             {plan.title}
           </Link>
         </td>
@@ -110,6 +112,35 @@ export default async function PlansPage({
           </Link>
         </td>
       </tr>
+    )
+  }
+
+  function PlanCard({ plan }: { plan: PlanItem }) {
+    const team = plan.teams as unknown as { name: string } | null
+    const date = new Date(plan.service_date).toLocaleDateString('fr-FR', {
+      weekday: 'short', day: 'numeric', month: 'short',
+    })
+    const time = new Date(plan.service_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    const n    = countByPlan[plan.id] ?? 0
+    const past = plan.service_date < now
+    return (
+      <Link
+        href={`/benevoles/admin/plans/${plan.id}`}
+        className={`flex items-center justify-between gap-3 px-4 py-3.5 border-b border-teal/10 last:border-0 hover:bg-teal-50/40 transition-colors ${past ? 'opacity-50' : ''}`}
+      >
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            {plan.plan_type === 'rehearsal' && <IconMusicalNote className="w-3 h-3 text-teal/50 shrink-0" />}
+            <p className="font-sans text-sm text-dark font-medium truncate">{plan.title}</p>
+          </div>
+          <p className="font-sans text-xs text-dark/50 capitalize">{date} · {time}</p>
+          {team && <p className="font-sans text-xs text-dark/40 mt-0.5">{team.name}</p>}
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          {n > 0 && <span className="font-sans text-xs text-dark/40 tabular-nums">{n} pers.</span>}
+          <span className="text-teal font-sans text-sm">→</span>
+        </div>
+      </Link>
     )
   }
 
@@ -131,9 +162,10 @@ export default async function PlansPage({
             </Link>
             <Link
               href="?view=calendar"
-              className={`px-3 py-1.5 font-sans text-xs font-medium transition-colors ${view === 'calendar' ? 'bg-teal text-white' : 'text-dark/50 hover:bg-teal/5'}`}
+              className={`px-3 py-1.5 font-sans text-xs font-medium transition-colors flex items-center gap-1 ${view === 'calendar' ? 'bg-teal text-white' : 'text-dark/50 hover:bg-teal/5'}`}
             >
-              📅 Calendrier
+              <IconCalendar className="w-3 h-3" />
+              Calendrier
             </Link>
           </div>
           {canManage && (
@@ -162,22 +194,29 @@ export default async function PlansPage({
               <h2 className="font-display text-xl text-dark font-light mb-3">À venir</h2>
               <div className="bg-white rounded-2xl border border-teal/20 overflow-hidden">
                 {upcoming && upcoming.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[480px]">
-                      <thead>
-                        <tr className="border-b border-teal/10">
-                          <th className="text-left px-6 py-3 text-xs font-sans text-dark/40 uppercase tracking-widest font-medium">Date</th>
-                          <th className="text-left px-6 py-3 text-xs font-sans text-dark/40 uppercase tracking-widest font-medium">Titre</th>
-                          <th className="text-left px-6 py-3 text-xs font-sans text-dark/40 uppercase tracking-widest font-medium">Équipe</th>
-                          <th className="text-left px-6 py-3 text-xs font-sans text-dark/40 uppercase tracking-widest font-medium">Bénévoles</th>
-                          <th className="px-6 py-3"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(upcoming as PlanItem[]).map(p => <PlanRow key={p.id} plan={p} />)}
-                      </tbody>
-                    </table>
-                  </div>
+                  <>
+                    {/* Mobile : cartes */}
+                    <div className="md:hidden divide-y divide-teal/10">
+                      {(upcoming as PlanItem[]).map(p => <PlanCard key={p.id} plan={p} />)}
+                    </div>
+                    {/* Desktop : tableau */}
+                    <div className="hidden md:block overflow-x-auto">
+                      <table className="w-full min-w-[480px]">
+                        <thead>
+                          <tr className="border-b border-teal/10">
+                            <th className="text-left px-6 py-3 text-xs font-sans text-dark/40 uppercase tracking-widest font-medium">Date</th>
+                            <th className="text-left px-6 py-3 text-xs font-sans text-dark/40 uppercase tracking-widest font-medium">Titre</th>
+                            <th className="text-left px-6 py-3 text-xs font-sans text-dark/40 uppercase tracking-widest font-medium">Équipe</th>
+                            <th className="text-left px-6 py-3 text-xs font-sans text-dark/40 uppercase tracking-widest font-medium">Bénévoles</th>
+                            <th className="px-6 py-3"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(upcoming as PlanItem[]).map(p => <PlanRow key={p.id} plan={p} />)}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
                 ) : (
                   <div className="px-6 py-10 text-center">
                     <p className="font-sans text-sm text-dark/40 mb-3">Aucun service à venir.</p>
@@ -194,7 +233,12 @@ export default async function PlansPage({
               <section>
                 <h2 className="font-display text-xl text-dark font-light mb-3 text-dark/50">Passés</h2>
                 <div className="bg-white rounded-2xl border border-teal/20 overflow-hidden opacity-60">
-                  <div className="overflow-x-auto">
+                  {/* Mobile : cartes */}
+                  <div className="md:hidden divide-y divide-teal/10">
+                    {(past as PlanItem[]).map(p => <PlanCard key={p.id} plan={p} />)}
+                  </div>
+                  {/* Desktop : tableau */}
+                  <div className="hidden md:block overflow-x-auto">
                     <table className="w-full min-w-[480px]">
                       <tbody>
                         {(past as PlanItem[]).map(p => <PlanRow key={p.id} plan={p} />)}
@@ -205,18 +249,7 @@ export default async function PlansPage({
               </section>
             )}
 
-            {/* Lien iCal discret */}
-            {canManage && (
-              <div className="flex items-center gap-2 text-dark/30">
-                <span className="font-sans text-xs">📅 Abonnement calendrier :</span>
-                <a href={icalUrl} className="font-mono text-xs hover:text-teal transition-colors truncate max-w-xs">{icalUrl}</a>
-                <button
-                  onClick={undefined}
-                  className="font-sans text-xs text-teal/60 hover:text-teal"
-                  title="Copier le lien iCal"
-                />
-              </div>
-            )}
+            {canManage && <ICalCopySection icalUrl={icalUrl} />}
           </>
         )}
       </main>

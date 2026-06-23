@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { QuickAddDecision } from './QuickAddDecision'
 import { QuickAddTask } from './QuickAddTask'
+import { IconWarning } from '@/app/benevoles/_components/Icons'
 import { ResolveDecisionForm } from './ResolveDecisionForm'
 import { toggleTask, deleteTask, deleteDecision } from '../actions'
 
@@ -153,7 +154,7 @@ export default async function GestionTeamPage({
                         <form action={deleteDecision}>
                           <input type="hidden" name="decision_id" value={d.id} />
                           <input type="hidden" name="team_id" value={team_id} />
-                          <button type="submit" className="text-dark/20 hover:text-red-400 transition-colors text-xl leading-none shrink-0">
+                          <button type="submit" aria-label="Supprimer" className="text-dark/20 hover:text-red-400 transition-colors text-xl leading-none shrink-0">
                             ×
                           </button>
                         </form>
@@ -200,7 +201,7 @@ export default async function GestionTeamPage({
                         <form action={deleteDecision}>
                           <input type="hidden" name="decision_id" value={d.id} />
                           <input type="hidden" name="team_id" value={team_id} />
-                          <button type="submit" className="text-dark/15 hover:text-red-400 transition-colors text-lg leading-none shrink-0">
+                          <button type="submit" aria-label="Supprimer" className="text-dark/15 hover:text-red-400 transition-colors text-lg leading-none shrink-0">
                             ×
                           </button>
                         </form>
@@ -249,7 +250,7 @@ export default async function GestionTeamPage({
                         )}
                         {t.due_date && (
                           <span className={`font-sans text-xs ${overdue ? 'text-red-400 font-semibold' : 'text-dark/30'}`}>
-                            {overdue ? '⚠ ' : ''}{new Date(t.due_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                            {overdue && <IconWarning className="w-3 h-3 inline-block mr-0.5 -mt-0.5" />}{new Date(t.due_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                           </span>
                         )}
                       </div>
@@ -257,7 +258,7 @@ export default async function GestionTeamPage({
                     <form action={deleteTask} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                       <input type="hidden" name="task_id" value={t.id} />
                       <input type="hidden" name="team_id" value={team_id} />
-                      <button type="submit" className="text-dark/20 hover:text-red-400 transition-colors text-xl leading-none">×</button>
+                      <button type="submit" aria-label="Supprimer" className="text-dark/20 hover:text-red-400 transition-colors text-xl leading-none">×</button>
                     </form>
                   </div>
                 )
@@ -292,7 +293,7 @@ export default async function GestionTeamPage({
                     <form action={deleteTask} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                       <input type="hidden" name="task_id" value={t.id} />
                       <input type="hidden" name="team_id" value={team_id} />
-                      <button type="submit" className="text-dark/15 hover:text-red-400 transition-colors text-xl leading-none">×</button>
+                      <button type="submit" aria-label="Supprimer" className="text-dark/15 hover:text-red-400 transition-colors text-xl leading-none">×</button>
                     </form>
                   </div>
                 )

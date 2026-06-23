@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { createPlan } from './actions'
+import { IconMusicalNote } from '@/app/benevoles/_components/Icons'
 
 type Team = { id: string; name: string }
 
@@ -32,7 +33,7 @@ const TYPES = {
     defaultDate: () => toDatetimeLocal(nextWeekday(2), 20, 30),
   },
   rehearsal: {
-    label: '🎵 Répétition',
+    label: 'Répétition',
     defaultTitle: 'Répétition Louange',
     defaultDate: () => toDatetimeLocal(nextWeekday(6), 10, 0),
   },

@@ -5,8 +5,15 @@ import { NextRequest } from 'next/server'
 
 const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
 
+// J-2 : relance uniquement pour les pending (confirmation attendue)
+// J-7, J-1 : rappel informatif pour pending ET confirmed
+const WINDOWS = [
+  { days: 7,  pendingOnly: false },
+  { days: 2,  pendingOnly: true  },
+  { days: 1,  pendingOnly: false },
+] as const
+
 export async function GET(req: NextRequest) {
-  // Vérification du secret Vercel Cron
   const authHeader = req.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return new Response('Unauthorized', { status: 401 })
@@ -14,27 +21,22 @@ export async function GET(req: NextRequest) {
 
   const admin = createAdminClient()
 
-  // Calcul des fenêtres J-7 et J-2 (en UTC)
   const now = new Date()
   const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
 
-  const windows = ([7, 2, 1] as const).map(days => {
+  const results: { planId: string; days: number; sent: number; skipped: number; errors: string[] }[] = []
+
+  for (const { days, pendingOnly } of WINDOWS) {
     const start = new Date(todayUTC)
     start.setUTCDate(start.getUTCDate() + days)
     const end = new Date(start)
     end.setUTCDate(end.getUTCDate() + 1)
-    return { days, start: start.toISOString(), end: end.toISOString() }
-  })
 
-  const results: { planId: string; days: number; sent: number; errors: string[] }[] = []
-
-  for (const { days, start, end } of windows) {
-    // Plans dont le service tombe dans cette fenêtre
     const { data: plans, error: plansError } = await admin
       .from('plans')
       .select('id, title, service_date')
-      .gte('service_date', start)
-      .lt('service_date', end)
+      .gte('service_date', start.toISOString())
+      .lt('service_date', end.toISOString())
 
     if (plansError) {
       console.error(`[cron/reminders] erreur plans J-${days}:`, plansError.message)
@@ -42,22 +44,33 @@ export async function GET(req: NextRequest) {
     }
 
     for (const plan of plans ?? []) {
-      const planResult = { planId: plan.id, days, sent: 0, errors: [] as string[] }
+      const planResult = { planId: plan.id, days, sent: 0, skipped: 0, errors: [] as string[] }
 
-      // Affectations pending ou confirmed (on rappelle les deux)
+      const statusFilter = pendingOnly ? ['pending'] : ['pending', 'confirmed']
+
       const { data: assignments } = await admin
         .from('plan_assignments')
-        .select('id, user_id, status, external_name, external_email, positions(name), teams(name)')
+        .select('id, user_id, status, external_name, external_email, reminder_sent_days, positions(name), teams(name)')
         .eq('plan_id', plan.id)
-        .in('status', ['pending', 'confirmed'])
+        .in('status', statusFilter)
+        // Invités externes exclus des relances J-2 (pending only)
+        .neq('user_id', pendingOnly ? INVITE_EXT_ID : '00000000-0000-0000-0000-000000000000')
 
       for (const a of assignments ?? []) {
+        // Déduplication : sauter si ce rappel a déjà été envoyé
+        const alreadySent = (a.reminder_sent_days as number[] | null ?? []).includes(days)
+        if (alreadySent) {
+          planResult.skipped++
+          continue
+        }
+
+        const isPending = a.status === 'pending'
         const position = a.positions as any
         const team = a.teams as any
 
         try {
           if (a.user_id === INVITE_EXT_ID) {
-            // Invité externe — uniquement si email renseigné
+            // Invités externes — uniquement si email renseigné et non pendingOnly
             if (!a.external_email) continue
             await sendReminderEmail({
               to: a.external_email,
@@ -68,6 +81,7 @@ export async function GET(req: NextRequest) {
               teamName: team?.name ?? null,
               assignmentId: a.id,
               daysLeft: days,
+              isPending,
               isExternal: true,
             })
           } else {
@@ -88,27 +102,39 @@ export async function GET(req: NextRequest) {
               teamName: team?.name ?? null,
               assignmentId: a.id,
               daysLeft: days,
+              isPending,
               isExternal: false,
             })
 
-            // Push notification en complément de l'email
+            // Push notification en complément
             const dayLabel = days === 1 ? 'demain' : `dans ${days} jours`
             const dateStr = new Date(plan.service_date).toLocaleDateString('fr-FR', {
               weekday: 'long', day: 'numeric', month: 'long',
             })
+            const pushBody = isPending && days <= 2
+              ? `Tu n'as pas encore confirmé pour ${dateStr}${team?.name ? ` · ${team.name}` : ''}`
+              : `Tu es planifié(e) ${dayLabel} (${dateStr})${team?.name ? ` · ${team.name}` : ''}`
+
             await sendPushToUser(a.user_id, {
-              title: `⏰ Rappel — ${plan.title}`,
-              body:  `Tu es planifié(e) ${dayLabel} (${dateStr})${team?.name ? ` · ${team.name}` : ''}`,
-              url:   '/benevoles/dashboard',
-              tag:   `reminder-${a.id}-${days}`,
+              title: isPending && days <= 2 ? `⚠ Confirmation attendue · ${plan.title}` : `⏰ Rappel — ${plan.title}`,
+              body: pushBody,
+              url: '/benevoles/dashboard',
+              tag: `reminder-${a.id}-${days}`,
             }).catch(() => {})
           }
+
+          // Marquer ce rappel comme envoyé pour éviter les doublons
+          await admin
+            .from('plan_assignments')
+            .update({ reminder_sent_days: [...(a.reminder_sent_days as number[] ?? []), days] })
+            .eq('id', a.id)
+
           planResult.sent++
-          console.log(`[cron/reminders] J-${days} — plan "${plan.title}" — assignmentId ${a.id} OK`)
+          console.log(`[cron/reminders] J-${days} — "${plan.title}" — assignment ${a.id} (${a.status}) OK`)
         } catch (err: any) {
           const msg = err?.message ?? 'Erreur inconnue'
           planResult.errors.push(`assignment ${a.id}: ${msg}`)
-          console.error(`[cron/reminders] J-${days} — plan "${plan.title}" — assignmentId ${a.id} ERREUR:`, msg)
+          console.error(`[cron/reminders] J-${days} — "${plan.title}" — assignment ${a.id} ERREUR:`, msg)
         }
       }
 

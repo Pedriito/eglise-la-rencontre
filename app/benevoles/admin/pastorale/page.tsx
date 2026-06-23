@@ -1,8 +1,10 @@
+import React from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { PrayerRequestForm } from './PrayerRequestForm'
+import { IconHome, IconPhone, IconChat, IconDocument } from '@/app/benevoles/_components/Icons'
 import { SheetSync } from './SheetSync'
 
 export default async function PastoralePage() {
@@ -35,8 +37,11 @@ export default async function PastoralePage() {
       .order('first_name'),
   ])
 
-  const typeLabel: Record<string, string> = {
-    visit: '🏠 Visite', call: '📞 Appel', message: '💬 Message', other: '📝 Autre',
+  const typeInfo: Record<string, { Icon: React.ComponentType<{ className?: string }>; label: string }> = {
+    visit:   { Icon: IconHome,     label: 'Visite' },
+    call:    { Icon: IconPhone,    label: 'Appel' },
+    message: { Icon: IconChat,     label: 'Message' },
+    other:   { Icon: IconDocument, label: 'Autre' },
   }
 
   return (
@@ -88,14 +93,14 @@ export default async function PastoralePage() {
                           const { resolvePrayerRequest } = await import('./actions')
                           await resolvePrayerRequest(pr.id)
                         }}>
-                          <button type="submit" className="text-xs text-green-500 hover:text-green-600 font-sans px-2 py-1 rounded hover:bg-green-50 transition-colors" title="Marquer exaucé">✓</button>
+                          <button type="submit" aria-label="Marquer exaucé" title="Marquer exaucé" className="text-xs text-green-500 hover:text-green-600 font-sans px-2 py-1 rounded hover:bg-green-50 transition-colors">✓</button>
                         </form>
                         <form action={async () => {
                           'use server'
                           const { deletePrayerRequest } = await import('./actions')
                           await deletePrayerRequest(pr.id)
                         }}>
-                          <button type="submit" className="text-xs text-dark/25 hover:text-red-400 font-sans px-2 py-1 rounded hover:bg-red-50 transition-colors">×</button>
+                          <button type="submit" aria-label="Supprimer" className="text-xs text-dark/25 hover:text-red-400 font-sans px-2 py-1 rounded hover:bg-red-50 transition-colors">×</button>
                         </form>
                       </div>
                     </div>
@@ -127,12 +132,14 @@ export default async function PastoralePage() {
                     className="block bg-white rounded-xl border border-teal/20 px-4 py-3 hover:border-teal/40 transition-colors"
                   >
                     <div className="flex items-start gap-3">
-                      <span className="text-base shrink-0">{typeLabel[n.type]?.split(' ')[0] ?? '📝'}</span>
+                      <span className="text-teal/50 shrink-0 mt-0.5">
+                        {(() => { const t = typeInfo[n.type]; return t ? <t.Icon className="w-4 h-4" /> : null })()}
+                      </span>
                       <div className="min-w-0">
                         <p className="font-sans text-xs text-teal/60 uppercase tracking-wide mb-0.5">{name}</p>
                         <p className="font-sans text-sm text-dark leading-snug line-clamp-2">{n.notes}</p>
-                        <p className="font-sans text-[10px] text-dark/30 mt-1">
-                          {typeLabel[n.type]?.split(' ')[1] ?? n.type} · {new Date(n.note_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
+                        <p className="font-sans text-[10px] text-dark/50 mt-1">
+                          {typeInfo[n.type]?.label ?? n.type} · {new Date(n.note_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
                         </p>
                       </div>
                     </div>

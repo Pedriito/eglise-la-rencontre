@@ -325,7 +325,7 @@ export default function MediaLibrary({ initial }: Props) {
           )}
 
           {!searching && results.length === 0 && !searchError && (
-            <div className="text-center py-16 text-dark/25 text-sm">
+            <div className="text-center py-16 text-dark/50 text-sm">
               <svg className="w-10 h-10 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
               </svg>

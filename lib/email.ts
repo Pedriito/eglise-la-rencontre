@@ -167,6 +167,7 @@ export async function sendReminderEmail({
   teamName,
   assignmentId,
   daysLeft,
+  isPending = false,
   isExternal = false,
 }: {
   to: string
@@ -177,6 +178,7 @@ export async function sendReminderEmail({
   teamName: string | null
   assignmentId: string
   daysLeft: number
+  isPending?: boolean
   isExternal?: boolean
 }) {
   const date = new Date(serviceDate).toLocaleDateString('fr-FR', {
@@ -193,32 +195,56 @@ export async function sendReminderEmail({
     : `${siteUrl}/benevoles/dashboard`
 
   const label = daysLeft === 1 ? 'demain' : `dans ${daysLeft} jours`
-  const urgentStyle = daysLeft <= 2
+
+  // Pour les pending : style orange urgent + message d'action
+  // Pour les confirmed : style teal informatif
+  const cardStyle = isPending
     ? 'background:#fff7ed;border-left:4px solid #f97316;'
-    : 'background:#f0faf9;border-left:4px solid #0d9488;'
+    : daysLeft <= 2
+      ? 'background:#fff7ed;border-left:4px solid #f97316;'
+      : 'background:#f0faf9;border-left:4px solid #0d9488;'
+
+  const intro = isPending
+    ? `Tu es planifié(e) <strong>${label}</strong> pour le service suivant, mais tu n'as pas encore confirmé ta participation.`
+    : `Rappel : tu es programmé(e) <strong>${label}</strong> pour le service suivant.`
+
+  const subjectPrefix = isPending ? `⚠ Confirmation attendue (${label})` : `Rappel (${label})`
+
+  const ctaHtml = isPending && !isExternal ? `
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px;">
+      <a href="${responseUrl}"
+         style="display:inline-block;background:#3D7D85;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
+        Confirmer ma présence →
+      </a>
+    </div>
+    <p style="font-size:13px;color:#555;margin-bottom:24px;">
+      Si tu ne peux pas venir, merci de le signaler depuis ton
+      <a href="${responseUrl}" style="color:#3D7D85;">espace bénévole</a> pour que le coordinateur puisse trouver un remplaçant.
+    </p>
+  ` : `
+    <a href="${responseUrl}"
+       style="display:inline-block;background:#3D7D85;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-bottom:24px;">
+      ${isExternal ? 'Voir les détails →' : 'Mon espace bénévole →'}
+    </a>
+  `
 
   const { error } = await resend.emails.send({
     from: 'Église La Rencontre <no-reply@egliselarencontre.fr>',
     to,
-    subject: `Rappel (${label}) · ${buildSubject(planTitle, serviceDate, positionName)}`,
+    subject: `${subjectPrefix} · ${buildSubject(planTitle, serviceDate, positionName)}`,
     html: `
       <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1a2e2e;">
         <p style="margin-bottom:8px;">Bonjour ${firstName},</p>
-        <p style="margin-bottom:16px;">
-          Rappel : tu es programmé(e) <strong>${label}</strong> pour le service suivant.
-        </p>
+        <p style="margin-bottom:16px;">${intro}</p>
 
-        <div style="${urgentStyle}border-radius:10px;padding:18px 20px;margin-bottom:20px;">
+        <div style="${cardStyle}border-radius:10px;padding:18px 20px;margin-bottom:20px;">
           <p style="margin:0;font-size:16px;font-weight:600;">${planTitle}</p>
           <p style="margin:6px 0 0;color:#555;font-size:14px;text-transform:capitalize;">${date} à ${time}</p>
           ${teamName ? `<p style="margin:6px 0 0;color:#0d9488;font-size:14px;">Équipe : ${teamName}</p>` : ''}
           ${positionName ? `<p style="margin:6px 0 0;color:#0d9488;font-size:14px;">Poste : ${positionName}</p>` : ''}
         </div>
 
-        <a href="${responseUrl}"
-           style="display:inline-block;background:#3D7D85;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
-          ${isExternal ? 'Voir les détails →' : 'Mon espace bénévole →'}
-        </a>
+        ${ctaHtml}
 
         <p style="margin-top:32px;font-size:12px;color:#999;">
           Église La Rencontre · Lieusaint<br>

@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { transposeChart, getSemitones, isSectionHeader, isChordLine } from '@/lib/transpose'
+import { IconMusicalNote } from '@/app/benevoles/_components/Icons'
 
 type Props = {
   chart: string
@@ -57,7 +58,7 @@ export function ChordChart({ chart, originalKey, initialKey, songId, arrangement
                   : 'border-teal bg-teal/10 text-teal font-medium'}
               `}
             >
-              {showChords ? '♩ Accords visibles' : '♩ Accords masqués'}
+              <><IconMusicalNote className="w-3.5 h-3.5 shrink-0" /> {showChords ? 'Accords visibles' : 'Accords masqués'}</>
             </button>
 
             {/* PDF */}

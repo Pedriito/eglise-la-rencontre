@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { permissionLabels, statusLabels, roleLabels, frequencyLabels } from '@/lib/labels'
+import { IconEnvelope } from '@/app/benevoles/_components/Icons'
 import { resendInvite } from '../../actions'
 import { FlashMessage } from '../../../_components/FlashMessage'
 
@@ -105,7 +106,7 @@ export default async function BenevoleProfilePage({
               type="submit"
               className="px-3 py-1.5 rounded-lg border border-teal/30 text-teal font-sans text-xs font-medium hover:bg-teal-50 transition-colors"
             >
-              ✉ Renvoyer l'invitation
+              <span className="inline-flex items-center gap-1.5"><IconEnvelope className="w-3.5 h-3.5" /> Renvoyer l'invitation</span>
             </button>
           </form>
         </div>

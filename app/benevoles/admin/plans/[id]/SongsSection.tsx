@@ -84,7 +84,7 @@ export function SongsSection({ planId, planSongs, allSongs }: Props) {
         {/* Songs */}
         <div className="flex-1 divide-y divide-teal/10 overflow-y-auto">
           {planSongs.length === 0 && (
-            <p className="px-4 py-6 text-center font-sans text-xs text-dark/25 italic">Aucun chant ajouté</p>
+            <p className="px-4 py-6 text-center font-sans text-xs text-dark/50 italic">Aucun chant ajouté</p>
           )}
 
           {planSongs.map((ps, i) => {

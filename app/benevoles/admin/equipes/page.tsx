@@ -52,36 +52,56 @@ export default async function EquipesPage() {
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-teal/20 overflow-hidden">
-            <div className="overflow-x-auto">
-            <table className="w-full min-w-[360px]">
-              <thead>
-                <tr className="border-b border-teal/10">
-                  <th className="text-left px-6 py-3 text-xs font-sans text-dark/40 uppercase tracking-widest font-medium">Équipe</th>
-                  <th className="text-left px-6 py-3 text-xs font-sans text-dark/40 uppercase tracking-widest font-medium">Membres</th>
-                  <th className="px-6 py-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {teams.map((t, i) => {
-                  const count = countByTeam[t.id] ?? 0
-                  return (
-                    <tr key={t.id} className={i % 2 === 0 ? 'bg-white' : 'bg-teal-50/40'}>
-                      <td className="px-6 py-4 font-sans text-sm text-dark font-medium">
-                      <Link href={`/benevoles/admin/equipes/${t.id}`} className="hover:text-teal transition-colors">
-                        {t.name}
-                      </Link>
-                    </td>
-                      <td className="px-6 py-4 font-sans text-sm text-dark/50">{count}</td>
-                      <td className="px-6 py-4 text-right">
-                        <Link href={`/benevoles/admin/equipes/${t.id}`} className="text-teal font-sans text-sm hover:underline cursor-pointer">
-                          Gérer →
-                        </Link>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+            {/* Mobile : cartes */}
+            <div className="md:hidden divide-y divide-teal/10">
+              {teams.map(t => {
+                const count = countByTeam[t.id] ?? 0
+                return (
+                  <Link
+                    key={t.id}
+                    href={`/benevoles/admin/equipes/${t.id}`}
+                    className="flex items-center justify-between px-4 py-3.5 hover:bg-teal-50/40 transition-colors"
+                  >
+                    <div>
+                      <p className="font-sans text-sm text-dark font-medium">{t.name}</p>
+                      <p className="font-sans text-xs text-dark/50 mt-0.5">{count} membre{count > 1 ? 's' : ''}</p>
+                    </div>
+                    <span className="text-teal font-sans text-sm">→</span>
+                  </Link>
+                )
+              })}
+            </div>
+            {/* Desktop : tableau */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full min-w-[360px]">
+                <thead>
+                  <tr className="border-b border-teal/10">
+                    <th className="text-left px-6 py-3 text-xs font-sans text-dark/40 uppercase tracking-widest font-medium">Équipe</th>
+                    <th className="text-left px-6 py-3 text-xs font-sans text-dark/40 uppercase tracking-widest font-medium">Membres</th>
+                    <th className="px-6 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {teams.map((t, i) => {
+                    const count = countByTeam[t.id] ?? 0
+                    return (
+                      <tr key={t.id} className={i % 2 === 0 ? 'bg-white' : 'bg-teal-50/40'}>
+                        <td className="px-6 py-4 font-sans text-sm text-dark font-medium">
+                          <Link href={`/benevoles/admin/equipes/${t.id}`} className="hover:text-teal transition-colors">
+                            {t.name}
+                          </Link>
+                        </td>
+                        <td className="px-6 py-4 font-sans text-sm text-dark/50">{count}</td>
+                        <td className="px-6 py-4 text-right">
+                          <Link href={`/benevoles/admin/equipes/${t.id}`} className="text-teal font-sans text-sm hover:underline">
+                            Gérer →
+                          </Link>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

@@ -18,6 +18,11 @@ type NavItem = {
   match: (p: string) => boolean
 }
 
+type NavGroup = {
+  section?: string
+  items: NavItem[]
+}
+
 export function BenevoleNav({ permission, firstName, lastName }: Props) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
@@ -25,90 +30,59 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
   const isAdmin = permission === 'admin' || isSuperAdmin
   const isEditor = permission === 'editor'
 
-  const items: NavItem[] = [
-    {
-      label: 'Mon espace',
-      href: '/benevoles/dashboard',
-      match: p => p === '/benevoles/dashboard',
-    },
-  ]
+  const groups: NavGroup[] = []
 
-  // Planification visible par tous les bénévoles connectés
-  items.push({
-    label: 'Planification',
-    href: '/benevoles/admin/plans',
-    match: p => p.startsWith('/benevoles/admin/plans'),
+  groups.push({
+    items: [
+      { label: 'Mon espace', href: '/benevoles/dashboard', match: p => p === '/benevoles/dashboard' },
+    ],
   })
 
-  // Indisponibilités visible par tous
-  items.push({
-    label: 'Mes indispos',
-    href: '/benevoles/mes-indisponibilites',
-    match: p => p.startsWith('/benevoles/mes-indisponibilites'),
+  groups.push({
+    section: 'Planifier',
+    items: [
+      { label: 'Planification', href: '/benevoles/admin/plans', match: p => p.startsWith('/benevoles/admin/plans') },
+      { label: 'Mes indispos', href: '/benevoles/mes-indisponibilites', match: p => p.startsWith('/benevoles/mes-indisponibilites') },
+      { label: 'Tâches & décisions', href: '/benevoles/gestion', match: p => p.startsWith('/benevoles/gestion') },
+    ],
   })
 
+  const adminItems: NavItem[] = []
   if (isAdmin || isEditor) {
-    items.push({
-      label: 'Équipes',
-      href: '/benevoles/admin/equipes',
-      match: p => p.startsWith('/benevoles/admin/equipes'),
-    })
-    items.push({
-      label: 'Gérer les chants',
-      href: '/benevoles/admin/chants',
-      match: p => p.startsWith('/benevoles/admin/chants'),
-    })
+    adminItems.push({ label: 'Équipes', href: '/benevoles/admin/equipes', match: p => p.startsWith('/benevoles/admin/equipes') })
+    adminItems.push({ label: 'Chants', href: '/benevoles/admin/chants', match: p => p.startsWith('/benevoles/admin/chants') })
   }
-
   if (isAdmin) {
-    items.push({
-      label: 'Pastorale',
-      href: '/benevoles/admin/pastorale',
-      match: p => p.startsWith('/benevoles/admin/pastorale'),
-    })
-    items.push({
+    adminItems.push({ label: 'Pastorale', href: '/benevoles/admin/pastorale', match: p => p.startsWith('/benevoles/admin/pastorale') })
+    adminItems.push({
       label: 'Bénévoles',
       href: '/benevoles/admin',
-      match: p =>
-        p === '/benevoles/admin' ||
-        p.startsWith('/benevoles/admin/benevoles') ||
-        p.startsWith('/benevoles/admin/inviter'),
+      match: p => p === '/benevoles/admin' || p.startsWith('/benevoles/admin/benevoles') || p.startsWith('/benevoles/admin/inviter'),
     })
+    adminItems.push({ label: 'Site web', href: '/benevoles/admin/site', match: p => p.startsWith('/benevoles/admin/site') })
   }
-
-  if (isAdmin) {
-    items.push({
-      label: 'Site web',
-      href: '/benevoles/admin/site',
-      match: p => p.startsWith('/benevoles/admin/site'),
-    })
-  }
-
   if (isSuperAdmin) {
-    items.push({
-      label: 'Églises',
-      href: '/benevoles/admin/eglises',
-      match: p => p.startsWith('/benevoles/admin/eglises'),
-    })
+    adminItems.push({ label: 'Églises', href: '/benevoles/admin/eglises', match: p => p.startsWith('/benevoles/admin/eglises') })
+  }
+  if (adminItems.length > 0) {
+    groups.push({ section: 'Administration', items: adminItems })
   }
 
   if (isAdmin || isEditor) {
-    items.push({
-      label: 'Paramètres vidéoprojection',
-      href: '/benevoles/admin/parametres',
-      match: p =>
-        p.startsWith('/benevoles/admin/parametres') ||
-        p.startsWith('/benevoles/admin/mediatheque'),
+    groups.push({
+      section: 'Réglages',
+      items: [
+        {
+          label: 'Vidéoprojection',
+          href: '/benevoles/admin/parametres',
+          match: p => p.startsWith('/benevoles/admin/parametres') || p.startsWith('/benevoles/admin/mediatheque'),
+        },
+      ],
     })
   }
 
-  items.push({
-    label: 'Gestion',
-    href: '/benevoles/gestion',
-    match: p => p.startsWith('/benevoles/gestion'),
-  })
-
-  const currentItem = items.find(i => i.match(pathname))
+  const allItems = groups.flatMap(g => g.items)
+  const currentItem = allItems.find(i => i.match(pathname))
 
   return (
     <>
@@ -120,22 +94,31 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
         </div>
 
         <nav className="flex-1 py-2">
-          {items.map(item => {
-            const active = item.match(pathname)
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center px-5 py-2.5 font-sans text-sm transition-colors border-l-2 ${
-                  active
-                    ? 'text-teal font-medium bg-teal/5 border-teal'
-                    : 'text-dark/55 hover:text-dark hover:bg-teal/5 border-transparent'
-                }`}
-              >
-                {item.label}
-              </Link>
-            )
-          })}
+          {groups.map((group, gi) => (
+            <div key={gi} className={gi > 0 ? 'mt-3' : ''}>
+              {group.section && (
+                <p className="px-5 pb-1 pt-1 font-sans text-[9px] uppercase tracking-[0.2em] text-dark/30 font-semibold">
+                  {group.section}
+                </p>
+              )}
+              {group.items.map(item => {
+                const active = item.match(pathname)
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center px-5 py-2 font-sans text-sm transition-colors border-l-2 ${
+                      active
+                        ? 'text-teal font-medium bg-teal/5 border-teal'
+                        : 'text-dark/55 hover:text-dark hover:bg-teal/5 border-transparent'
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                )
+              })}
+            </div>
+          ))}
         </nav>
 
         <div className="border-t border-teal/10">
@@ -215,23 +198,32 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
 
         {/* Liens */}
         <nav className="flex-1 py-2 overflow-y-auto">
-          {items.map(item => {
-            const active = item.match(pathname)
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setOpen(false)}
-                className={`flex items-center px-5 py-3.5 font-sans text-base transition-colors border-l-2 ${
-                  active
-                    ? 'text-teal font-medium bg-teal/5 border-teal'
-                    : 'text-dark/60 hover:text-dark hover:bg-teal/5 border-transparent'
-                }`}
-              >
-                {item.label}
-              </Link>
-            )
-          })}
+          {groups.map((group, gi) => (
+            <div key={gi} className={gi > 0 ? 'mt-3' : ''}>
+              {group.section && (
+                <p className="px-5 pb-1 pt-1 font-sans text-[9px] uppercase tracking-[0.2em] text-dark/30 font-semibold">
+                  {group.section}
+                </p>
+              )}
+              {group.items.map(item => {
+                const active = item.match(pathname)
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setOpen(false)}
+                    className={`flex items-center px-5 py-3.5 font-sans text-base transition-colors border-l-2 ${
+                      active
+                        ? 'text-teal font-medium bg-teal/5 border-teal'
+                        : 'text-dark/60 hover:text-dark hover:bg-teal/5 border-transparent'
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                )
+              })}
+            </div>
+          ))}
         </nav>
 
         {/* Profil + déconnexion */}
