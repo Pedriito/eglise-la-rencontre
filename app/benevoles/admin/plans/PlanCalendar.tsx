@@ -1,83 +1,283 @@
 'use client'
 
+import 'temporal-polyfill/global'
+import '@schedule-x/theme-default/dist/index.css'
+
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useNextCalendarApp, ScheduleXCalendar } from '@schedule-x/react'
+import { createViewMonthGrid, type CalendarEventExternal } from '@schedule-x/calendar'
+import { createEventsServicePlugin } from '@schedule-x/events-service'
+import { createCalendarControlsPlugin } from '@schedule-x/calendar-controls'
 import type { PlanItem } from './page'
-import { IconCalendar, IconMusicalNote } from '@/app/benevoles/_components/Icons'
+import { TYPE_LABELS, SX_CALENDAR_COLORS } from './planTypeStyles'
+import { SubscribeCalendarButton } from './SubscribeCalendarButton'
+import { movePlan } from './actions'
 
-const TYPE_COLORS: Record<string, { bg: string; border: string; dot: string }> = {
-  sunday_service: { bg: 'bg-teal/15',    border: 'border-teal/40',    dot: 'bg-teal' },
-  prayer_meeting: { bg: 'bg-purple-50',  border: 'border-purple-300', dot: 'bg-purple-400' },
-  rehearsal:      { bg: 'bg-orange-50',  border: 'border-orange-300', dot: 'bg-orange-400' },
-}
-
-const TYPE_LABELS: Record<string, string> = {
-  sunday_service: 'Culte',
-  prayer_meeting: 'Prière',
-  rehearsal:      'Répétition',
-}
-
-const DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 const MONTHS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
+const WEEKDAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
-type Props = { plans: PlanItem[]; monthParam?: string; icalUrl: string }
+type Props = { plans: PlanItem[]; monthParam?: string; icalUrl: string; canManage: boolean; countByPlan?: Record<string, number> }
 
-export function PlanCalendar({ plans, monthParam, icalUrl }: Props) {
-  const today = new Date()
-
-  // Mois affiché (via URL param ou mois courant)
-  const initYear  = monthParam ? parseInt(monthParam.split('-')[0]) : today.getFullYear()
-  const initMonth = monthParam ? parseInt(monthParam.split('-')[1]) - 1 : today.getMonth()
-  const [year,  setYear]  = useState(initYear)
-  const [month, setMonth] = useState(initMonth)
-  const [copied, setCopied] = useState(false)
-  const [showPast, setShowPast] = useState(false)
-
-  function prevMonth() { if (month === 0) { setMonth(11); setYear(y => y - 1) } else setMonth(m => m - 1) }
-  function nextMonth() { if (month === 11) { setMonth(0);  setYear(y => y + 1) } else setMonth(m => m + 1) }
-  function goToday()   { setYear(today.getFullYear()); setMonth(today.getMonth()) }
-
-  function copyIcal() {
-    navigator.clipboard.writeText(icalUrl).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) })
-  }
-
-  // Construire la grille du mois
-  const firstDay = new Date(year, month, 1)
-  const lastDay  = new Date(year, month + 1, 0)
-
-  // Ajuster pour semaine commençant lundi (0=lun, 6=dim)
-  const startDow = (firstDay.getDay() + 6) % 7
-  const totalCells = Math.ceil((startDow + lastDay.getDate()) / 7) * 7
-  const cells: (Date | null)[] = Array.from({ length: totalCells }, (_, i) => {
-    const d = i - startDow + 1
-    if (d < 1 || d > lastDay.getDate()) return null
-    return new Date(year, month, d)
+/** Construit un ZonedDateTime à partir d'un service_date — on réutilise les mêmes
+ *  composantes Y/M/D/H/M que le reste de l'app (via Date), pour rester cohérent avec
+ *  l'heure déjà affichée partout ailleurs (liste, détail du plan…). */
+function planStart(serviceDate: string): Temporal.ZonedDateTime {
+  const d = new Date(serviceDate)
+  return Temporal.ZonedDateTime.from({
+    timeZone: 'Europe/Paris',
+    year: d.getFullYear(),
+    month: d.getMonth() + 1,
+    day: d.getDate(),
+    hour: d.getHours(),
+    minute: d.getMinutes(),
   })
+}
 
-  // Index des plans par date 'YYYY-MM-DD'
-  const plansByDate: Record<string, PlanItem[]> = {}
-  for (const p of plans) {
-    const key = p.service_date.split('T')[0]
-    if (!plansByDate[key]) plansByDate[key] = []
-    plansByDate[key].push(p)
+/** Nombre de lignes (semaines, lundi en premier) qu'occupe le mois dans la grille. */
+function weeksInMonth(date: Temporal.PlainDate): number {
+  const firstWeekday = date.with({ day: 1 }).dayOfWeek // 1 = lundi … 7 = dimanche
+  return Math.ceil((firstWeekday - 1 + date.daysInMonth) / 7)
+}
+
+function planToEvent(plan: PlanItem): CalendarEventExternal {
+  const start = planStart(plan.service_date)
+  return {
+    id: plan.id,
+    title: plan.title,
+    start,
+    end: start.add({ hours: 1 }),
+    calendarId: plan.plan_type ?? 'sunday_service',
+  }
+}
+
+/** Câble un glisser-déposer "maison" sur la grille mensuelle, via les attributs DOM
+ *  stables et documentés de schedule-x (data-event-id / data-date) — la librairie
+ *  n'expose le vrai drag-and-drop que dans son plugin premium payant. */
+function wireDragAndDrop(
+  wrapper: HTMLElement,
+  opts: {
+    onDrop: (eventId: string, newDateStr: string) => void
+    onDragStateChange: (dragging: boolean) => void
+  }
+) {
+  if (wrapper.dataset.rencontreDndWired) return
+  wrapper.dataset.rencontreDndWired = '1'
+
+  let draggingEl: HTMLElement | null = null
+  let draggingEventId: string | null = null
+  let startX = 0
+  let startY = 0
+  let isDragging = false
+  let dragoverEl: HTMLElement | null = null
+
+  const clearDragover = () => {
+    dragoverEl?.classList.remove('sx__month-grid-day--dragover')
+    dragoverEl = null
   }
 
-  const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
+  const reset = () => {
+    draggingEl?.classList.remove('is-rencontre-dragging')
+    clearDragover()
+    document.body.style.userSelect = ''
+    draggingEl = null
+    draggingEventId = null
+    isDragging = false
+    document.removeEventListener('mousemove', onMouseMove)
+    document.removeEventListener('mouseup', onMouseUp)
+  }
 
-  // Plans du mois pour la liste latérale
-  const monthKey  = `${year}-${String(month+1).padStart(2,'0')}`
-  const monthPlans = plans
-    .filter(p => p.service_date.startsWith(monthKey))
-    .sort((a, b) => a.service_date.localeCompare(b.service_date))
+  function onMouseDown(e: MouseEvent) {
+    if (e.button !== 0) return
+    const eventEl = (e.target as HTMLElement).closest('[data-event-id]') as HTMLElement | null
+    if (!eventEl || !wrapper.contains(eventEl)) return
+    draggingEl = eventEl
+    draggingEventId = eventEl.getAttribute('data-event-id')
+    startX = e.clientX
+    startY = e.clientY
+    isDragging = false
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }
+
+  function onMouseMove(e: MouseEvent) {
+    if (!draggingEl) return
+    if (!isDragging) {
+      if (Math.hypot(e.clientX - startX, e.clientY - startY) < 6) return
+      isDragging = true
+      draggingEl.classList.add('is-rencontre-dragging')
+      document.body.style.userSelect = 'none'
+      opts.onDragStateChange(true)
+    }
+    clearDragover()
+    const target = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null
+    const dayEl = target?.closest('[data-date]') as HTMLElement | null
+    if (dayEl && wrapper.contains(dayEl)) {
+      dayEl.classList.add('sx__month-grid-day--dragover')
+      dragoverEl = dayEl
+    }
+  }
+
+  function onMouseUp(e: MouseEvent) {
+    const wasDragging = isDragging
+    const eventId = draggingEventId
+    reset()
+    opts.onDragStateChange(false)
+    if (!wasDragging || !eventId) return
+
+    const target = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null
+    const dayEl = target?.closest('[data-date]') as HTMLElement | null
+    const newDate = dayEl?.getAttribute('data-date')
+    if (!newDate) return
+
+    opts.onDrop(eventId, newDate)
+  }
+
+  wrapper.addEventListener('mousedown', onMouseDown)
+}
+
+export function PlanCalendar({ plans, monthParam, icalUrl, canManage, countByPlan = {} }: Props) {
+  const router = useRouter()
+  const justDraggedRef = useRef(false)
+  const [selectedDate, setSelectedDate] = useState(() =>
+    monthParam ? Temporal.PlainDate.from(`${monthParam}-01`) : Temporal.Now.plainDateISO()
+  )
+  const [error, setError] = useState<string | null>(null)
+
+  const [eventsService] = useState(() => createEventsServicePlugin())
+  const [calendarControls] = useState(() => createCalendarControlsPlugin())
+
+  const calendars = Object.fromEntries(
+    Object.entries(SX_CALENDAR_COLORS).map(([id, colors]) => [
+      id,
+      { colorName: id, lightColors: colors, darkColors: colors },
+    ])
+  )
+
+  function handleDrop(eventId: string, newDateStr: string) {
+    const original = eventsService.get(eventId)
+    if (!original || !(original.start instanceof Temporal.ZonedDateTime)) return
+
+    const [y, m, d] = newDateStr.split('-').map(Number)
+    if (original.start.year === y && original.start.month === m && original.start.day === d) return
+
+    const newStart = original.start.with({ year: y, month: m, day: d })
+    const newEnd = original.end instanceof Temporal.ZonedDateTime
+      ? original.end.with({ year: y, month: m, day: d })
+      : newStart.add({ hours: 1 })
+
+    // Optimiste : on déplace tout de suite dans le calendrier…
+    eventsService.update({ ...original, start: newStart, end: newEnd })
+    justDraggedRef.current = true
+    setError(null)
+
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const newServiceDate = `${y}-${pad(m)}-${pad(d)}T${pad(newStart.hour)}:${pad(newStart.minute)}`
+
+    // … puis on persiste, et on revient en arrière en cas d'échec.
+    movePlan(eventId, newServiceDate).then(res => {
+      if (!res.ok) {
+        eventsService.update(original)
+        setError(res.error ?? "Le déplacement n'a pas pu être enregistré.")
+        return
+      }
+      router.refresh()
+    })
+  }
+
+  const calendar = useNextCalendarApp(
+    {
+      views: [createViewMonthGrid()],
+      defaultView: 'month-grid',
+      events: plans.map(planToEvent),
+      calendars,
+      selectedDate,
+      locale: 'fr-FR',
+      firstDayOfWeek: 1,
+      isDark: false,
+      callbacks: {
+        onEventClick: (event) => {
+          if (justDraggedRef.current) {
+            justDraggedRef.current = false
+            return
+          }
+          router.push(`/benevoles/admin/plans/${event.id}`)
+        },
+        onRender: ($app) => {
+          if (!canManage || !$app.elements.calendarWrapper) return
+          wireDragAndDrop($app.elements.calendarWrapper, {
+            onDrop: handleDrop,
+            onDragStateChange: () => {},
+          })
+        },
+      },
+    },
+    [eventsService, calendarControls]
+  )
+
+  // Resynchronise les événements affichés quand la liste de plans change
+  // (après un router.refresh() suite à un déplacement, par exemple).
+  useEffect(() => {
+    eventsService.set(plans.map(planToEvent))
+  }, [plans, eventsService])
+
+  function goTo(date: Temporal.PlainDate) {
+    calendarControls.setDate(date)
+    setSelectedDate(date)
+  }
+  function prevMonth() { goTo(selectedDate.subtract({ months: 1 })) }
+  function nextMonth() { goTo(selectedDate.add({ months: 1 })) }
+  function goToday()   { goTo(Temporal.Now.plainDateISO()) }
+
+  // Hauteur de la grille ajustée au nombre réel de semaines du mois affiché
+  // (4 à 6 lignes selon le mois), au lieu d'une hauteur fixe qui étire ou laisse du vide.
+  const calendarHeight = weeksInMonth(selectedDate) * 88
+
+  // ── Agenda latéral : compteur du mois affiché + listes "Cette semaine" / "Plus tard" ──
+  const monthKey = `${selectedDate.year}-${String(selectedDate.month).padStart(2, '0')}`
+  const todayISO = new Date().toISOString()
+  const today = Temporal.Now.plainDateISO()
+  const weekStart = today.subtract({ days: today.dayOfWeek - 1 })
+  const weekEnd = weekStart.add({ days: 6 })
+
+  const monthPlansAll = plans.filter(p => p.service_date.startsWith(monthKey))
+  const monthRangeLabel = `Du 1ᵉʳ au ${selectedDate.daysInMonth} ${MONTHS[selectedDate.month - 1].toLowerCase()}`
+
+  const byDateAsc = (a: PlanItem, b: PlanItem) => a.service_date.localeCompare(b.service_date)
+  const planPlainDate = (p: PlanItem) => Temporal.PlainDate.from(p.service_date.slice(0, 10))
+  const inRange = (p: PlanItem, from: Temporal.PlainDate, to: Temporal.PlainDate) => {
+    const d = planPlainDate(p)
+    return Temporal.PlainDate.compare(d, from) >= 0 && Temporal.PlainDate.compare(d, to) <= 0
+  }
+
+  const thisWeekPlans = plans.filter(p => inRange(p, weekStart, weekEnd)).sort(byDateAsc)
+  const laterPlans = plans
+    .filter(p => Temporal.PlainDate.compare(planPlainDate(p), weekEnd) > 0)
+    .sort(byDateAsc)
+    .slice(0, 6)
+  const featuredId = thisWeekPlans.find(p => p.service_date >= todayISO)?.id
+
+  function typeColors(p: PlanItem) {
+    return SX_CALENDAR_COLORS[p.plan_type ?? 'sunday_service'] ?? SX_CALENDAR_COLORS.sunday_service
+  }
+
+  function formatDateLabel(p: PlanItem, withMonth: boolean) {
+    const d = new Date(p.service_date)
+    return d.toLocaleDateString('fr-FR', withMonth ? { weekday: 'short', day: 'numeric', month: 'short' } : { weekday: 'short', day: 'numeric' })
+  }
+  function formatTimeLabel(p: PlanItem) {
+    return new Date(p.service_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  }
 
   return (
     <div className="space-y-4">
       {/* Header calendrier */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-white border border-transparent hover:border-teal/20 transition-colors font-sans text-sm text-dark/50">‹</button>
           <h2 className="font-display text-xl text-dark font-light w-48 text-center">
-            {MONTHS[month]} {year}
+            {MONTHS[selectedDate.month - 1]} {selectedDate.year}
           </h2>
           <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-white border border-transparent hover:border-teal/20 transition-colors font-sans text-sm text-dark/50">›</button>
           <button onClick={goToday} className="ml-2 px-3 py-1 rounded-lg border border-teal/20 font-sans text-xs text-teal hover:bg-teal/5 transition-colors">
@@ -89,110 +289,113 @@ export function PlanCalendar({ plans, monthParam, icalUrl }: Props) {
           <div className="hidden md:flex items-center gap-3">
             {Object.entries(TYPE_LABELS).map(([type, label]) => (
               <span key={type} className="flex items-center gap-1.5 font-sans text-xs text-dark/50">
-                <span className={`w-2 h-2 rounded-full ${TYPE_COLORS[type]?.dot ?? 'bg-dark/30'}`} />
+                <span className="w-2 h-2 rounded-full" style={{ background: SX_CALENDAR_COLORS[type]?.main }} />
                 {label}
               </span>
             ))}
           </div>
-          {/* iCal */}
-          <button
-            onClick={copyIcal}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-teal/20 font-sans text-xs text-dark/50 hover:text-teal hover:border-teal/40 transition-colors"
-            title="Copier le lien d'abonnement iCal (Google Calendar, Apple Calendar…)"
-          >
-            {copied ? '✓ Copié !' : <><IconCalendar className="w-3.5 h-3.5" /> Abonner</>}
-          </button>
+          <SubscribeCalendarButton icalUrl={icalUrl} />
         </div>
       </div>
 
+      {canManage && (
+        <p className="font-sans text-xs text-dark/35 px-1">
+          Glissez un service vers un autre jour pour le replanifier.
+        </p>
+      )}
+      {error && (
+        <p className="font-sans text-xs text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
+      )}
+
       <div className="flex gap-4">
         {/* Grille calendrier */}
-        <div className="flex-1 bg-white rounded-2xl border border-teal/20 overflow-hidden">
-          {/* Jours de la semaine */}
-          <div className="grid grid-cols-7 border-b border-teal/10">
-            {DAYS.map(d => (
-              <div key={d} className="py-2 text-center font-sans text-xs text-dark/30 uppercase tracking-widest font-medium">
+        <div className="flex-1 bg-white rounded-2xl border border-dark/8 shadow-sm overflow-hidden sx-rencontre-theme">
+          <div className="grid grid-cols-7 border-b border-dark/8">
+            {WEEKDAYS.map(d => (
+              <div key={d} className="py-2.5 text-center font-sans text-[11px] uppercase tracking-widest text-dark/35 font-medium">
                 {d}
               </div>
             ))}
           </div>
+          <div style={{ height: calendarHeight }}>
+            <ScheduleXCalendar calendarApp={calendar} />
+          </div>
+        </div>
 
-          {/* Cellules */}
-          <div className="grid grid-cols-7">
-            {cells.map((date, idx) => {
-              if (!date) return (
-                <div key={`empty-${idx}`} className="border-b border-r border-teal/5 min-h-[80px] bg-dark/2" />
-              )
-              const key       = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`
-              const dayPlans  = plansByDate[key] ?? []
-              const isToday   = key === todayKey
-              const isPast    = key < todayKey
-              const isLastCol = (idx + 1) % 7 === 0
+        {/* Agenda latéral */}
+        <div className="hidden lg:flex flex-col w-64 shrink-0 space-y-4">
+          <div className="bg-white rounded-2xl border border-dark/8 shadow-sm p-4">
+            <div className="flex items-center justify-between">
+              <p className="font-sans text-xs uppercase tracking-widest text-dark font-semibold">Ce mois</p>
+              <span className="flex items-center justify-center min-w-5.5 h-5.5 px-1.5 rounded-full bg-teal-dark text-white font-sans text-[11px] font-semibold">
+                {monthPlansAll.length}
+              </span>
+            </div>
+            <p className="font-sans text-sm text-dark/40 mt-1">{monthRangeLabel}</p>
+          </div>
 
-              return (
-                <div
-                  key={key}
-                  className={`border-b border-r border-teal/8 min-h-[80px] p-1.5 ${isLastCol ? 'border-r-0' : ''} ${isPast ? 'bg-dark/[0.015]' : ''}`}
-                >
-                  {/* Numéro du jour */}
-                  <div className={`w-6 h-6 flex items-center justify-center rounded-full mb-1 font-sans text-xs font-medium ${
-                    isToday
-                      ? 'bg-teal text-white'
-                      : isPast
-                        ? 'text-dark/25'
-                        : 'text-dark/60'
-                  }`}>
-                    {date.getDate()}
-                  </div>
-
-                  {/* Événements */}
-                  {dayPlans.map(p => {
-                    const type   = p.plan_type ?? 'sunday_service'
-                    const colors = TYPE_COLORS[type] ?? TYPE_COLORS.sunday_service
-                    const time   = new Date(p.service_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+          {thisWeekPlans.length === 0 && laterPlans.length === 0 ? (
+            <p className="font-sans text-xs text-dark/30 italic px-1">Aucun service à venir.</p>
+          ) : (
+            <>
+              {thisWeekPlans.length > 0 && (
+                <div className="space-y-2">
+                  <p className="font-sans text-[10px] uppercase tracking-widest text-dark/35 font-semibold px-1">Cette semaine</p>
+                  {thisWeekPlans.map(p => {
+                    const colors = typeColors(p)
+                    const n = countByPlan[p.id] ?? 0
+                    const featured = p.id === featuredId
+                    if (featured) {
+                      return (
+                        <Link
+                          key={p.id}
+                          href={`/benevoles/admin/plans/${p.id}`}
+                          className="block rounded-xl border p-3 transition-opacity hover:opacity-90"
+                          style={{ borderColor: colors.main, backgroundColor: colors.container }}
+                        >
+                          <p className="font-sans text-sm font-semibold text-dark truncate">{p.title}</p>
+                          <p className="font-sans text-xs text-dark/45 mt-0.5 capitalize">
+                            {formatDateLabel(p, false)} · {formatTimeLabel(p)}{n > 0 && ` · ${n} affecté${n > 1 ? 's' : ''}`}
+                          </p>
+                        </Link>
+                      )
+                    }
                     return (
-                      <Link
-                        key={p.id}
-                        href={`/benevoles/admin/plans/${p.id}`}
-                        className={`block rounded px-1.5 py-0.5 mb-0.5 border text-left transition-opacity hover:opacity-80 ${colors.bg} ${colors.border} ${isPast ? 'opacity-50' : ''}`}
-                      >
-                        <p className="font-sans text-[10px] font-medium text-dark truncate leading-tight">{p.title}</p>
-                        <p className="font-sans text-[9px] text-dark/40 leading-tight">{time}</p>
+                      <Link key={p.id} href={`/benevoles/admin/plans/${p.id}`} className="flex items-start gap-2.5 py-1">
+                        <span className="w-[3px] rounded-full self-stretch shrink-0" style={{ background: colors.main }} />
+                        <div className="min-w-0">
+                          <p className="font-sans text-sm font-semibold text-dark truncate">{p.title}</p>
+                          <p className="font-sans text-xs text-dark/45 mt-0.5 capitalize">
+                            {formatDateLabel(p, false)} · {formatTimeLabel(p)}
+                          </p>
+                        </div>
                       </Link>
                     )
                   })}
                 </div>
-              )
-            })}
-          </div>
-        </div>
+              )}
 
-        {/* Liste latérale du mois */}
-        <div className="hidden lg:flex flex-col w-56 shrink-0 space-y-2">
-          <p className="font-sans text-xs text-dark/40 uppercase tracking-widest font-medium px-1">Ce mois</p>
-          {monthPlans.length === 0 ? (
-            <p className="font-sans text-xs text-dark/30 italic px-1">Aucun service.</p>
-          ) : monthPlans.map(p => {
-            const type   = p.plan_type ?? 'sunday_service'
-            const colors = TYPE_COLORS[type] ?? TYPE_COLORS.sunday_service
-            const isPast = p.service_date < today.toISOString()
-            const d = new Date(p.service_date)
-            return (
-              <Link
-                key={p.id}
-                href={`/benevoles/admin/plans/${p.id}`}
-                className={`flex items-start gap-2 p-2 rounded-xl bg-white border ${colors.border} hover:border-teal/40 transition-colors ${isPast ? 'opacity-50' : ''}`}
-              >
-                <div className={`w-1.5 h-1.5 rounded-full mt-1 shrink-0 ${colors.dot}`} />
-                <div className="min-w-0">
-                  <p className="font-sans text-xs font-medium text-dark truncate">{p.title}</p>
-                  <p className="font-sans text-[10px] text-dark/40 capitalize">
-                    {d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })} · {d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                  </p>
+              {laterPlans.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="font-sans text-[10px] uppercase tracking-widest text-dark/35 font-semibold px-1">Plus tard</p>
+                  {laterPlans.map(p => {
+                    const colors = typeColors(p)
+                    return (
+                      <Link key={p.id} href={`/benevoles/admin/plans/${p.id}`} className="flex items-start gap-2 py-1">
+                        <span className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ background: colors.main }} />
+                        <div className="min-w-0">
+                          <p className="font-sans text-sm font-medium text-dark truncate">{p.title}</p>
+                          <p className="font-sans text-xs text-dark/40 mt-0.5 capitalize">
+                            {formatDateLabel(p, true)} · {formatTimeLabel(p)}
+                          </p>
+                        </div>
+                      </Link>
+                    )
+                  })}
                 </div>
-              </Link>
-            )
-          })}
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>

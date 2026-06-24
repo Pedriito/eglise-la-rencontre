@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
 
 async function requireAdminOrLeader(teamId: string) {
   const supabase = await createClient()
@@ -31,16 +32,20 @@ async function requireAdmin() {
   return createAdminClient()
 }
 
-export async function addTeamMember(formData: FormData) {
+export async function addTeamMember(_prevState: { error?: string } | null, formData: FormData) {
   const teamId = formData.get('team_id') as string
   const admin = await requireAdminOrLeader(teamId)
   const userId = formData.get('user_id') as string
   const role = formData.get('role') as string
-  const frequency = formData.get('frequency') as string
+  const frequency = (formData.get('frequency') as string) || null
 
-  const { error } = await admin.from('team_members').upsert({ user_id: userId, team_id: teamId, role, frequency })
-  if (error) redirect(`/benevoles/admin/equipes/${teamId}?error=${encodeURIComponent(error.message)}`)
-  redirect(`/benevoles/admin/equipes/${teamId}?success=added`)
+  const { error } = await admin
+    .from('team_members')
+    .upsert({ user_id: userId, team_id: teamId, role, frequency }, { onConflict: 'user_id,team_id' })
+  if (error) return { error: error.message }
+
+  revalidatePath(`/benevoles/admin/equipes/${teamId}`)
+  return null
 }
 
 export async function removeTeamMember(formData: FormData) {
@@ -54,7 +59,7 @@ export async function removeTeamMember(formData: FormData) {
   if (positions?.length) {
     await admin.from('member_positions').delete().eq('user_id', userId).in('position_id', positions.map(p => p.id))
   }
-  redirect(`/benevoles/admin/equipes/${teamId}`)
+  revalidatePath(`/benevoles/admin/equipes/${teamId}`)
 }
 
 export async function updateMemberRole(formData: FormData) {
@@ -69,7 +74,7 @@ export async function updateMemberRole(formData: FormData) {
     .eq('user_id', userId)
     .eq('team_id', teamId)
 
-  redirect(`/benevoles/admin/equipes/${teamId}`)
+  revalidatePath(`/benevoles/admin/equipes/${teamId}`)
 }
 
 export async function toggleMemberPosition(formData: FormData) {
@@ -84,5 +89,5 @@ export async function toggleMemberPosition(formData: FormData) {
   } else {
     await admin.from('member_positions').delete().eq('user_id', userId).eq('position_id', positionId)
   }
-  redirect(`/benevoles/admin/equipes/${teamId}`)
+  revalidatePath(`/benevoles/admin/equipes/${teamId}`)
 }

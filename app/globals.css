@@ -8,6 +8,10 @@
   --color-teal-light: #EBF5F6;
   --color-teal-50: #F0F7F8;
   --color-dark: #1C2B2D;
+  --color-sand: #EFECE3;
+  --color-ink: #16241F;
+  --color-ink-light: #1F362E;
+  --color-coral: #E2693C;
   --font-sans: var(--font-inter);
   --font-display: var(--font-cormorant);
 }
@@ -28,4 +32,61 @@ html {
 
 a, button, [role="button"], select, label[for] {
   cursor: pointer;
+}
+
+/* ── Calendrier (schedule-x) — même ligne éditoriale que le reste de l'espace bénévoles ── */
+.sx-rencontre-theme {
+  --sx-color-primary: #3D7D85;
+  --sx-color-on-primary: #ffffff;
+  --sx-color-primary-container: #EBF5F6;
+  --sx-color-on-primary-container: #1C2B2D;
+  --sx-color-secondary: #3D7D85;
+  --sx-color-on-secondary: #ffffff;
+  --sx-color-secondary-container: #EBF5F6;
+  --sx-color-on-secondary-container: #1C2B2D;
+  --sx-color-surface: #ffffff;
+  --sx-color-surface-dim: #F0F7F8;
+  --sx-color-surface-bright: #ffffff;
+  --sx-color-on-surface: #1C2B2D;
+  --sx-color-surface-container: #F0F7F8;
+  --sx-color-surface-container-low: #F7FAFA;
+  --sx-color-surface-container-high: #EBF5F6;
+  --sx-color-background: #ffffff;
+  --sx-color-on-background: #1C2B2D;
+  --sx-color-outline: rgba(28, 43, 45, 0.4);
+  --sx-color-outline-variant: rgba(28, 43, 45, 0.08);
+  --sx-rounding-extra-small: 8px;
+  --sx-rounding-small: 10px;
+}
+
+.sx-rencontre-theme .sx__month-grid-event[data-event-id] {
+  cursor: grab;
+}
+
+.sx-rencontre-theme .sx__month-grid-event.is-rencontre-dragging {
+  cursor: grabbing;
+  opacity: 0.4;
+}
+
+/* Liseré coloré à gauche des chips (la couleur du texte = la couleur "onContainer"
+ * définie par type dans planTypeStyles.ts, donc currentColor reprend automatiquement
+ * la bonne teinte sans dupliquer la palette en CSS). */
+.sx-rencontre-theme .sx__month-grid-event {
+  border-left: 3px solid currentColor;
+  font-weight: 500;
+}
+
+/* On masque le nom du jour intégré à la 1ère semaine de la grille : on affiche
+ * notre propre bandeau LUN-DIM au-dessus, commun à toutes les semaines. */
+.sx-rencontre-theme .sx__month-grid-day__header-day-name {
+  display: none;
+}
+
+.sx-rencontre-theme .sx__month-grid-day__header-date {
+  font-family: var(--font-sans);
+  font-weight: 500;
+}
+
+.sx-rencontre-theme .sx__month-grid-day--dragover {
+  background-color: var(--color-sand);
 }

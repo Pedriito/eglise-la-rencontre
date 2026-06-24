@@ -9,6 +9,11 @@ import { sendPushToUser } from '@/lib/pushNotifications'
 
 const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
 
+/** Ajoute un paramètre à une URL qui peut déjà en contenir un. */
+function withParam(url: string, key: string, value: string) {
+  return `${url}${url.includes('?') ? '&' : '?'}${key}=${value}`
+}
+
 async function requireAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -43,14 +48,28 @@ export async function deletePlan(formData: FormData) {
   redirect('/benevoles/admin/plans')
 }
 
+/** Déplace un service à une nouvelle date (glisser-déposer dans le calendrier). Appelé
+ *  directement depuis le client (pas via <form>) — renvoie un résultat plutôt que de rediriger. */
+export async function movePlan(
+  planId: string,
+  newServiceDate: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const { admin } = await requireAdmin()
+  const { error } = await admin.from('plans').update({ service_date: newServiceDate }).eq('id', planId)
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/benevoles/admin/plans')
+  return { ok: true }
+}
+
 export async function addAssignment(formData: FormData) {
   const { admin } = await requireAdmin()
   const planId = formData.get('plan_id') as string
   const userId = formData.get('user_id') as string
   const positionId = formData.get('position_id') as string || null
   const teamId = formData.get('team_id') as string || null
+  const returnTo = (formData.get('return_to') as string) || `/benevoles/admin/plans/${planId}`
 
-  if (!userId || userId === '') redirect(`/benevoles/admin/plans/${planId}`)
+  if (!userId || userId === '') redirect(returnTo)
 
   if (userId === INVITE_EXT_ID) {
     const externalName = (formData.get('external_name') as string)?.trim() || null
@@ -74,21 +93,23 @@ export async function addAssignment(formData: FormData) {
     })
   }
 
-  redirect(`/benevoles/admin/plans/${planId}`)
+  redirect(returnTo)
 }
 
 export async function removeAssignment(formData: FormData) {
   const { admin } = await requireAdmin()
-  const planId = formData.get('plan_id') as string
   const assignmentId = formData.get('assignment_id') as string
+  const planId = formData.get('plan_id') as string
+  const returnTo = (formData.get('return_to') as string) || `/benevoles/admin/plans/${planId}`
   await admin.from('plan_assignments').delete().eq('id', assignmentId)
-  redirect(`/benevoles/admin/plans/${planId}`)
+  redirect(returnTo)
 }
 
 export async function sendSingleInvitation(formData: FormData) {
   const { admin } = await requireAdmin()
   const assignmentId = formData.get('assignment_id') as string
   const planId = formData.get('plan_id') as string
+  const returnTo = (formData.get('return_to') as string) || `/benevoles/admin/plans/${planId}`
 
   const { data: a, error } = await admin
     .from('plan_assignments')
@@ -96,7 +117,7 @@ export async function sendSingleInvitation(formData: FormData) {
     .eq('id', assignmentId)
     .single()
 
-  if (error || !a) redirect(`/benevoles/admin/plans/${planId}?error=Assignment+introuvable`)
+  if (error || !a) redirect(withParam(returnTo, 'error', 'Assignment+introuvable'))
 
   const plan = a.plans as any
   const position = a.positions as any
@@ -104,7 +125,7 @@ export async function sendSingleInvitation(formData: FormData) {
 
   // Invité externe
   if (a.user_id === INVITE_EXT_ID) {
-    if (!a.external_email) redirect(`/benevoles/admin/plans/${planId}?error=Email+invité+manquant`)
+    if (!a.external_email) redirect(withParam(returnTo, 'error', 'Email+invité+manquant'))
     try {
       console.log('[sendSingleInvitation] external guest email to', a.external_email, 'plan:', plan.title)
       await sendExternalGuestInvitationEmail({
@@ -120,9 +141,9 @@ export async function sendSingleInvitation(formData: FormData) {
       await admin.from('plan_assignments').update({ invitation_sent_at: new Date().toISOString() }).eq('id', assignmentId)
     } catch (err: any) {
       console.error('[sendSingleInvitation] Resend error (external):', err?.message, { email: a.external_email, assignmentId })
-      redirect(`/benevoles/admin/plans/${planId}?error=${encodeURIComponent(err?.message ?? 'Erreur envoi email')}`)
+      redirect(withParam(returnTo, 'error', encodeURIComponent(err?.message ?? 'Erreur envoi email')))
     }
-    redirect(`/benevoles/admin/plans/${planId}?sent=1`)
+    redirect(withParam(returnTo, 'sent', '1'))
   }
 
   // Bénévole interne
@@ -137,7 +158,7 @@ export async function sendSingleInvitation(formData: FormData) {
 
   if (!email || !plan || !profile) {
     console.error('[sendSingleInvitation] données manquantes', { email, plan: !!plan, profile: !!profile })
-    redirect(`/benevoles/admin/plans/${planId}?error=Données+manquantes`)
+    redirect(withParam(returnTo, 'error', 'Données+manquantes'))
   }
 
   try {
@@ -164,10 +185,10 @@ export async function sendSingleInvitation(formData: FormData) {
     }).catch(() => {})
   } catch (err: any) {
     console.error('[sendSingleInvitation] Resend error:', err?.message, { email, assignmentId })
-    redirect(`/benevoles/admin/plans/${planId}?error=${encodeURIComponent(err?.message ?? 'Erreur envoi email')}`)
+    redirect(withParam(returnTo, 'error', encodeURIComponent(err?.message ?? 'Erreur envoi email')))
   }
 
-  redirect(`/benevoles/admin/plans/${planId}?sent=1`)
+  redirect(withParam(returnTo, 'sent', '1'))
 }
 
 export async function respondAssignment(formData: FormData) {

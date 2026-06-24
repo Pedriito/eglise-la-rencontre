@@ -3,17 +3,13 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { MemberSearch } from './MemberSearch'
 import { MemberList } from './MemberList'
-import { FlashMessage } from '../../../_components/FlashMessage'
 
 export default async function TeamPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ success?: string }>
 }) {
   const { id } = await params
-  const sp = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/benevoles/login')
@@ -88,10 +84,6 @@ export default async function TeamPage({
       </header>
 
       <main className="max-w-4xl mx-auto px-6 py-8 space-y-6">
-        {sp.success === 'added' && (
-          <FlashMessage message="Membre ajouté à l'équipe." type="success" />
-        )}
-
         {/* Membres actuels */}
         <section>
           <h2 className="font-display text-xl text-dark font-light mb-3">Membres</h2>
