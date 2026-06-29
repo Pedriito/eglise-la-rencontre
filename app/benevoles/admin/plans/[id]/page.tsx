@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { removeAssignment, deletePlan, sendSingleInvitation } from '../actions'
+import { PlanTimeEditor } from '../PlanTimeEditor'
 import { IconEnvelope, IconMusicalNote, IconPlay, IconProjector, IconWarning } from '@/app/benevoles/_components/Icons'
 import { SongsSection } from './SongsSection'
 import { CopySetlistButton } from './CopySetlistButton'
@@ -44,7 +45,6 @@ export default async function PlanDetailPage({
   const date = new Date(plan.service_date).toLocaleDateString('fr-FR', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
-  const time = new Date(plan.service_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 
   return (
     <div className="min-h-screen bg-teal-50">
@@ -60,7 +60,19 @@ export default async function PlanDetailPage({
                 <span className="inline-flex items-center gap-1 font-sans text-xs bg-teal/10 text-teal px-2 py-0.5 rounded-full"><IconMusicalNote className="w-3 h-3" /> Répétition</span>
               )}
             </div>
-            <p className="text-xs text-dark/50 font-sans capitalize">{date} · {time}</p>
+            <p className="text-xs text-dark/50 font-sans capitalize">
+              {date} ·{' '}
+              {canManage ? (
+                <PlanTimeEditor
+                  planId={id}
+                  serviceDate={plan.service_date}
+                  className="font-sans text-xs tabular-nums text-dark/50 hover:text-teal transition-colors cursor-pointer hover:underline decoration-dotted"
+                  inputClassName="font-sans text-xs border border-teal/40 rounded px-1.5 py-0.5 bg-transparent text-dark/60 focus:outline-none focus:border-teal"
+                />
+              ) : (
+                new Date(plan.service_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+              )}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3">

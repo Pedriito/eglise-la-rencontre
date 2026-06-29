@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { PlanCalendar } from './PlanCalendar'
+import { PlanTimeEditor } from './PlanTimeEditor'
 import { SubscribeCalendarButton } from './SubscribeCalendarButton'
 import { IconCalendar, IconMusicalNote } from '@/app/benevoles/_components/Icons'
 import { getPlanDetail } from './getPlanDetail'
@@ -108,12 +109,24 @@ export default async function PlansPage({
     const date = new Date(plan.service_date).toLocaleDateString('fr-FR', {
       weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
     })
+    const time = new Date(plan.service_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
     const n    = countByPlan[plan.id] ?? 0
     const past = plan.service_date < now
     return (
       <tr className={`border-b border-teal/10 last:border-0 hover:bg-teal-50/40 transition-colors ${past ? 'opacity-50' : ''}`}>
         <td className="px-6 py-4 font-sans text-sm text-dark/50 capitalize">
-          <Link href={`/benevoles/admin/plans/${plan.id}`} className="block">{date}</Link>
+          <div className="flex items-center gap-2">
+            <Link href={`/benevoles/admin/plans/${plan.id}`} className="block">{date}</Link>
+            {canManage && (
+              <PlanTimeEditor
+                planId={plan.id}
+                serviceDate={plan.service_date}
+                stopPropagation
+                className="font-sans text-xs tabular-nums text-dark/35 hover:text-teal transition-colors cursor-pointer hover:underline decoration-dotted"
+              />
+            )}
+            {!canManage && <span className="font-sans text-xs text-dark/35">{time}</span>}
+          </div>
         </td>
         <td className="px-6 py-4 font-sans text-sm text-dark font-medium">
           <Link href={`/benevoles/admin/plans/${plan.id}`} className="flex items-center gap-2">
@@ -154,7 +167,17 @@ export default async function PlansPage({
             {plan.plan_type === 'rehearsal' && <IconMusicalNote className="w-3 h-3 text-teal/50 shrink-0" />}
             <p className="font-sans text-sm text-dark font-medium truncate">{plan.title}</p>
           </div>
-          <p className="font-sans text-xs text-dark/50 capitalize">{date} · {time}</p>
+          <p className="font-sans text-xs text-dark/50 capitalize">
+            {date} ·{' '}
+            {canManage ? (
+              <PlanTimeEditor
+                planId={plan.id}
+                serviceDate={plan.service_date}
+                stopPropagation
+                className="font-sans text-xs tabular-nums text-dark/50 hover:text-teal transition-colors cursor-pointer hover:underline decoration-dotted"
+              />
+            ) : time}
+          </p>
           {team && <p className="font-sans text-xs text-dark/40 mt-0.5">{team.name}</p>}
         </div>
         <div className="flex items-center gap-3 shrink-0">

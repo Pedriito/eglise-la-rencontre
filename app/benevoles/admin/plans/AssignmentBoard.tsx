@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { removeAssignment, deletePlan, sendSingleInvitation } from './actions'
+import { PlanTimeEditor } from './PlanTimeEditor'
 import { INVITE_EXT_ID, type PlanDetail, type TeamDetail } from './getPlanDetail'
 import { IconEnvelope, IconMusicalNote, IconPlay, IconProjector, IconWarning } from '@/app/benevoles/_components/Icons'
 import { StatusDot } from '../../_components/StatusDot'
@@ -96,7 +97,6 @@ export function AssignmentBoard({ planId, detail, fillKey, isAdmin, flashError, 
   }, 0)
 
   const date = new Date(plan.service_date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
-  const time = new Date(plan.service_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 
   return (
     <div className="flex-1 min-w-0 space-y-5">
@@ -107,7 +107,15 @@ export function AssignmentBoard({ planId, detail, fillKey, isAdmin, flashError, 
       <div className="bg-gradient-to-br from-teal to-teal-dark rounded-2xl px-6 py-5 text-white shadow-lg shadow-teal/20">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="font-sans text-[10px] uppercase tracking-widest font-semibold text-white/70 capitalize">{date} · {time}</p>
+            <p className="font-sans text-[10px] uppercase tracking-widest font-semibold text-white/70 capitalize">
+              {date} ·{' '}
+              <PlanTimeEditor
+                planId={planId}
+                serviceDate={plan.service_date}
+                className="font-sans text-[10px] uppercase tracking-widest font-semibold text-white/70 hover:text-white transition-colors cursor-pointer hover:underline decoration-dotted tabular-nums"
+                inputClassName="font-sans text-[10px] border border-white/30 rounded px-1 bg-white/10 text-white focus:outline-none focus:border-white/60"
+              />
+            </p>
             <div className="flex items-center gap-2 mt-0.5">
               <h2 className="font-display text-2xl font-semibold leading-tight truncate">{plan.title}</h2>
               {isRehearsal && (

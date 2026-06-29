@@ -114,7 +114,8 @@ function DescriptionModal({ plan, onClose }: { plan: PlanItem; onClose: () => vo
 function TipsSection() {
   const [open, setOpen] = useState(false)
   const tips: [string, string][] = [
-    ['Glisser un événement',         'Déplacer le service à une autre date'],
+    ['Glisser (vue Mois)',            'Déplacer le service à une autre date'],
+    ['Glisser (vue Semaine/Jour)',    'Déplacer la date ET modifier l\'heure'],
     ['Ctrl + Glisser',               'Dupliquer le service à la date cible'],
     ['Clic sur un jour vide',        'Créer un nouveau service'],
     ['Clic sur un service',          'Sélectionner (surligne l\'événement)'],
@@ -211,13 +212,20 @@ export function PlanCalendar({ plans, icalUrl, canManage, countByPlan = {} }: Pr
 
   async function onEventDrop(arg: EventDropArg) {
     const planId = arg.event.id
-    // Préserve toujours l'heure d'origine — on ne permet que les changements de date
-    const origTime = arg.oldEvent.startStr.includes('T')
-      ? arg.oldEvent.startStr.split('T')[1].slice(0, 5)
-      : '10:00'
-    const newDate = arg.event.startStr.split('T')[0]
-    const newServiceDate = `${newDate}T${origTime}`
     setError(null)
+
+    // En vue Semaine/Jour : l'heure peut être modifiée par drag
+    // En vue Mois/2 mois : seule la date change, l'heure d'origine est préservée
+    const isTimeGrid = currentView.startsWith('timeGrid')
+    let newServiceDate: string
+    if (isTimeGrid && arg.event.startStr.includes('T')) {
+      newServiceDate = arg.event.startStr.slice(0, 16)
+    } else {
+      const origTime = arg.oldEvent.startStr.includes('T')
+        ? arg.oldEvent.startStr.split('T')[1].slice(0, 5)
+        : '10:00'
+      newServiceDate = `${arg.event.startStr.split('T')[0]}T${origTime}`
+    }
 
     if (ctrlHeld.current) {
       // Ctrl+glisser → copier
@@ -338,10 +346,11 @@ export function PlanCalendar({ plans, icalUrl, canManage, countByPlan = {} }: Pr
 
           {/* Indice drag */}
           {canManage && (
-            <p className="font-sans text-xs text-dark/35 flex items-center gap-1.5 -mt-1">
+            <p className="font-sans text-xs text-dark/35 flex items-center gap-1.5 -mt-1 flex-wrap">
               <span className="text-dark/25">↺</span>
-              Glissez un service vers un autre jour pour le replanifier.
-              <span className="text-dark/20 ml-1">Ctrl + glisser pour dupliquer.</span>
+              Glissez pour replanifier.
+              <span className="text-dark/20">En vue Semaine/Jour, l'heure est aussi modifiable.</span>
+              <span className="text-dark/20">Ctrl + glisser pour dupliquer.</span>
             </p>
           )}
 
