@@ -35,14 +35,12 @@ export default async function ChantsPage({
   const { data: songs } = await query
 
   return (
-    <div className="min-h-screen bg-teal-50">
-      <header className="bg-white border-b border-teal/20 px-4 md:px-6 py-4 flex items-center gap-4">
-        <Link href="/benevoles/dashboard" className="text-dark/40 hover:text-dark transition-colors font-sans text-sm">
-          ←
-        </Link>
-        <div className="flex-1">
-          <h1 className="font-display text-2xl text-dark font-light">Chants</h1>
-          <p className="text-xs text-dark/40 font-sans mt-0.5">{songs?.length ?? 0} chants</p>
+    <div className="min-h-screen bg-sand">
+      <header className="bg-white border-b border-dark/8 px-4 md:px-6 py-4 flex items-center gap-3">
+        <Link href="/benevoles/dashboard" className="text-dark/40 hover:text-dark transition-colors font-sans text-lg shrink-0">‹</Link>
+        <div className="flex-1 min-w-0">
+          <h1 className="font-display text-xl md:text-2xl text-dark font-light truncate">Chants</h1>
+          <p className="font-sans text-xs text-dark/40 mt-0.5">{songs?.length ?? 0} chants</p>
         </div>
       </header>
 
@@ -54,7 +52,7 @@ export default async function ChantsPage({
             name="q"
             defaultValue={search}
             placeholder="Rechercher un chant…"
-            className="w-full bg-white border border-teal/20 rounded-2xl px-4 py-3 pr-10 font-sans text-sm text-dark placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-teal/30"
+            className="w-full bg-white border border-dark/8 rounded-2xl px-4 py-3 pr-10 font-sans text-sm text-dark placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-teal/30 shadow-sm"
           />
           {search && (
             <Link
@@ -67,7 +65,7 @@ export default async function ChantsPage({
         </form>
 
         {/* Liste */}
-        <div className="space-y-2">
+        <div className="bg-white rounded-2xl border border-dark/8 shadow-sm overflow-hidden">
           {(songs ?? []).map(song => {
             const keys = song.arrangements
               .map(a => a.chord_chart_key)
@@ -78,7 +76,7 @@ export default async function ChantsPage({
               <Link
                 key={song.id}
                 href={`/benevoles/chants/${song.id}`}
-                className="flex items-center justify-between bg-white rounded-2xl border border-teal/20 px-5 py-4 hover:border-teal/40 transition-colors group"
+                className="flex items-center justify-between border-b border-dark/6 last:border-0 px-5 py-4 hover:bg-sand/50 transition-colors group"
               >
                 <div className="min-w-0 flex-1">
                   <p className="font-sans text-sm text-dark font-medium truncate">{song.title}</p>
@@ -89,7 +87,7 @@ export default async function ChantsPage({
                     )}
                   </p>
                 </div>
-                <span className="text-teal font-sans text-sm group-hover:translate-x-0.5 transition-transform shrink-0 ml-3">→</span>
+                <span className="text-dark/25 font-sans text-sm group-hover:translate-x-0.5 transition-transform shrink-0 ml-3">→</span>
               </Link>
             )
           })}

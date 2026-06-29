@@ -11,6 +11,20 @@ type InboxDecision = {
   created_at: string
 }
 
+const AVATAR_COLORS = [
+  { bg: '#EBF5F6', color: '#3D7D85' },
+  { bg: '#FDE8DC', color: '#E2693C' },
+  { bg: '#EDE9FE', color: '#7C3AED' },
+  { bg: '#D1FAE5', color: '#059669' },
+  { bg: '#DBEAFE', color: '#2563EB' },
+  { bg: '#FCE7F3', color: '#DB2777' },
+  { bg: '#FEF3C7', color: '#D97706' },
+]
+
+function avatarColor(name: string) {
+  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
+}
+
 export default async function GestionPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -24,7 +38,6 @@ export default async function GestionPage() {
 
   const isAdmin = ['admin', 'editor', 'super_admin'].includes(profile?.permission ?? '')
 
-  // Équipes accessibles
   let teams: { id: string; name: string }[] = []
 
   if (isAdmin) {
@@ -43,8 +56,8 @@ export default async function GestionPage() {
 
   if (teams.length === 0) {
     return (
-      <div className="min-h-screen bg-teal-50 flex items-center justify-center">
-        <div className="text-center space-y-2">
+      <div className="min-h-screen bg-sand flex items-center justify-center">
+        <div className="text-center space-y-3">
           <p className="font-sans text-sm text-dark/40">Vous n'êtes membre d'aucune équipe.</p>
           <Link href="/benevoles/dashboard" className="text-teal font-sans text-sm hover:underline">
             ← Tableau de bord
@@ -63,7 +76,6 @@ export default async function GestionPage() {
   ] = await Promise.all([
     supabase.from('decisions').select('id, team_id').eq('status', 'pending').in('team_id', teamIds),
     supabase.from('tasks').select('id, team_id').eq('status', 'todo').in('team_id', teamIds),
-    // Inbox WhatsApp : décisions sans team_id (admins seulement, RLS gère ça)
     isAdmin
       ? supabase
           .from('decisions')
@@ -86,31 +98,35 @@ export default async function GestionPage() {
     if (t.team_id) tasksByTeam[t.team_id] = (tasksByTeam[t.team_id] ?? 0) + 1
   })
 
-  const totalPending = (pendingDecisions?.length ?? 0) + inbox.length
-
   return (
-    <div className="min-h-screen bg-teal-50">
-      <header className="bg-white border-b border-teal/20 px-4 md:px-6 py-4 flex items-center gap-4">
-        <Link href="/benevoles/dashboard" className="text-dark/40 hover:text-dark transition-colors font-sans text-sm">
-          ←
-        </Link>
-        <div>
-          <h1 className="font-display text-2xl text-dark font-light">Gestion</h1>
-          {totalPending > 0 && (
-            <p className="text-xs text-amber-600 font-sans mt-0.5">
-              {totalPending} décision{totalPending > 1 ? 's' : ''} en attente
-            </p>
-          )}
+    <div className="min-h-screen bg-sand">
+
+      {/* Header */}
+      <div className="max-w-4xl mx-auto px-6 md:px-10 pt-8 pb-6 flex items-start justify-between gap-4">
+        <div className="flex items-start gap-4">
+          <Link
+            href="/benevoles/dashboard"
+            className="text-dark/35 hover:text-dark transition-colors font-sans text-sm mt-1.5 shrink-0"
+          >
+            ←
+          </Link>
+          <div>
+            <h1 className="font-display text-4xl text-dark font-light leading-tight">Gestion</h1>
+            <p className="font-sans text-sm text-teal mt-0.5">Tâches &amp; décisions par équipe</p>
+          </div>
         </div>
-      </header>
+        <span className="mt-1.5 shrink-0 font-sans text-[11px] uppercase tracking-widest text-dark/40 border border-dark/15 rounded-full px-3 py-1.5">
+          {teams.length} équipe{teams.length > 1 ? 's' : ''}
+        </span>
+      </div>
 
-      <main className="max-w-2xl mx-auto px-4 md:px-6 py-6 md:py-8 space-y-6">
+      <main className="max-w-4xl mx-auto px-6 md:px-10 pb-12 space-y-8">
 
-        {/* ── Inbox WhatsApp ────────────────────────────────────── */}
+        {/* Inbox WhatsApp */}
         {isAdmin && inbox.length > 0 && (
-          <section>
-            <div className="flex items-center gap-2 mb-3">
-              <h2 className="font-display text-lg text-dark font-light">Inbox WhatsApp</h2>
+          <section className="space-y-3">
+            <div className="flex items-center gap-2">
+              <h2 className="font-display text-xl text-dark font-light">Inbox WhatsApp</h2>
               <span className="w-5 h-5 rounded-full bg-green-500 text-white text-xs font-bold flex items-center justify-center font-sans leading-none">
                 {inbox.length}
               </span>
@@ -123,41 +139,56 @@ export default async function GestionPage() {
           </section>
         )}
 
-        {/* ── Équipes ───────────────────────────────────────────── */}
-        <section className="space-y-3">
-          {inbox.length > 0 && isAdmin && (
-            <h2 className="font-display text-lg text-dark/40 font-light">Équipes</h2>
-          )}
+        {/* Grille équipes */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {teams.map(team => {
             const nDecisions = decisionsByTeam[team.id] ?? 0
             const nTasks = tasksByTeam[team.id] ?? 0
+            const colors = avatarColor(team.name)
+            const initial = [...team.name][0].toUpperCase()
+            const hasPending = nDecisions > 0
 
             return (
               <Link
                 key={team.id}
                 href={`/benevoles/gestion/${team.id}`}
-                className="flex items-center justify-between bg-white rounded-2xl border border-teal/20 px-5 py-4 hover:border-teal/40 transition-colors group"
+                className={`flex items-center gap-4 bg-white rounded-2xl border px-5 py-4 transition-colors group ${
+                  hasPending
+                    ? 'border-amber-400 hover:border-amber-500'
+                    : 'border-dark/8 hover:border-dark/15'
+                }`}
               >
-                <div>
-                  <p className="font-sans text-base text-dark font-medium">{team.name}</p>
+                {/* Avatar */}
+                <span
+                  className="w-10 h-10 rounded-xl flex items-center justify-center font-sans text-sm font-semibold shrink-0"
+                  style={{ backgroundColor: colors.bg, color: colors.color }}
+                >
+                  {initial}
+                </span>
+
+                {/* Infos */}
+                <div className="flex-1 min-w-0">
+                  <p className="font-sans text-sm font-semibold text-dark truncate">{team.name}</p>
                   <p className="font-sans text-xs text-dark/40 mt-0.5">
                     {nTasks > 0
                       ? `${nTasks} tâche${nTasks > 1 ? 's' : ''} à faire`
                       : 'Aucune tâche en cours'}
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
+
+                {/* Badges + flèche */}
+                <div className="flex items-center gap-2 shrink-0">
                   {nDecisions > 0 && (
-                    <span className="bg-amber-100 text-amber-700 font-sans text-xs font-semibold px-2.5 py-1 rounded-full">
+                    <span className="bg-amber-100 text-amber-700 font-sans text-xs font-semibold px-2 py-0.5 rounded-full">
                       {nDecisions} à décider
                     </span>
                   )}
-                  <span className="text-teal font-sans text-sm group-hover:translate-x-0.5 transition-transform">→</span>
+                  <span className="text-dark/25 font-sans text-sm group-hover:translate-x-0.5 transition-transform">→</span>
                 </div>
               </Link>
             )
           })}
-        </section>
+        </div>
 
       </main>
     </div>

@@ -34,59 +34,125 @@ a, button, [role="button"], select, label[for] {
   cursor: pointer;
 }
 
-/* ── Calendrier (schedule-x) — même ligne éditoriale que le reste de l'espace bénévoles ── */
-.sx-rencontre-theme {
-  --sx-color-primary: #3D7D85;
-  --sx-color-on-primary: #ffffff;
-  --sx-color-primary-container: #EBF5F6;
-  --sx-color-on-primary-container: #1C2B2D;
-  --sx-color-secondary: #3D7D85;
-  --sx-color-on-secondary: #ffffff;
-  --sx-color-secondary-container: #EBF5F6;
-  --sx-color-on-secondary-container: #1C2B2D;
-  --sx-color-surface: #ffffff;
-  --sx-color-surface-dim: #F0F7F8;
-  --sx-color-surface-bright: #ffffff;
-  --sx-color-on-surface: #1C2B2D;
-  --sx-color-surface-container: #F0F7F8;
-  --sx-color-surface-container-low: #F7FAFA;
-  --sx-color-surface-container-high: #EBF5F6;
-  --sx-color-background: #ffffff;
-  --sx-color-on-background: #1C2B2D;
-  --sx-color-outline: rgba(28, 43, 45, 0.4);
-  --sx-color-outline-variant: rgba(28, 43, 45, 0.08);
-  --sx-rounding-extra-small: 8px;
-  --sx-rounding-small: 10px;
+/* ── FullCalendar (fc-rencontre) ─────────────────────────────────────────── */
+.fc-rencontre {
+  --fc-border-color: rgba(28,43,45,0.08);
+  --fc-today-bg-color: rgba(90,158,166,0.05);
+  --fc-neutral-bg-color: transparent;
+  --fc-page-bg-color: #ffffff;
+  --fc-event-bg-color: transparent;
+  --fc-event-border-color: transparent;
+  --fc-event-text-color: inherit;
+  --fc-list-event-hover-bg-color: #EFECE3;
+  --fc-now-indicator-color: #E2693C;
+  --fc-highlight-color: rgba(90,158,166,0.10);
 }
 
-.sx-rencontre-theme .sx__month-grid-event[data-event-id] {
-  cursor: grab;
+/* Grille : enlève la bordure externe (on a déjà le card wrapper) */
+.fc-rencontre .fc-scrollgrid { border: none !important; }
+.fc-rencontre .fc-scrollgrid td,
+.fc-rencontre .fc-scrollgrid th { border-color: rgba(28,43,45,0.08) !important; }
+
+/* En-têtes colonnes : LUN, MAR… */
+.fc-rencontre .fc-col-header-cell {
+  background: transparent;
+  border-left: none !important;
+  border-right: none !important;
+  padding: 10px 0 8px;
+}
+.fc-rencontre .fc-col-header-cell-cushion {
+  font-family: var(--font-inter, sans-serif);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(28,43,45,0.35) !important;
+  text-decoration: none !important;
+  cursor: default;
 }
 
-.sx-rencontre-theme .sx__month-grid-event.is-rencontre-dragging {
-  cursor: grabbing;
-  opacity: 0.4;
+/* Numéros de jour */
+.fc-rencontre .fc-daygrid-day-number {
+  font-family: var(--font-inter, sans-serif);
+  font-size: 13px;
+  color: rgba(28,43,45,0.60);
+  padding: 6px 8px;
+  text-decoration: none !important;
+  transition: color 0.1s;
+}
+.fc-rencontre .fc-daygrid-day:hover .fc-daygrid-day-number { color: rgba(28,43,45,0.90); }
+
+/* Aujourd'hui : cercle teal */
+.fc-rencontre .fc-day-today { background-color: rgba(90,158,166,0.04) !important; }
+.fc-rencontre .fc-day-today .fc-daygrid-day-number {
+  background: #5A9EA6;
+  color: #ffffff !important;
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 4px 6px;
+  font-weight: 600;
+  font-size: 12px;
 }
 
-/* Liseré coloré à gauche des chips (la couleur du texte = la couleur "onContainer"
- * définie par type dans planTypeStyles.ts, donc currentColor reprend automatiquement
- * la bonne teinte sans dupliquer la palette en CSS). */
-.sx-rencontre-theme .sx__month-grid-event {
-  border-left: 3px solid currentColor;
+/* Jours hors mois */
+.fc-rencontre .fc-day-other .fc-daygrid-day-number { color: rgba(28,43,45,0.20); }
+
+/* Survol cellule vide */
+.fc-rencontre .fc-daygrid-day:hover { background-color: rgba(28,43,45,0.015); }
+
+/* Événements : supprime tout le style FC par défaut */
+.fc-rencontre .fc-event {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 2px !important;
+  margin-bottom: 2px !important;
+  cursor: pointer;
+}
+.fc-rencontre .fc-event-main { padding: 0 !important; }
+.fc-rencontre .fc-daygrid-event-dot { display: none !important; }
+.fc-rencontre .fc-daygrid-event { margin-top: 1px; }
+.fc-rencontre .fc-event:hover { opacity: 0.80; }
+.fc-rencontre .fc-event.fc-event-dragging { opacity: 0.45; cursor: grabbing; }
+
+/* Lien "+N autres" */
+.fc-rencontre .fc-daygrid-more-link {
+  font-family: var(--font-inter, sans-serif);
+  font-size: 11px;
+  color: rgba(28,43,45,0.40) !important;
   font-weight: 500;
+  padding: 0 8px;
+}
+.fc-rencontre .fc-daygrid-more-link:hover { color: #5A9EA6 !important; background: transparent !important; }
+
+/* Vue semaine/jour : labels horaires */
+.fc-rencontre .fc-timegrid-slot-label-cushion {
+  font-family: var(--font-inter, sans-serif);
+  font-size: 11px;
+  color: rgba(28,43,45,0.30);
 }
 
-/* On masque le nom du jour intégré à la 1ère semaine de la grille : on affiche
- * notre propre bandeau LUN-DIM au-dessus, commun à toutes les semaines. */
-.sx-rencontre-theme .sx__month-grid-day__header-day-name {
-  display: none;
+/* Popover "+N autres" */
+.fc-rencontre .fc-popover {
+  border: 1px solid rgba(28,43,45,0.08) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.10) !important;
+  overflow: hidden;
 }
+.fc-rencontre .fc-popover-header {
+  background: #EFECE3 !important;
+  font-family: var(--font-inter, sans-serif);
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(28,43,45,0.55) !important;
+  padding: 8px 12px !important;
+}
+.fc-rencontre .fc-popover-close { color: rgba(28,43,45,0.35) !important; }
 
-.sx-rencontre-theme .sx__month-grid-day__header-date {
-  font-family: var(--font-sans);
-  font-weight: 500;
-}
-
-.sx-rencontre-theme .sx__month-grid-day--dragover {
-  background-color: var(--color-sand);
-}
+/* Zone de drop */
+.fc-rencontre .fc-highlight { background: rgba(90,158,166,0.08) !important; }

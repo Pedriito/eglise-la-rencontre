@@ -41,6 +41,26 @@ export async function createPlan(formData: FormData) {
   redirect(`/benevoles/admin/plans/${data.id}`)
 }
 
+export async function createPlans(formData: FormData) {
+  const { admin, church_id } = await requireAdmin()
+  const title      = formData.get('title') as string
+  const dates      = formData.getAll('service_dates') as string[]
+  const teamId     = formData.get('team_id') as string || null
+  const notes      = formData.get('notes') as string || null
+  const planType   = (formData.get('plan_type') as string) || 'sunday_service'
+
+  if (!dates.length) redirect('/benevoles/admin/plans/nouveau?error=no_dates')
+
+  const { error } = await admin
+    .from('plans')
+    .insert(dates.map(d => ({
+      title, service_date: d, team_id: teamId, notes, plan_type: planType, church_id,
+    })))
+
+  if (error) redirect(`/benevoles/admin/plans/nouveau?error=${encodeURIComponent(error.message)}`)
+  redirect('/benevoles/admin/plans')
+}
+
 export async function deletePlan(formData: FormData) {
   const { admin } = await requireAdmin()
   const planId = formData.get('plan_id') as string
@@ -56,6 +76,31 @@ export async function movePlan(
 ): Promise<{ ok: boolean; error?: string }> {
   const { admin } = await requireAdmin()
   const { error } = await admin.from('plans').update({ service_date: newServiceDate }).eq('id', planId)
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/benevoles/admin/plans')
+  return { ok: true }
+}
+
+/** Copie un service à une nouvelle date en dupliquant le plan (Ctrl+glisser). */
+export async function copyPlan(
+  planId: string,
+  newServiceDate: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const { admin } = await requireAdmin()
+  const { data: original, error: fetchError } = await admin
+    .from('plans')
+    .select('title, plan_type, team_id, notes, church_id')
+    .eq('id', planId)
+    .single()
+  if (fetchError || !original) return { ok: false, error: fetchError?.message ?? 'Plan introuvable.' }
+  const { error } = await admin.from('plans').insert({
+    title: original.title,
+    service_date: newServiceDate,
+    plan_type: original.plan_type,
+    team_id: original.team_id,
+    notes: original.notes,
+    church_id: original.church_id,
+  })
   if (error) return { ok: false, error: error.message }
   revalidatePath('/benevoles/admin/plans')
   return { ok: true }

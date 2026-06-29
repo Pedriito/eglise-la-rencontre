@@ -110,14 +110,12 @@ export default async function GestionTeamPage({
     .filter((p): p is Profile => p !== undefined)
 
   return (
-    <div className="min-h-screen bg-teal-50">
-      <header className="bg-white border-b border-teal/20 px-4 md:px-6 py-4 flex items-center gap-4">
-        <Link href="/benevoles/gestion" className="text-dark/40 hover:text-dark transition-colors font-sans text-sm">
-          ← Gestion
-        </Link>
-        <h1 className="font-display text-2xl text-dark font-light">{team.name}</h1>
+    <div className="min-h-screen bg-sand">
+      <header className="bg-white border-b border-dark/8 px-4 md:px-6 py-4 flex items-center gap-3">
+        <Link href="/benevoles/gestion" className="text-dark/40 hover:text-dark transition-colors font-sans text-lg shrink-0">‹</Link>
+        <h1 className="font-display text-xl md:text-2xl text-dark font-light truncate flex-1">{team.name}</h1>
         {pendingDecisions.length > 0 && (
-          <span className="bg-amber-100 text-amber-700 font-sans text-xs font-semibold px-2.5 py-1 rounded-full">
+          <span className="shrink-0 bg-amber-100 text-amber-700 font-sans text-xs font-semibold px-2.5 py-1 rounded-full">
             {pendingDecisions.length} à décider
           </span>
         )}
@@ -183,7 +181,7 @@ export default async function GestionTeamPage({
                 {resolvedDecisions.map(d => {
                   const decidedBy = d.decided_by ? profileMap.get(d.decided_by) : null
                   return (
-                    <div key={d.id} className="bg-white/60 rounded-xl border border-teal/10 px-4 py-3">
+                    <div key={d.id} className="bg-white/60 rounded-xl border border-dark/6 px-4 py-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="font-sans text-sm text-dark/40 line-through leading-snug">{d.title}</p>
@@ -223,13 +221,13 @@ export default async function GestionTeamPage({
           {todoTasks.length === 0 && doneTasks.length === 0 ? (
             <p className="font-sans text-sm text-dark/30 italic px-1 mt-4">Aucune tâche en cours.</p>
           ) : (
-            <div className="bg-white rounded-2xl border border-teal/20 overflow-hidden mt-3">
+            <div className="bg-white rounded-2xl border border-dark/8 overflow-hidden mt-3">
               {/* À faire */}
               {todoTasks.map(t => {
                 const assignee = t.assigned_to ? profileMap.get(t.assigned_to) : null
                 const overdue = t.due_date && new Date(t.due_date) < new Date()
                 return (
-                  <div key={t.id} className="flex items-center gap-3 px-4 py-3 border-b border-teal/10 last:border-0 group">
+                  <div key={t.id} className="flex items-center gap-3 px-4 py-3 border-b border-dark/6 last:border-0 group">
                     <form action={toggleTask} className="shrink-0">
                       <input type="hidden" name="task_id" value={t.id} />
                       <input type="hidden" name="current_status" value="todo" />
@@ -266,12 +264,12 @@ export default async function GestionTeamPage({
 
               {/* Faites */}
               {doneTasks.length > 0 && todoTasks.length > 0 && (
-                <div className="border-t-2 border-teal/5" />
+                <div className="border-t-2 border-dark/5" />
               )}
               {doneTasks.map(t => {
                 const assignee = t.assigned_to ? profileMap.get(t.assigned_to) : null
                 return (
-                  <div key={t.id} className="flex items-center gap-3 px-4 py-3 border-b border-teal/5 last:border-0 bg-teal-50/30 group">
+                  <div key={t.id} className="flex items-center gap-3 px-4 py-3 border-b border-dark/5 last:border-0 bg-sand/40 group">
                     <form action={toggleTask} className="shrink-0">
                       <input type="hidden" name="task_id" value={t.id} />
                       <input type="hidden" name="current_status" value="done" />
