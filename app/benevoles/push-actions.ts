@@ -10,17 +10,28 @@ export async function savePushSubscription(sub: {
   auth: string
 }): Promise<{ ok: boolean }> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { ok: false }
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (!user) {
+    console.error('[push] savePushSubscription — utilisateur non authentifié', authError)
+    return { ok: false }
+  }
+
+  console.log('[push] savePushSubscription — user:', user.id, '| endpoint:', sub.endpoint.slice(0, 60) + '…')
 
   const admin = createAdminClient()
-  await admin.from('push_subscriptions').upsert({
+  const { error } = await admin.from('push_subscriptions').upsert({
     user_id:  user.id,
     endpoint: sub.endpoint,
     p256dh:   sub.p256dh,
     auth:     sub.auth,
   }, { onConflict: 'user_id,endpoint' })
 
+  if (error) {
+    console.error('[push] savePushSubscription — erreur DB:', error.message, error.code)
+    return { ok: false }
+  }
+
+  console.log('[push] savePushSubscription — OK')
   return { ok: true }
 }
 
@@ -55,7 +66,30 @@ export async function hasPushSubscription(): Promise<boolean> {
 export async function sendTestPush(): Promise<{ ok: boolean }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { ok: false }
+  if (!user) {
+    console.error('[push] sendTestPush — utilisateur non authentifié')
+    return { ok: false }
+  }
+
+  console.log('[push] sendTestPush — envoi pour user:', user.id)
+
+  const admin = createAdminClient()
+  const { data: subs, error } = await admin
+    .from('push_subscriptions')
+    .select('id, endpoint')
+    .eq('user_id', user.id)
+
+  if (error) {
+    console.error('[push] sendTestPush — erreur lecture subscriptions:', error.message, error.code)
+    return { ok: false }
+  }
+
+  console.log('[push] sendTestPush — subscriptions trouvées:', subs?.length ?? 0)
+
+  if (!subs || subs.length === 0) {
+    console.warn('[push] sendTestPush — aucune subscription en base pour cet utilisateur')
+    return { ok: false }
+  }
 
   await sendPushToUser(user.id, {
     title: '🔔 Église La Rencontre',
@@ -63,5 +97,7 @@ export async function sendTestPush(): Promise<{ ok: boolean }> {
     url:   '/benevoles/dashboard',
     tag:   'test',
   })
+
+  console.log('[push] sendTestPush — OK')
   return { ok: true }
 }

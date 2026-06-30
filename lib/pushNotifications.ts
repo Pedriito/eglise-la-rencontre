@@ -25,8 +25,12 @@ export async function sendPush(sub: Subscription, payload: PushPayload): Promise
     )
     return true
   } catch (err: unknown) {
-    // 410 Gone = abonnement révoqué par le navigateur
-    if ((err as { statusCode?: number }).statusCode === 410) return false
+    const status = (err as { statusCode?: number }).statusCode
+    // 400 VapidPkHashMismatch, 403 VAPID mismatch, 404 Not Found, 410 Gone = subscription invalide à supprimer
+    if (status === 400 || status === 403 || status === 404 || status === 410) {
+      console.warn(`[push] subscription invalide (${status}), suppression — endpoint: ${sub.endpoint.slice(0, 60)}`)
+      return false
+    }
     console.error('[push] sendPush error:', (err as Error).message)
     return false
   }
