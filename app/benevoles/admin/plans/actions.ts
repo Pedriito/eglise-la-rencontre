@@ -253,6 +253,62 @@ export async function respondAssignment(formData: FormData) {
   redirect('/benevoles/dashboard')
 }
 
+export async function respondAssignmentOnPlanDetail(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/benevoles/login')
+
+  const assignmentId = formData.get('assignment_id') as string
+  const status = formData.get('status') as string
+  const planId = formData.get('plan_id') as string
+
+  await supabase
+    .from('plan_assignments')
+    .update({ status })
+    .eq('id', assignmentId)
+    .eq('user_id', user.id)
+
+  revalidatePath(`/benevoles/admin/plans/${planId}`)
+  redirect(`/benevoles/admin/plans/${planId}`)
+}
+
+export async function respondAssignmentOnHistorique(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/benevoles/login')
+
+  const assignmentId = formData.get('assignment_id') as string
+  const status = formData.get('status') as string
+
+  await supabase
+    .from('plan_assignments')
+    .update({ status })
+    .eq('id', assignmentId)
+    .eq('user_id', user.id)
+
+  revalidatePath('/benevoles/historique')
+  redirect('/benevoles/historique')
+}
+
+export async function respondAssignmentOnPlans(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/benevoles/login')
+
+  const assignmentId = formData.get('assignment_id') as string
+  const status = formData.get('status') as string
+  const view = (formData.get('view') as string) || 'list'
+
+  await supabase
+    .from('plan_assignments')
+    .update({ status })
+    .eq('id', assignmentId)
+    .eq('user_id', user.id)
+
+  revalidatePath('/benevoles/admin/plans')
+  redirect(`/benevoles/admin/plans?view=${view}`)
+}
+
 export async function cancelAssignment(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

@@ -47,30 +47,28 @@ export function PushManager({ variant }: Props = {}) {
       setStatus('denied'); return
     }
 
-    // Affichage immédiat depuis le cache
+    // Affichage immédiat sans attendre le SW — état dérivé de permission + localStorage
     if (localStorage.getItem('push_subscribed') === '1') {
       setStatus('subscribed')
+    } else {
+      setStatus(Notification.permission === 'granted' ? 'permission_only' : 'unsubscribed')
     }
 
+    // Validation en arrière-plan : pré-cache reg et nettoie les vieilles subscriptions
     navigator.serviceWorker.ready.then(async (reg) => {
       regRef.current = reg
-
       const sub = await reg.pushManager.getSubscription()
 
       if (!sub) {
         localStorage.removeItem('push_subscribed')
-        setStatus(Notification.permission === 'granted' ? 'permission_only' : 'unsubscribed')
+        setStatus(prev => prev === 'subscribed'
+          ? (Notification.permission === 'granted' ? 'permission_only' : 'unsubscribed')
+          : prev)
         return
       }
 
-      // Sur iOS, sub.options.applicationServerKey peut être null → on ne peut pas comparer.
-      // Par sécurité : si la clé est absente ou différente, on désinscrit ici (pas de contrainte de geste).
-      // Si la clé correspond, on garde l'abonnement existant.
       const keyOk = vapidKeyMatchesSub(sub)
-      console.log('[push] useEffect — subscription trouvée, clé VAPID ok:', keyOk, '| endpoint:', sub.endpoint.slice(0, 50))
-
       if (!keyOk) {
-        console.log('[push] useEffect — nettoyage ancienne subscription (clé VAPID différente ou absente)')
         await sub.unsubscribe()
         localStorage.removeItem('push_subscribed')
         setStatus(Notification.permission === 'granted' ? 'permission_only' : 'unsubscribed')
@@ -80,7 +78,7 @@ export function PushManager({ variant }: Props = {}) {
       localStorage.setItem('push_subscribed', '1')
       setEndpoint(sub.endpoint)
       setStatus('subscribed')
-    }).catch(() => setStatus('unsupported'))
+    }).catch(() => { /* SW indisponible, on garde l'état courant */ })
   }, [])
 
   async function requestPermission() {
@@ -179,6 +177,17 @@ export function PushManager({ variant }: Props = {}) {
       return <span className="font-sans text-[11px] text-dark/35 shrink-0">Bloquées</span>
     }
 
+    const thumbStyle = (on: boolean): React.CSSProperties => ({
+      position: 'absolute',
+      top: 3, left: 3,
+      width: 25, height: 25,
+      borderRadius: '50%',
+      background: 'white',
+      boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
+      transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+      transform: on ? 'translateX(20px)' : 'translateX(0)',
+    })
+
     if (status === 'permission_only') {
       return (
         <div className="flex flex-col items-end gap-1 shrink-0">
@@ -186,9 +195,9 @@ export function PushManager({ variant }: Props = {}) {
             onClick={subscribe}
             disabled={isPending}
             aria-label="Confirmer l'activation"
-            className={`relative w-11 h-6 rounded-full bg-amber-400 transition-opacity ${isPending ? 'opacity-50' : ''}`}
+            style={{ position: 'relative', width: 51, height: 31, borderRadius: 999, background: '#f59e0b', border: 'none', cursor: 'pointer', opacity: isPending ? 0.5 : 1 }}
           >
-            <span className="absolute top-0.5 translate-x-5 w-5 h-5 rounded-full bg-white shadow-sm" />
+            <span style={thumbStyle(true)} />
           </button>
           <span className="font-sans text-[9px] text-amber-500 font-medium">Confirmer →</span>
         </div>
@@ -202,9 +211,15 @@ export function PushManager({ variant }: Props = {}) {
           onClick={isOn ? unsubscribe : requestPermission}
           disabled={isPending}
           aria-label={isOn ? 'Désactiver les notifications' : 'Activer les notifications'}
-          className={`relative w-11 h-6 rounded-full transition-colors duration-300 ${isOn ? 'bg-teal' : 'bg-dark/15'} ${isPending ? 'opacity-50' : ''}`}
+          style={{
+            position: 'relative', width: 51, height: 31, borderRadius: 999,
+            background: isOn ? '#5A9EA6' : 'rgba(0,0,0,0.15)',
+            border: 'none', cursor: 'pointer',
+            transition: 'background 0.3s',
+            opacity: isPending ? 0.5 : 1,
+          }}
         >
-          <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-300 ${isOn ? 'translate-x-5' : 'translate-x-0.5'}`} />
+          <span style={thumbStyle(isOn)} />
         </button>
         {isOn && (
           <button
