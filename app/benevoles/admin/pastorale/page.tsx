@@ -7,7 +7,11 @@ import { PrayerRequestForm } from './PrayerRequestForm'
 import { IconHome, IconPhone, IconChat, IconDocument } from '@/app/benevoles/_components/Icons'
 import { SheetSync } from './SheetSync'
 
-export default async function PastoralePage() {
+export default async function PastoralePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ filter?: string }>
+}) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/benevoles/login')
@@ -15,9 +19,11 @@ export default async function PastoralePage() {
   if (!['admin', 'super_admin'].includes(me?.permission ?? '')) redirect('/benevoles/dashboard')
 
   const admin = createAdminClient()
+  const { filter: rawFilter } = await searchParams
+  const filter = rawFilter ?? 'tous'
 
   const [
-    { data: prayerRequests },
+    { data: allPrayerRequests },
     { data: recentNotes },
     { data: profiles },
   ] = await Promise.all([
@@ -37,6 +43,18 @@ export default async function PastoralePage() {
       .order('first_name'),
   ])
 
+  const now = new Date()
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+
+  const prayerRequests = (allPrayerRequests ?? []).filter(pr => {
+    if (filter === 'nouveaux') return new Date(pr.created_at) >= weekAgo
+    if (filter === 'presentes') return pr.notes?.includes('Présenté en réunion')
+    return true
+  })
+
+  const presentedCount = (allPrayerRequests ?? []).filter(pr => pr.notes?.includes('Présenté en réunion')).length
+  const newThisWeek    = (allPrayerRequests ?? []).filter(pr => new Date(pr.created_at) >= weekAgo).length
+
   const typeInfo: Record<string, { Icon: React.ComponentType<{ className?: string }>; label: string }> = {
     visit:   { Icon: IconHome,     label: 'Visite' },
     call:    { Icon: IconPhone,    label: 'Appel' },
@@ -44,116 +62,189 @@ export default async function PastoralePage() {
     other:   { Icon: IconDocument, label: 'Autre' },
   }
 
+  const filters = [
+    { key: 'tous',      label: 'Tous' },
+    { key: 'nouveaux',  label: 'Nouveaux' },
+    { key: 'presentes', label: 'Présentés' },
+  ]
+
   return (
     <div className="min-h-screen bg-teal-50">
       <header className="bg-white border-b border-teal/20 px-4 md:px-6 py-4 flex items-center gap-4">
-        <h1 className="font-display text-2xl text-dark font-light">Pastorale</h1>
+        <div className="flex-1 min-w-0">
+          <p className="font-sans text-xs text-dark/40 uppercase tracking-widest font-medium">Accompagnement</p>
+          <h1 className="font-display text-2xl text-dark font-light">Pastorale</h1>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <SheetSync />
+          <PrayerRequestForm profiles={(profiles ?? []) as any} buttonVariant="header" />
+        </div>
       </header>
 
       <main className="max-w-5xl mx-auto px-4 md:px-6 py-6 space-y-6">
 
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid lg:grid-cols-[1fr_300px] gap-6 items-start">
 
-          {/* ── Sujets de prière ── */}
+          {/* ── Sujets de prière (left) ── */}
           <section className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="font-display text-lg text-dark font-light flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              <h2 className="font-display text-xl text-dark font-light">
                 Sujets de prière
-                {prayerRequests && prayerRequests.length > 0 && (
-                  <span className="ml-2 text-sm bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-sans">{prayerRequests.length}</span>
-                )}
               </h2>
+              <span className="font-sans text-sm bg-teal/10 text-teal px-2.5 py-0.5 rounded-full">
+                {allPrayerRequests?.length ?? 0}
+              </span>
             </div>
 
-            {/* Sync Google Forms + ajout manuel */}
+            {/* Filter pills */}
             <div className="flex gap-2 flex-wrap">
-              <SheetSync />
+              {filters.map(f => (
+                <Link
+                  key={f.key}
+                  href={`?filter=${f.key}`}
+                  className={`px-4 py-1.5 rounded-full font-sans text-sm transition-colors ${
+                    filter === f.key
+                      ? 'bg-teal text-white'
+                      : 'bg-white border border-teal/20 text-dark/60 hover:border-teal/40'
+                  }`}
+                >
+                  {f.label}
+                </Link>
+              ))}
             </div>
-            <PrayerRequestForm profiles={(profiles ?? []) as any} />
 
             {/* Liste */}
-            <div className="space-y-2">
-              {prayerRequests?.map(pr => {
+            <div className="space-y-3">
+              {prayerRequests.map(pr => {
                 const profile = pr.profiles as any
-                const name = profile ? `${profile.first_name} ${profile.last_name}` : (pr.person_name ?? 'Anonyme')
+                const name = profile
+                  ? `${profile.first_name} ${profile.last_name}`
+                  : (pr.person_name ?? 'Anonyme')
+                const initials = profile
+                  ? `${(profile.first_name ?? '')[0] ?? ''}${(profile.last_name ?? '')[0] ?? ''}`.toUpperCase()
+                  : '?'
+                const isPresented = pr.notes?.includes('Présenté en réunion')
+                const displayNotes = pr.notes
+                  ? pr.notes.split('\n').filter((l: string) => !l.includes('Présenté en réunion')).join('\n').trim()
+                  : null
+
                 return (
-                  <div key={pr.id} className="bg-white rounded-xl border border-teal/20 px-4 py-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="font-sans text-xs text-teal/60 uppercase tracking-wide mb-0.5">{name}</p>
-                        <p className="font-sans text-sm text-dark font-medium">{pr.subject}</p>
-                        {pr.notes && <p className="font-sans text-xs text-dark/50 mt-1">{pr.notes}</p>}
-                        <p className="font-sans text-[10px] text-dark/30 mt-1">
-                          {new Date(pr.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
-                        </p>
+                  <div key={pr.id} className="bg-white rounded-2xl border border-teal/20 px-5 py-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-full bg-teal/10 flex items-center justify-center font-sans text-xs font-bold text-teal shrink-0">
+                        {initials}
                       </div>
-                      <div className="flex gap-1.5 shrink-0">
-                        <form action={async () => {
-                          'use server'
-                          const { resolvePrayerRequest } = await import('./actions')
-                          await resolvePrayerRequest(pr.id)
-                        }}>
-                          <button type="submit" aria-label="Marquer exaucé" title="Marquer exaucé" className="text-xs text-green-500 hover:text-green-600 font-sans px-2 py-1 rounded hover:bg-green-50 transition-colors">✓</button>
-                        </form>
-                        <form action={async () => {
-                          'use server'
-                          const { deletePrayerRequest } = await import('./actions')
-                          await deletePrayerRequest(pr.id)
-                        }}>
-                          <button type="submit" aria-label="Supprimer" className="text-xs text-dark/25 hover:text-red-400 font-sans px-2 py-1 rounded hover:bg-red-50 transition-colors">×</button>
-                        </form>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-sans text-xs text-dark/50 uppercase tracking-wide font-medium">{name}</p>
+                          {isPresented && (
+                            <span className="font-sans text-[10px] bg-teal/10 text-teal px-2 py-0.5 rounded-full shrink-0">Présenté</span>
+                          )}
+                        </div>
+                        <p className="font-sans text-sm text-dark mt-0.5 leading-snug">{pr.subject}</p>
+                        {displayNotes && (
+                          <p className="font-sans text-xs text-dark/50 mt-1 leading-snug">{displayNotes}</p>
+                        )}
+                        <div className="flex items-center justify-between mt-2">
+                          <p className="font-sans text-xs text-dark/30">
+                            {new Date(pr.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
+                          </p>
+                          <div className="flex gap-1.5">
+                            <form action={async () => {
+                              'use server'
+                              const { resolvePrayerRequest } = await import('./actions')
+                              await resolvePrayerRequest(pr.id)
+                            }}>
+                              <button type="submit" className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-green-50 text-green-600 font-sans text-xs hover:bg-green-100 transition-colors">
+                                ✓ Prié
+                              </button>
+                            </form>
+                            <form action={async () => {
+                              'use server'
+                              const { deletePrayerRequest } = await import('./actions')
+                              await deletePrayerRequest(pr.id)
+                            }}>
+                              <button type="submit" className="flex items-center justify-center w-7 h-7 rounded-full hover:bg-red-50 text-dark/30 hover:text-red-400 transition-colors">
+                                ×
+                              </button>
+                            </form>
+                          </div>
+                        </div>
                       </div>
                     </div>
                     {pr.profile_id && (
-                      <Link href={`/benevoles/admin/pastorale/${pr.profile_id}`} className="font-sans text-[10px] text-teal/50 hover:text-teal mt-1 inline-block">
+                      <Link href={`/benevoles/admin/pastorale/${pr.profile_id}`} className="font-sans text-[10px] text-teal/50 hover:text-teal mt-2 ml-12 inline-block">
                         Voir la fiche →
                       </Link>
                     )}
                   </div>
                 )
               })}
-              {prayerRequests?.length === 0 && (
-                <p className="font-sans text-xs text-dark/30 italic px-1">Aucun sujet de prière actif.</p>
+              {prayerRequests.length === 0 && (
+                <p className="font-sans text-xs text-dark/30 italic px-1">Aucun sujet de prière.</p>
               )}
             </div>
           </section>
 
-          {/* ── Activité pastorale récente ── */}
-          <section className="space-y-4">
-            <h2 className="font-display text-lg text-dark font-light">Activité récente</h2>
-            <div className="space-y-2">
-              {recentNotes?.map(n => {
-                const profile = n.profiles as any
-                const name = profile ? `${profile.first_name} ${profile.last_name}` : '—'
-                return (
-                  <Link
-                    key={n.id}
-                    href={`/benevoles/admin/pastorale/${n.profile_id}`}
-                    className="block bg-white rounded-xl border border-teal/20 px-4 py-3 hover:border-teal/40 transition-colors"
-                  >
-                    <div className="flex items-start gap-3">
-                      <span className="text-teal/50 shrink-0 mt-0.5">
-                        {(() => { const t = typeInfo[n.type]; return t ? <t.Icon className="w-4 h-4" /> : null })()}
-                      </span>
+          {/* ── Sidebar (right) ── */}
+          <aside className="space-y-4 lg:sticky lg:top-6">
+
+            {/* Aperçu */}
+            <div className="bg-white rounded-2xl border border-teal/20 p-5 space-y-3">
+              <p className="font-sans text-xs text-dark/40 uppercase tracking-widest font-medium">Aperçu</p>
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <p className="font-sans text-sm text-dark/70">Sujets actifs</p>
+                  <p className="font-sans text-sm font-medium text-dark">{allPrayerRequests?.length ?? 0}</p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="font-sans text-sm text-dark/70">Présentés en réunion</p>
+                  <p className="font-sans text-sm font-medium text-teal">{presentedCount}</p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="font-sans text-sm text-dark/70">Nouveaux cette semaine</p>
+                  <p className="font-sans text-sm font-medium text-amber-600">{newThisWeek}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Activité récente */}
+            <div className="bg-white rounded-2xl border border-teal/20 p-5">
+              <p className="font-sans text-xs text-dark/40 uppercase tracking-widest font-medium mb-3">Activité récente</p>
+              <div className="space-y-3">
+                {recentNotes?.map(n => {
+                  const profile = n.profiles as any
+                  const name = profile ? `${profile.first_name} ${profile.last_name}` : '—'
+                  const t = typeInfo[n.type]
+                  return (
+                    <Link
+                      key={n.id}
+                      href={`/benevoles/admin/pastorale/${n.profile_id}`}
+                      className="flex items-start gap-2.5 group"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-teal mt-1.5 shrink-0" />
                       <div className="min-w-0">
-                        <p className="font-sans text-xs text-teal/60 uppercase tracking-wide mb-0.5">{name}</p>
-                        <p className="font-sans text-sm text-dark leading-snug line-clamp-2">{n.notes}</p>
-                        <p className="font-sans text-[10px] text-dark/50 mt-1">
-                          {typeInfo[n.type]?.label ?? n.type} · {new Date(n.note_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
+                        <p className="font-sans text-xs text-dark leading-snug">
+                          <span className="font-medium">{name}</span>
+                          {' · '}{t?.label ?? n.type}
+                        </p>
+                        <p className="font-sans text-[10px] text-dark/40 mt-0.5">
+                          {new Date(n.note_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
                         </p>
                       </div>
-                    </div>
-                  </Link>
-                )
-              })}
-              {recentNotes?.length === 0 && (
-                <p className="font-sans text-xs text-dark/30 italic px-1">Aucune activité récente.</p>
-              )}
+                    </Link>
+                  )
+                })}
+                {(!recentNotes || recentNotes.length === 0) && (
+                  <p className="font-sans text-xs text-dark/30 italic">Aucune activité récente.</p>
+                )}
+              </div>
             </div>
-          </section>
+
+          </aside>
         </div>
 
-        {/* ── Liste des membres ── */}
+        {/* ── Fiches membres ── */}
         <section className="bg-white rounded-2xl border border-teal/20 overflow-hidden">
           <div className="px-5 py-3 border-b border-teal/10 bg-teal-50/50">
             <p className="font-sans text-xs text-dark/50 uppercase tracking-widest font-medium">Fiches membres</p>

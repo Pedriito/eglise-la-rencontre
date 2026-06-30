@@ -102,23 +102,21 @@ export default async function GestionPage() {
     <div className="min-h-screen bg-sand">
 
       {/* Header */}
-      <div className="max-w-4xl mx-auto px-6 md:px-10 pt-8 pb-6 flex items-start justify-between gap-4">
-        <div className="flex items-start gap-4">
-          <Link
-            href="/benevoles/dashboard"
-            className="text-dark/35 hover:text-dark transition-colors font-sans text-sm mt-1.5 shrink-0"
-          >
-            ←
-          </Link>
-          <div>
-            <h1 className="font-display text-4xl text-dark font-light leading-tight">Gestion</h1>
-            <p className="font-sans text-sm text-teal mt-0.5">Tâches &amp; décisions par équipe</p>
-          </div>
+      <header className="bg-white border-b border-teal/20 px-4 md:px-6 py-4 flex items-center gap-4">
+        <Link
+          href="/benevoles/dashboard"
+          className="text-dark/40 hover:text-dark transition-colors font-sans text-sm shrink-0"
+        >
+          ←
+        </Link>
+        <div className="flex-1 min-w-0">
+          <p className="font-sans text-xs text-dark/40 uppercase tracking-widest font-medium">Planifier</p>
+          <h1 className="font-display text-2xl text-dark font-light">Tâches &amp; décisions</h1>
         </div>
-        <span className="mt-1.5 shrink-0 font-sans text-[11px] uppercase tracking-widest text-dark/40 border border-dark/15 rounded-full px-3 py-1.5">
+        <span className="shrink-0 font-sans text-xs text-dark/40 border border-dark/15 rounded-full px-3 py-1.5">
           {teams.length} équipe{teams.length > 1 ? 's' : ''}
         </span>
-      </div>
+      </header>
 
       <main className="max-w-4xl mx-auto px-6 md:px-10 pb-12 space-y-8">
 

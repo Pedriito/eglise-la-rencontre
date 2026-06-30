@@ -45,11 +45,14 @@ export default async function AdminPage({
 
   return (
     <div className="min-h-screen bg-teal-50">
-      <header className="bg-white border-b border-teal/20 px-4 md:px-6 py-4 flex items-center justify-between gap-3">
-        <h1 className="font-display text-xl md:text-2xl text-dark font-light">Bénévoles</h1>
+      <header className="bg-white border-b border-teal/20 px-4 md:px-6 py-4 flex items-center gap-4">
+        <div className="flex-1 min-w-0">
+          <p className="font-sans text-xs text-dark/40 uppercase tracking-widest font-medium">Communauté</p>
+          <h1 className="font-display text-2xl text-dark font-light">Bénévoles</h1>
+        </div>
         <Link
           href="/benevoles/admin/inviter"
-          className="shrink-0 px-3 md:px-4 py-2 bg-teal text-white rounded-lg font-sans text-sm font-medium hover:bg-teal-dark transition-colors"
+          className="shrink-0 px-3 md:px-4 py-2 bg-coral text-white rounded-lg font-sans text-sm font-medium hover:bg-coral/90 transition-colors"
         >
           + Inviter
         </Link>
@@ -62,16 +65,20 @@ export default async function AdminPage({
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
-          {[
-            { label: 'Total', value: total },
-            { label: 'Actifs', value: actifs },
-            { label: 'En attente', value: invites },
-          ].map(stat => (
-            <div key={stat.label} className="bg-white rounded-xl border border-teal/20 p-5 text-center">
-              <p className="font-display text-4xl text-dark font-light">{stat.value}</p>
-              <p className="text-xs text-dark/50 font-sans mt-1 uppercase tracking-widest">{stat.label}</p>
-            </div>
-          ))}
+          <div className="bg-white rounded-xl border border-teal/20 p-5 text-center">
+            <p className="font-display text-4xl text-dark font-light">{total}</p>
+            <p className="text-xs text-dark/50 font-sans mt-1 uppercase tracking-widest">Total</p>
+          </div>
+          <div className="bg-white rounded-xl border border-teal/20 p-5 text-center">
+            <p className="font-display text-4xl text-teal font-light flex items-center justify-center gap-1.5">
+              {actifs}<span className="text-green-500 text-2xl leading-none">●</span>
+            </p>
+            <p className="text-xs text-dark/50 font-sans mt-1 uppercase tracking-widest">Actifs</p>
+          </div>
+          <div className="bg-amber-50/60 rounded-xl border border-amber-100 p-5 text-center">
+            <p className="font-display text-4xl text-amber-600 font-light">{invites}</p>
+            <p className="text-xs text-amber-600/70 font-sans mt-1 uppercase tracking-widest">En attente</p>
+          </div>
         </div>
 
         {/* Liens d'inscription */}

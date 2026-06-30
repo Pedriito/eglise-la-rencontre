@@ -262,21 +262,17 @@ export default async function DashboardPage() {
       ══════════════════════════════════════════════════ */}
       <div className="hidden lg:block min-h-screen bg-sand">
 
-        <header className="bg-white border-b border-dark/8 px-6 md:px-10 py-5">
-          <div className="max-w-5xl mx-auto flex items-start justify-between gap-4">
-            <div>
-              <h1 className="font-display text-3xl text-dark font-light">Tableau de bord</h1>
-              <p className="font-sans text-sm text-teal mt-1">
-                {todayLabel.charAt(0).toUpperCase() + todayLabel.slice(1)} · Bonjour {profile?.first_name}
-              </p>
-            </div>
-            <div className="shrink-0 pt-1">
-              <PushManager />
-            </div>
+        <header className="bg-white border-b border-teal/20 px-4 md:px-6 py-4 flex items-center gap-4">
+          <div className="flex-1 min-w-0">
+            <p className="font-sans text-xs text-dark/40 uppercase tracking-widest font-medium">Mon espace</p>
+            <h1 className="font-display text-2xl text-dark font-light">Tableau de bord</h1>
+          </div>
+          <div className="shrink-0">
+            <PushManager />
           </div>
         </header>
 
-        <main className="max-w-5xl mx-auto px-6 md:px-10 py-8">
+        <main className="max-w-6xl mx-0 px-6 md:px-10 py-8">
           <div className="flex gap-6 items-start">
 
             {/* ── Colonne gauche ── */}

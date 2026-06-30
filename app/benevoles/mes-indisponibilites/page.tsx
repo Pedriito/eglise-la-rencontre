@@ -154,9 +154,10 @@ export default async function IndisponibilitesPage({
 
       {/* ══ DESKTOP ══ */}
       <div className="hidden lg:block min-h-screen bg-sand">
-        <header className="bg-white border-b border-teal/20 px-6 md:px-10 py-5">
-          <div className="max-w-2xl mx-auto">
-            <h1 className="font-display text-3xl text-dark font-light">Mes indisponibilités</h1>
+        <header className="bg-white border-b border-teal/20 px-4 md:px-6 py-4 flex items-center gap-4">
+          <div className="flex-1 min-w-0">
+            <p className="font-sans text-xs text-dark/40 uppercase tracking-widest font-medium">Planifier</p>
+            <h1 className="font-display text-2xl text-dark font-light">Mes indisponibilités</h1>
           </div>
         </header>
 

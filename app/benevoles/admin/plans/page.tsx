@@ -259,12 +259,13 @@ export default async function PlansPage({
 
   return (
     <div className="min-h-screen bg-sand">
-      <header className="bg-white border-b border-teal/20 px-4 md:px-6 py-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <Link href="/benevoles/dashboard" className="text-dark/40 hover:text-dark transition-colors font-sans text-lg shrink-0">‹</Link>
-          <h1 className="font-display text-xl md:text-2xl text-dark font-light truncate">Planification</h1>
+      <header className="bg-white border-b border-teal/20 px-4 md:px-6 py-4 flex items-center gap-4">
+        <Link href="/benevoles/dashboard" className="text-dark/40 hover:text-dark transition-colors font-sans text-sm shrink-0">←</Link>
+        <div className="flex-1 min-w-0">
+          <p className="font-sans text-xs text-dark/40 uppercase tracking-widest font-medium">Planifier</p>
+          <h1 className="font-display text-2xl text-dark font-light">Planification</h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Toggle Liste / Calendrier */}
           <div className="flex rounded-full bg-dark/5 p-1 gap-1">
             <Link
