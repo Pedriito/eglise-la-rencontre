@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import { respondAssignmentOnHistorique } from '../admin/plans/actions'
 
 export default async function HistoriquePage() {
   const supabase = await createClient()
@@ -51,22 +53,59 @@ export default async function HistoriquePage() {
     const time = d ? d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''
     const details = [time, pos?.name, team?.name].filter(Boolean).join(' · ')
     const badge = statusBadge(a.status)
+    const isPending = a.status === 'pending'
 
     return (
-      <div className={`bg-white rounded-2xl px-4 py-4 flex items-center gap-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] ${dimmed ? 'opacity-50' : ''}`}>
-        <div className="w-10 shrink-0 text-center leading-none">
+      <div className={`bg-white rounded-2xl px-4 py-4 flex items-center gap-3 shadow-[0_1px_4px_rgba(0,0,0,0.06)] ${dimmed ? 'opacity-50' : ''}`}>
+        {/* Date — lien vers le service */}
+        <Link href={plan ? `/benevoles/admin/plans/${plan.id}` : '#'} className="w-10 shrink-0 text-center leading-none">
           <div className="font-sans text-[9px] text-teal uppercase tracking-wide font-semibold">{wd}</div>
           <div className="font-display text-[26px] text-teal font-semibold leading-tight">{day}</div>
           <div className="font-sans text-[9px] text-teal uppercase tracking-wide font-semibold">{mon}</div>
-        </div>
-        <div className="flex-1 min-w-0">
+        </Link>
+
+        {/* Infos — lien vers le service */}
+        <Link href={plan ? `/benevoles/admin/plans/${plan.id}` : '#'} className="flex-1 min-w-0">
           <p className="font-sans text-sm font-semibold text-dark truncate">{plan?.title ?? '—'}</p>
           {details && <p className="font-sans text-xs text-dark/40 mt-0.5">{details}</p>}
-        </div>
-        <span className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-sans text-xs font-medium ${badge.pill}`}>
-          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${badge.dot}`} />
-          {badge.label}
-        </span>
+        </Link>
+
+        {/* Droite : boutons si en attente, badge sinon */}
+        {isPending ? (
+          <div className="flex items-center gap-2 shrink-0">
+            <form action={respondAssignmentOnHistorique}>
+              <input type="hidden" name="assignment_id" value={a.id} />
+              <input type="hidden" name="status" value="declined" />
+              <button
+                type="submit"
+                aria-label="Décliner"
+                className="w-10 h-10 rounded-full border border-red-200 bg-white flex items-center justify-center text-red-400 hover:bg-red-50 active:scale-90 transition-all"
+              >
+                <svg viewBox="0 0 14 14" fill="none" className="w-3.5 h-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M2 2l10 10M12 2L2 12" />
+                </svg>
+              </button>
+            </form>
+            <form action={respondAssignmentOnHistorique}>
+              <input type="hidden" name="assignment_id" value={a.id} />
+              <input type="hidden" name="status" value="confirmed" />
+              <button
+                type="submit"
+                aria-label="Confirmer"
+                className="w-10 h-10 rounded-full bg-green-50 border border-green-200 flex items-center justify-center text-green-600 hover:bg-green-100 active:scale-90 transition-all"
+              >
+                <svg viewBox="0 0 14 14" fill="none" className="w-3.5 h-3.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1.5 7.5l3.5 3.5 7-7" />
+                </svg>
+              </button>
+            </form>
+          </div>
+        ) : (
+          <span className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-sans text-xs font-medium ${badge.pill}`}>
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${badge.dot}`} />
+            {badge.label}
+          </span>
+        )}
       </div>
     )
   }

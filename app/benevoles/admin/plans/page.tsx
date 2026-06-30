@@ -10,6 +10,7 @@ import { getPlanDetail } from './getPlanDetail'
 import { TriagePanel } from './TriagePanel'
 import { AssignmentBoard } from './AssignmentBoard'
 import { VolunteerPicker } from './VolunteerPicker'
+import { respondAssignmentOnPlans } from './actions'
 
 export type PlanItem = {
   id: string
@@ -64,11 +65,22 @@ export default async function PlansPage({
   // Compte affectations (liste + agenda du calendrier)
   const countByPlan: Record<string, number> = {}
   const allIds = allPlans.map(p => p.id)
-  const { data: counts } = await supabase
-    .from('plan_assignments')
-    .select('plan_id')
-    .in('plan_id', allIds.length ? allIds : [''])
+  const [{ data: counts }, { data: myAssignments }] = await Promise.all([
+    supabase
+      .from('plan_assignments')
+      .select('plan_id')
+      .in('plan_id', allIds.length ? allIds : ['']),
+    supabase
+      .from('plan_assignments')
+      .select('id, plan_id, status')
+      .eq('user_id', user.id)
+      .in('plan_id', allIds.length ? allIds : ['']),
+  ])
   counts?.forEach(c => { countByPlan[c.plan_id] = (countByPlan[c.plan_id] ?? 0) + 1 })
+  type MyAssignment = { id: string; plan_id: string; status: string }
+  const myAssignmentByPlan: Record<string, MyAssignment> = Object.fromEntries(
+    (myAssignments ?? []).map(a => [a.plan_id, a as MyAssignment])
+  )
 
   // Token iCal (généré une fois, stocké dans projection_settings)
   const admin = createAdminClient()
@@ -149,20 +161,21 @@ export default async function PlansPage({
     )
   }
 
-  function PlanCard({ plan }: { plan: PlanItem }) {
+  function PlanCard({ plan, myAssignment }: { plan: PlanItem; myAssignment: { id: string; status: string } | null }) {
     const team = plan.teams as unknown as { name: string } | null
     const date = new Date(plan.service_date).toLocaleDateString('fr-FR', {
       weekday: 'short', day: 'numeric', month: 'short',
     })
     const time = new Date(plan.service_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-    const n    = countByPlan[plan.id] ?? 0
-    const past = plan.service_date < now
+    const n         = countByPlan[plan.id] ?? 0
+    const past      = plan.service_date < now
+    const isPending = myAssignment?.status === 'pending'
     return (
-      <Link
-        href={`/benevoles/admin/plans/${plan.id}`}
-        className={`flex items-center justify-between gap-3 px-4 py-3.5 border-b border-teal/10 last:border-0 hover:bg-teal-50/40 transition-colors ${past ? 'opacity-50' : ''}`}
-      >
-        <div className="min-w-0">
+      <div className={`flex items-center gap-2 px-4 py-3.5 border-b border-teal/10 last:border-0 ${past ? 'opacity-50' : ''}`}>
+        <Link
+          href={`/benevoles/admin/plans/${plan.id}`}
+          className="flex-1 min-w-0 hover:opacity-70 transition-opacity"
+        >
           <div className="flex items-center gap-1.5 mb-0.5">
             {plan.plan_type === 'rehearsal' && <IconMusicalNote className="w-3 h-3 text-teal/50 shrink-0" />}
             <p className="font-sans text-sm text-dark font-medium truncate">{plan.title}</p>
@@ -179,12 +192,62 @@ export default async function PlansPage({
             ) : time}
           </p>
           {team && <p className="font-sans text-xs text-dark/40 mt-0.5">{team.name}</p>}
+        </Link>
+
+        <div className="flex items-center gap-2 shrink-0">
+          {isPending ? (
+            <>
+              <form action={respondAssignmentOnPlans}>
+                <input type="hidden" name="assignment_id" value={myAssignment!.id} />
+                <input type="hidden" name="status" value="declined" />
+                <input type="hidden" name="view" value={view} />
+                <button
+                  type="submit"
+                  aria-label="Décliner"
+                  className="w-9 h-9 rounded-full border border-red-200 bg-white flex items-center justify-center text-red-400 hover:bg-red-50 active:scale-95 transition-all"
+                >
+                  <svg viewBox="0 0 14 14" fill="none" className="w-3.5 h-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="M2 2l10 10M12 2L2 12" />
+                  </svg>
+                </button>
+              </form>
+              <form action={respondAssignmentOnPlans}>
+                <input type="hidden" name="assignment_id" value={myAssignment!.id} />
+                <input type="hidden" name="status" value="confirmed" />
+                <input type="hidden" name="view" value={view} />
+                <button
+                  type="submit"
+                  aria-label="Confirmer"
+                  className="w-9 h-9 rounded-full bg-green-50 border border-green-200 flex items-center justify-center text-green-600 hover:bg-green-100 active:scale-95 transition-all"
+                >
+                  <svg viewBox="0 0 14 14" fill="none" className="w-3.5 h-3.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1.5 7.5l3.5 3.5 7-7" />
+                  </svg>
+                </button>
+              </form>
+            </>
+          ) : (
+            <>
+              {myAssignment?.status === 'confirmed' && (
+                <span className="w-5 h-5 rounded-full bg-green-50 border border-green-200 flex items-center justify-center shrink-0">
+                  <svg viewBox="0 0 14 14" fill="none" className="w-3 h-3 text-green-600" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1.5 7.5l3.5 3.5 7-7" />
+                  </svg>
+                </span>
+              )}
+              {myAssignment?.status === 'declined' && (
+                <span className="w-5 h-5 rounded-full bg-red-50 border border-red-100 flex items-center justify-center shrink-0">
+                  <svg viewBox="0 0 14 14" fill="none" className="w-3 h-3 text-red-400" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="M2 2l10 10M12 2L2 12" />
+                  </svg>
+                </span>
+              )}
+              {n > 0 && <span className="font-sans text-xs text-dark/40 tabular-nums">{n} pers.</span>}
+              <span className="text-teal font-sans text-sm">→</span>
+            </>
+          )}
         </div>
-        <div className="flex items-center gap-3 shrink-0">
-          {n > 0 && <span className="font-sans text-xs text-dark/40 tabular-nums">{n} pers.</span>}
-          <span className="text-teal font-sans text-sm">→</span>
-        </div>
-      </Link>
+      </div>
     )
   }
 
@@ -199,7 +262,7 @@ export default async function PlansPage({
               <>
                 {/* Mobile : cartes */}
                 <div className="md:hidden divide-y divide-teal/10">
-                  {upcomingPlans.map(p => <PlanCard key={p.id} plan={p} />)}
+                  {upcomingPlans.map(p => <PlanCard key={p.id} plan={p} myAssignment={myAssignmentByPlan[p.id] ?? null} />)}
                 </div>
                 {/* Desktop : tableau */}
                 <div className="hidden md:block overflow-x-auto">
@@ -235,7 +298,7 @@ export default async function PlansPage({
             <h2 className="font-display text-xl text-dark font-light mb-3 text-dark/50">Passés</h2>
             <div className="bg-white rounded-2xl border border-teal/20 overflow-hidden opacity-60">
               <div className="md:hidden divide-y divide-teal/10">
-                {pastPlans.map(p => <PlanCard key={p.id} plan={p} />)}
+                {pastPlans.map(p => <PlanCard key={p.id} plan={p} myAssignment={myAssignmentByPlan[p.id] ?? null} />)}
               </div>
               <div className="hidden md:block overflow-x-auto">
                 <table className="w-full min-w-[480px]">

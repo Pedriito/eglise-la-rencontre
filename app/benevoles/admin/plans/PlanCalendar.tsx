@@ -77,13 +77,18 @@ function DescriptionModal({ plan, onClose }: { plan: PlanItem; onClose: () => vo
 
   return (
     <div
-      className="fixed inset-0 bg-dark/25 backdrop-blur-[2px] z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-dark/30 backdrop-blur-[2px] z-50 flex items-end sm:items-center justify-center sm:p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 space-y-4"
+        className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm p-6 pb-8 sm:pb-6 space-y-4"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Poignée mobile */}
+        <div className="flex justify-center -mt-2 mb-1 sm:hidden">
+          <span className="w-10 h-1 rounded-full bg-dark/15" />
+        </div>
+
         <div className="flex items-center justify-between">
           <span className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full" style={{ backgroundColor: c.main }} />
@@ -100,7 +105,7 @@ function DescriptionModal({ plan, onClose }: { plan: PlanItem; onClose: () => vo
         <Link
           href={`/benevoles/admin/plans/${plan.id}`}
           onClick={onClose}
-          className="flex items-center justify-center w-full py-2.5 rounded-xl font-sans text-sm font-semibold text-white hover:opacity-85 transition-opacity"
+          className="flex items-center justify-center w-full py-3 rounded-xl font-sans text-sm font-semibold text-white hover:opacity-85 transition-opacity"
           style={{ backgroundColor: c.main }}
         >
           Voir le service →
@@ -249,8 +254,8 @@ export function PlanCalendar({ plans, icalUrl, canManage, countByPlan = {} }: Pr
   function onEventClick(arg: EventClickArg) {
     arg.jsEvent.preventDefault()
     const id = arg.event.id
-    setSelectedPlanId(prev => (prev === id ? null : id))
-    setShowModal(false)
+    setSelectedPlanId(id)
+    setShowModal(true)
   }
 
   // ── Données sidebar ───────────────────────────────────────────────────────
