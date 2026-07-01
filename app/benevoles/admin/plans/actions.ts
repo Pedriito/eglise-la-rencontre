@@ -9,6 +9,11 @@ import { sendPushToUser } from '@/lib/pushNotifications'
 
 const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
 
+/** Ajoute un paramètre à une URL qui peut déjà en contenir un. */
+function withParam(url: string, key: string, value: string) {
+  return `${url}${url.includes('?') ? '&' : '?'}${key}=${value}`
+}
+
 async function requireAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -36,11 +41,69 @@ export async function createPlan(formData: FormData) {
   redirect(`/benevoles/admin/plans/${data.id}`)
 }
 
+export async function createPlans(formData: FormData) {
+  const { admin, church_id } = await requireAdmin()
+  const title      = formData.get('title') as string
+  const dates      = formData.getAll('service_dates') as string[]
+  const teamId     = formData.get('team_id') as string || null
+  const notes      = formData.get('notes') as string || null
+  const planType   = (formData.get('plan_type') as string) || 'sunday_service'
+
+  if (!dates.length) redirect('/benevoles/admin/plans/nouveau?error=no_dates')
+
+  const { error } = await admin
+    .from('plans')
+    .insert(dates.map(d => ({
+      title, service_date: d, team_id: teamId, notes, plan_type: planType, church_id,
+    })))
+
+  if (error) redirect(`/benevoles/admin/plans/nouveau?error=${encodeURIComponent(error.message)}`)
+  redirect('/benevoles/admin/plans')
+}
+
 export async function deletePlan(formData: FormData) {
   const { admin } = await requireAdmin()
   const planId = formData.get('plan_id') as string
   await admin.from('plans').delete().eq('id', planId)
   redirect('/benevoles/admin/plans')
+}
+
+/** Déplace un service à une nouvelle date (glisser-déposer dans le calendrier). Appelé
+ *  directement depuis le client (pas via <form>) — renvoie un résultat plutôt que de rediriger. */
+export async function movePlan(
+  planId: string,
+  newServiceDate: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const { admin } = await requireAdmin()
+  const { error } = await admin.from('plans').update({ service_date: newServiceDate }).eq('id', planId)
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/benevoles/admin/plans')
+  return { ok: true }
+}
+
+/** Copie un service à une nouvelle date en dupliquant le plan (Ctrl+glisser). */
+export async function copyPlan(
+  planId: string,
+  newServiceDate: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const { admin } = await requireAdmin()
+  const { data: original, error: fetchError } = await admin
+    .from('plans')
+    .select('title, plan_type, team_id, notes, church_id')
+    .eq('id', planId)
+    .single()
+  if (fetchError || !original) return { ok: false, error: fetchError?.message ?? 'Plan introuvable.' }
+  const { error } = await admin.from('plans').insert({
+    title: original.title,
+    service_date: newServiceDate,
+    plan_type: original.plan_type,
+    team_id: original.team_id,
+    notes: original.notes,
+    church_id: original.church_id,
+  })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/benevoles/admin/plans')
+  return { ok: true }
 }
 
 export async function addAssignment(formData: FormData) {
@@ -49,8 +112,9 @@ export async function addAssignment(formData: FormData) {
   const userId = formData.get('user_id') as string
   const positionId = formData.get('position_id') as string || null
   const teamId = formData.get('team_id') as string || null
+  const returnTo = (formData.get('return_to') as string) || `/benevoles/admin/plans/${planId}`
 
-  if (!userId || userId === '') redirect(`/benevoles/admin/plans/${planId}`)
+  if (!userId || userId === '') redirect(returnTo)
 
   if (userId === INVITE_EXT_ID) {
     const externalName = (formData.get('external_name') as string)?.trim() || null
@@ -72,23 +136,48 @@ export async function addAssignment(formData: FormData) {
       team_id: teamId,
       status: 'pending',
     })
+
+    // Notification push si l'utilisateur a activé les notifs
+    const [{ data: plan }, { data: position }] = await Promise.all([
+      admin.from('plans').select('title, service_date').eq('id', planId).single(),
+      positionId
+        ? admin.from('positions').select('name').eq('id', positionId).single()
+        : Promise.resolve({ data: null }),
+    ])
+
+    if (plan) {
+      const date = new Date(plan.service_date).toLocaleDateString('fr-FR', {
+        weekday: 'long', day: 'numeric', month: 'long',
+      })
+      const role = (position as { name: string } | null)?.name ?? null
+      await sendPushToUser(userId, {
+        title: '📋 Tu as été planifié·e',
+        body: role
+          ? `${role} · ${date} — confirme ta présence !`
+          : `${plan.title} · ${date} — confirme ta présence !`,
+        url: '/benevoles/historique',
+        tag: `assignment-${planId}`,
+      })
+    }
   }
 
-  redirect(`/benevoles/admin/plans/${planId}`)
+  redirect(returnTo)
 }
 
 export async function removeAssignment(formData: FormData) {
   const { admin } = await requireAdmin()
-  const planId = formData.get('plan_id') as string
   const assignmentId = formData.get('assignment_id') as string
+  const planId = formData.get('plan_id') as string
+  const returnTo = (formData.get('return_to') as string) || `/benevoles/admin/plans/${planId}`
   await admin.from('plan_assignments').delete().eq('id', assignmentId)
-  redirect(`/benevoles/admin/plans/${planId}`)
+  redirect(returnTo)
 }
 
 export async function sendSingleInvitation(formData: FormData) {
   const { admin } = await requireAdmin()
   const assignmentId = formData.get('assignment_id') as string
   const planId = formData.get('plan_id') as string
+  const returnTo = (formData.get('return_to') as string) || `/benevoles/admin/plans/${planId}`
 
   const { data: a, error } = await admin
     .from('plan_assignments')
@@ -96,7 +185,7 @@ export async function sendSingleInvitation(formData: FormData) {
     .eq('id', assignmentId)
     .single()
 
-  if (error || !a) redirect(`/benevoles/admin/plans/${planId}?error=Assignment+introuvable`)
+  if (error || !a) redirect(withParam(returnTo, 'error', 'Assignment+introuvable'))
 
   const plan = a.plans as any
   const position = a.positions as any
@@ -104,7 +193,7 @@ export async function sendSingleInvitation(formData: FormData) {
 
   // Invité externe
   if (a.user_id === INVITE_EXT_ID) {
-    if (!a.external_email) redirect(`/benevoles/admin/plans/${planId}?error=Email+invité+manquant`)
+    if (!a.external_email) redirect(withParam(returnTo, 'error', 'Email+invité+manquant'))
     try {
       console.log('[sendSingleInvitation] external guest email to', a.external_email, 'plan:', plan.title)
       await sendExternalGuestInvitationEmail({
@@ -120,9 +209,9 @@ export async function sendSingleInvitation(formData: FormData) {
       await admin.from('plan_assignments').update({ invitation_sent_at: new Date().toISOString() }).eq('id', assignmentId)
     } catch (err: any) {
       console.error('[sendSingleInvitation] Resend error (external):', err?.message, { email: a.external_email, assignmentId })
-      redirect(`/benevoles/admin/plans/${planId}?error=${encodeURIComponent(err?.message ?? 'Erreur envoi email')}`)
+      redirect(withParam(returnTo, 'error', encodeURIComponent(err?.message ?? 'Erreur envoi email')))
     }
-    redirect(`/benevoles/admin/plans/${planId}?sent=1`)
+    redirect(withParam(returnTo, 'sent', '1'))
   }
 
   // Bénévole interne
@@ -137,7 +226,7 @@ export async function sendSingleInvitation(formData: FormData) {
 
   if (!email || !plan || !profile) {
     console.error('[sendSingleInvitation] données manquantes', { email, plan: !!plan, profile: !!profile })
-    redirect(`/benevoles/admin/plans/${planId}?error=Données+manquantes`)
+    redirect(withParam(returnTo, 'error', 'Données+manquantes'))
   }
 
   try {
@@ -164,10 +253,10 @@ export async function sendSingleInvitation(formData: FormData) {
     }).catch(() => {})
   } catch (err: any) {
     console.error('[sendSingleInvitation] Resend error:', err?.message, { email, assignmentId })
-    redirect(`/benevoles/admin/plans/${planId}?error=${encodeURIComponent(err?.message ?? 'Erreur envoi email')}`)
+    redirect(withParam(returnTo, 'error', encodeURIComponent(err?.message ?? 'Erreur envoi email')))
   }
 
-  redirect(`/benevoles/admin/plans/${planId}?sent=1`)
+  redirect(withParam(returnTo, 'sent', '1'))
 }
 
 export async function respondAssignment(formData: FormData) {
@@ -185,6 +274,62 @@ export async function respondAssignment(formData: FormData) {
     .eq('user_id', user.id)
 
   redirect('/benevoles/dashboard')
+}
+
+export async function respondAssignmentOnPlanDetail(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/benevoles/login')
+
+  const assignmentId = formData.get('assignment_id') as string
+  const status = formData.get('status') as string
+  const planId = formData.get('plan_id') as string
+
+  await supabase
+    .from('plan_assignments')
+    .update({ status })
+    .eq('id', assignmentId)
+    .eq('user_id', user.id)
+
+  revalidatePath(`/benevoles/admin/plans/${planId}`)
+  redirect(`/benevoles/admin/plans/${planId}`)
+}
+
+export async function respondAssignmentOnHistorique(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/benevoles/login')
+
+  const assignmentId = formData.get('assignment_id') as string
+  const status = formData.get('status') as string
+
+  await supabase
+    .from('plan_assignments')
+    .update({ status })
+    .eq('id', assignmentId)
+    .eq('user_id', user.id)
+
+  revalidatePath('/benevoles/historique')
+  redirect('/benevoles/historique')
+}
+
+export async function respondAssignmentOnPlans(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/benevoles/login')
+
+  const assignmentId = formData.get('assignment_id') as string
+  const status = formData.get('status') as string
+  const view = (formData.get('view') as string) || 'list'
+
+  await supabase
+    .from('plan_assignments')
+    .update({ status })
+    .eq('id', assignmentId)
+    .eq('user_id', user.id)
+
+  revalidatePath('/benevoles/admin/plans')
+  redirect(`/benevoles/admin/plans?view=${view}`)
 }
 
 export async function cancelAssignment(formData: FormData) {

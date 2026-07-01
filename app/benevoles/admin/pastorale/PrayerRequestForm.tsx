@@ -5,10 +5,10 @@ import { addPrayerRequest } from './actions'
 
 type Profile = { id: string; first_name: string; last_name: string }
 
-export function PrayerRequestForm({ profiles }: { profiles: Profile[] }) {
-  const [open, setOpen]       = useState(false)
-  const [error, setError]     = useState<string | null>(null)
-  const [isPending, start]    = useTransition()
+export function PrayerRequestForm({ profiles, buttonVariant = 'inline' }: { profiles: Profile[]; buttonVariant?: 'inline' | 'header' }) {
+  const [open, setOpen]             = useState(false)
+  const [error, setError]           = useState<string | null>(null)
+  const [isPending, start]          = useTransition()
   const [useProfile, setUseProfile] = useState(true)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -22,18 +22,22 @@ export function PrayerRequestForm({ profiles }: { profiles: Profile[] }) {
     })
   }
 
+  function close() { setOpen(false); setError(null) }
+
   if (!open) return (
     <button
       onClick={() => setOpen(true)}
-      className="w-full py-2.5 rounded-xl border border-dashed border-teal/30 font-sans text-xs text-dark/40 hover:text-teal hover:border-teal/60 transition-colors"
+      className={buttonVariant === 'header'
+        ? 'shrink-0 px-3 md:px-4 py-2 bg-coral text-white rounded-lg font-sans text-sm font-medium hover:bg-coral/90 transition-colors'
+        : 'w-full py-2.5 rounded-xl border border-dashed border-teal/30 font-sans text-xs text-dark/40 hover:text-teal hover:border-teal/60 transition-colors'
+      }
     >
-      + Ajouter un sujet de prière
+      + Ajouter un sujet
     </button>
   )
 
-  return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-teal/30 p-4 space-y-3">
-      {/* Personne */}
+  const formEl = (
+    <form onSubmit={handleSubmit} className="space-y-3">
       <div className="flex gap-2">
         <button type="button" onClick={() => setUseProfile(true)}
           className={`text-xs font-sans px-3 py-1.5 rounded-lg transition-colors ${useProfile ? 'bg-teal text-white' : 'border border-teal/20 text-dark/50 hover:border-teal/40'}`}
@@ -62,7 +66,7 @@ export function PrayerRequestForm({ profiles }: { profiles: Profile[] }) {
       {error && <p className="font-sans text-xs text-red-500">{error}</p>}
 
       <div className="flex gap-2">
-        <button type="button" onClick={() => { setOpen(false); setError(null) }}
+        <button type="button" onClick={close}
           className="flex-1 py-1.5 rounded-lg border border-teal/20 font-sans text-xs text-dark/60 hover:bg-teal/5">Annuler</button>
         <button type="submit" disabled={isPending}
           className="flex-1 py-1.5 rounded-lg bg-teal text-white font-sans text-xs font-medium hover:bg-teal/90 disabled:opacity-40">
@@ -70,5 +74,28 @@ export function PrayerRequestForm({ profiles }: { profiles: Profile[] }) {
         </button>
       </div>
     </form>
+  )
+
+  if (buttonVariant === 'header') {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-start justify-end bg-black/30 backdrop-blur-sm pt-16 px-4 md:pr-8"
+        onClick={e => { if (e.target === e.currentTarget) close() }}
+      >
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-lg text-dark font-light">Ajouter un sujet</h2>
+            <button onClick={close} className="text-dark/30 hover:text-dark text-xl">×</button>
+          </div>
+          {formEl}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-teal/30 p-4">
+      {formEl}
+    </div>
   )
 }

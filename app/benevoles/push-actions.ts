@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendPushToUser } from '@/lib/pushNotifications'
+import { sendPush, sendPushToUser } from '@/lib/pushNotifications'
 
 export async function savePushSubscription(sub: {
   endpoint: string
@@ -10,17 +10,34 @@ export async function savePushSubscription(sub: {
   auth: string
 }): Promise<{ ok: boolean }> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { ok: false }
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (!user) {
+    console.error('[push] savePushSubscription — utilisateur non authentifié', authError)
+    return { ok: false }
+  }
+
+  console.log('[push] savePushSubscription — user:', user.id, '| endpoint:', sub.endpoint.slice(0, 60) + '…')
 
   const admin = createAdminClient()
-  await admin.from('push_subscriptions').upsert({
+  const { error } = await admin.from('push_subscriptions').upsert({
     user_id:  user.id,
     endpoint: sub.endpoint,
     p256dh:   sub.p256dh,
     auth:     sub.auth,
   }, { onConflict: 'user_id,endpoint' })
 
+  if (error) {
+    console.error('[push] savePushSubscription — erreur DB:', error.message, error.code)
+    return { ok: false }
+  }
+
+  // Supprimer les anciennes subscriptions du même utilisateur (VAPID key différente, autre appareil…)
+  await admin.from('push_subscriptions')
+    .delete()
+    .eq('user_id', user.id)
+    .neq('endpoint', sub.endpoint)
+
+  console.log('[push] savePushSubscription — OK')
   return { ok: true }
 }
 
@@ -55,13 +72,61 @@ export async function hasPushSubscription(): Promise<boolean> {
 export async function sendTestPush(): Promise<{ ok: boolean }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { ok: false }
+  if (!user) {
+    console.error('[push] sendTestPush — utilisateur non authentifié')
+    return { ok: false }
+  }
 
-  await sendPushToUser(user.id, {
+  console.log('[push] sendTestPush — envoi pour user:', user.id)
+
+  const admin = createAdminClient()
+  const { data: subs, error } = await admin
+    .from('push_subscriptions')
+    .select('id, endpoint')
+    .eq('user_id', user.id)
+
+  if (error) {
+    console.error('[push] sendTestPush — erreur lecture subscriptions:', error.message, error.code)
+    return { ok: false }
+  }
+
+  const { data: allSubs } = await admin
+    .from('push_subscriptions')
+    .select('id, endpoint, p256dh, auth')
+    .eq('user_id', user.id)
+
+  console.log('[push] sendTestPush — subscriptions trouvées:', allSubs?.length ?? 0)
+
+  if (!allSubs || allSubs.length === 0) {
+    console.warn('[push] sendTestPush — aucune subscription en base pour cet utilisateur')
+    return { ok: false }
+  }
+
+  const payload = {
     title: '🔔 Église La Rencontre',
     body:  'Les notifications push fonctionnent !',
     url:   '/benevoles/dashboard',
     tag:   'test',
-  })
-  return { ok: true }
+  }
+
+  let sent = 0
+  const expired: string[] = []
+  await Promise.all(allSubs.map(async (s) => {
+    const ok = await sendPush({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, payload)
+    if (ok) {
+      sent++
+      console.log('[push] sendTestPush — OK →', s.endpoint.slice(0, 60))
+    } else {
+      expired.push(s.id)
+      console.warn('[push] sendTestPush — FAIL →', s.endpoint.slice(0, 60))
+    }
+  }))
+
+  if (expired.length > 0) {
+    await admin.from('push_subscriptions').delete().in('id', expired)
+    console.log('[push] sendTestPush — supprimé', expired.length, 'subscriptions invalides')
+  }
+
+  console.log(`[push] sendTestPush — ${sent}/${allSubs.length} notifications envoyées`)
+  return { ok: sent > 0 }
 }

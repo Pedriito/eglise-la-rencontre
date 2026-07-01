@@ -20,6 +20,7 @@ export function AddAssignmentForm({
   teamId,
   teamPositions,
   teamProfiles,
+  candidatesByPosition,
   isInviteTeam,
   hidePositions,
 }: {
@@ -27,17 +28,28 @@ export function AddAssignmentForm({
   teamId: string
   teamPositions: Position[]
   teamProfiles: Profile[]
+  candidatesByPosition: Record<string, Profile[]>
   isInviteTeam: boolean
   hidePositions: boolean
 }) {
+  // Si l'équipe a des postes nommés, on ne propose que les bénévoles cochés
+  // pour le poste sélectionné (page Équipe) — sinon, tout le pool de l'équipe.
+  const usesPositions = !hidePositions && teamPositions.length > 0
+  const [selectedPositionId, setSelectedPositionId] = useState(
+    usesPositions && teamPositions.length === 1 ? teamPositions[0].id : ''
+  )
   const [selectedUserId, setSelectedUserId] = useState('')
   const isExternal = selectedUserId === INVITE_EXT_ID
 
-  const selected = teamProfiles.find(p => p.id === selectedUserId)
+  const pool = usesPositions
+    ? (selectedPositionId ? (candidatesByPosition[selectedPositionId] ?? []) : [])
+    : teamProfiles
+
+  const selected = pool.find(p => p.id === selectedUserId)
 
   // Trier : disponibles en premier, indisponibles à la fin
-  const available   = teamProfiles.filter(p => !p.unavailable)
-  const unavailable = teamProfiles.filter(p => p.unavailable)
+  const available   = pool.filter(p => !p.unavailable)
+  const unavailable = pool.filter(p => p.unavailable)
 
   function label(p: Profile) {
     const name = `${p.first_name} ${p.last_name}`
@@ -52,11 +64,29 @@ export function AddAssignmentForm({
       <input type="hidden" name="team_id" value={teamId} />
 
       <div className="flex gap-2 items-center">
+        {usesPositions && teamPositions.length > 1 && (
+          <select
+            name="position_id"
+            value={selectedPositionId}
+            onChange={e => { setSelectedPositionId(e.target.value); setSelectedUserId('') }}
+            className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-teal/30 bg-white text-dark font-sans text-xs focus:outline-none focus:ring-1 focus:ring-teal/40"
+          >
+            <option value="">— Poste —</option>
+            {teamPositions.map(pos => (
+              <option key={pos.id} value={pos.id}>{pos.name}</option>
+            ))}
+          </select>
+        )}
+        {usesPositions && teamPositions.length === 1 && (
+          <input type="hidden" name="position_id" value={teamPositions[0].id} />
+        )}
+
         <select
           name="user_id"
           value={selectedUserId}
           onChange={e => setSelectedUserId(e.target.value)}
-          className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-teal/30 bg-white text-dark font-sans text-xs focus:outline-none focus:ring-1 focus:ring-teal/40"
+          disabled={usesPositions && !selectedPositionId}
+          className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-teal/30 bg-white text-dark font-sans text-xs focus:outline-none focus:ring-1 focus:ring-teal/40 disabled:opacity-50"
         >
           <option value="">— Bénévole —</option>
           {isInviteTeam && (
@@ -88,21 +118,6 @@ export function AddAssignmentForm({
           ))}
         </select>
 
-        {!hidePositions && teamPositions.length === 1 && (
-          <input type="hidden" name="position_id" value={teamPositions[0].id} />
-        )}
-        {!hidePositions && teamPositions.length > 1 && (
-          <select
-            name="position_id"
-            className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-teal/30 bg-white text-dark font-sans text-xs focus:outline-none focus:ring-1 focus:ring-teal/40"
-          >
-            <option value="">— Poste —</option>
-            {teamPositions.map(pos => (
-              <option key={pos.id} value={pos.id}>{pos.name}</option>
-            ))}
-          </select>
-        )}
-
         <button
           type="submit"
           className="px-3 py-1.5 bg-teal text-white rounded-lg font-sans text-xs font-medium hover:bg-teal-dark transition-colors shrink-0"
@@ -110,6 +125,13 @@ export function AddAssignmentForm({
           +
         </button>
       </div>
+
+      {/* Aucun bénévole coché pour ce poste */}
+      {usesPositions && selectedPositionId && pool.length === 0 && (
+        <p className="font-sans text-[10px] text-dark/40">
+          Aucun bénévole n'est coché pour ce poste. Ajoutez-le depuis la page Équipe.
+        </p>
+      )}
 
       {/* Avertissement si sélection indisponible */}
       {selected?.unavailable && (

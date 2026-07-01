@@ -9,6 +9,7 @@ export function ServiceWorkerRegistrar() {
         console.error('[SW] Erreur enregistrement:', err)
       )
     }
+
   }, [])
   return null
 }

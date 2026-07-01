@@ -51,6 +51,24 @@ function ResendButton({ benevoleId, onSuccess }: { benevoleId: string; onSuccess
   )
 }
 
+function avatarColors(permission: string) {
+  if (permission === 'admin' || permission === 'super_admin') return 'bg-green-100 text-green-700'
+  if (permission === 'editor') return 'bg-blue-100 text-blue-700'
+  return 'bg-teal/10 text-teal/60'
+}
+
+function permDot(permission: string) {
+  if (permission === 'admin' || permission === 'super_admin') return 'text-green-500'
+  if (permission === 'editor') return 'text-blue-500'
+  return 'text-dark/30'
+}
+
+const TrashIcon = () => (
+  <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
+    <path d="M6 2h4l.5 1H12v1H4V3h1.5L6 2zm-2 3h8l-.8 9H4.8L4 5zm2 2v5h1V7H6zm3 0v5h1V7H9z"/>
+  </svg>
+)
+
 export function BenevoleList({ benevoles }: { benevoles: Benevole[] }) {
   const [query, setQuery] = useState('')
   const [confirmId, setConfirmId] = useState<string | null>(null)
@@ -76,13 +94,18 @@ export function BenevoleList({ benevoles }: { benevoles: Benevole[] }) {
         </div>
       )}
 
-      <input
-        type="text"
-        value={query}
-        onChange={e => setQuery(e.target.value)}
-        placeholder="Rechercher un bénévole…"
-        className="w-full px-4 py-2.5 rounded-lg border border-teal/30 bg-white text-dark placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-teal/40 font-sans text-sm"
-      />
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="font-display text-xl text-dark font-light shrink-0">
+          Membres <span className="text-teal">{benevoles.length}</span>
+        </h2>
+        <input
+          type="text"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Rechercher un bénévole…"
+          className="flex-1 max-w-xs px-4 py-2 rounded-lg border border-teal/30 bg-white text-dark placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-teal/40 font-sans text-sm"
+        />
+      </div>
 
       {/* ── Table desktop ── */}
       <div className="hidden md:block bg-white rounded-2xl border border-teal/20 overflow-hidden">
@@ -101,12 +124,20 @@ export function BenevoleList({ benevoles }: { benevoles: Benevole[] }) {
               return (
                 <tr key={b.id} className={i % 2 === 0 ? 'bg-white' : 'bg-teal-50/40'}>
                   <td className="px-6 py-4 font-sans text-sm text-dark font-medium">
-                    <Link href={`/benevoles/admin/benevoles/${b.id}`} className="hover:text-teal transition-colors">
-                      {b.first_name} {b.last_name}
-                    </Link>
+                    <div className="flex items-center gap-3">
+                      <span className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium font-sans ${avatarColors(b.permission)}`}>
+                        {b.first_name[0]}{b.last_name[0]}
+                      </span>
+                      <Link href={`/benevoles/admin/benevoles/${b.id}`} className="hover:text-teal transition-colors">
+                        {b.first_name} {b.last_name}
+                      </Link>
+                    </div>
                   </td>
                   <td className="px-6 py-4 font-sans text-xs text-dark/60">
-                    {permissionLabels[b.permission] ?? b.permission}
+                    <span className="flex items-center gap-1.5">
+                      <span className={permDot(b.permission)}>●</span>
+                      {permissionLabels[b.permission] ?? b.permission}
+                    </span>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-sans font-medium ${st.color}`}>
@@ -137,9 +168,10 @@ export function BenevoleList({ benevoles }: { benevoles: Benevole[] }) {
                         )}
                         <button
                           onClick={() => setConfirmId(b.id)}
-                          className="text-xs text-dark/30 hover:text-red-400 transition-colors font-sans cursor-pointer"
+                          className="text-dark/30 hover:text-red-400 transition-colors cursor-pointer"
+                          title="Supprimer"
                         >
-                          Supprimer
+                          <TrashIcon />
                         </button>
                       </div>
                     )}
@@ -168,12 +200,17 @@ export function BenevoleList({ benevoles }: { benevoles: Benevole[] }) {
           return (
             <div key={b.id} className="bg-white rounded-2xl border border-teal/20 px-4 py-4">
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
+                <div className="flex items-start gap-3 min-w-0">
+                  <span className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium font-sans ${avatarColors(b.permission)}`}>
+                    {b.first_name[0]}{b.last_name[0]}
+                  </span>
+                  <div className="min-w-0">
                   <Link href={`/benevoles/admin/benevoles/${b.id}`} className="font-sans text-sm text-dark font-medium hover:text-teal transition-colors">
                     {b.first_name} {b.last_name}
                   </Link>
                   <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                    <span className="font-sans text-xs text-dark/50">
+                    <span className="font-sans text-xs text-dark/50 flex items-center gap-1">
+                      <span className={permDot(b.permission)}>●</span>
                       {permissionLabels[b.permission] ?? b.permission}
                     </span>
                     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-sans font-medium ${st.color}`}>
@@ -181,6 +218,7 @@ export function BenevoleList({ benevoles }: { benevoles: Benevole[] }) {
                     </span>
                   </div>
                 </div>
+              </div>
                 <div className="flex items-center gap-3 shrink-0">
                   {b.status === 'invited' && (
                     <ResendButton
@@ -203,9 +241,10 @@ export function BenevoleList({ benevoles }: { benevoles: Benevole[] }) {
                   ) : (
                     <button
                       onClick={() => setConfirmId(b.id)}
-                      className="text-xs text-dark/30 hover:text-red-400 transition-colors font-sans cursor-pointer"
+                      className="text-dark/30 hover:text-red-400 transition-colors cursor-pointer"
+                      title="Supprimer"
                     >
-                      ✕
+                      <TrashIcon />
                     </button>
                   )}
                 </div>
