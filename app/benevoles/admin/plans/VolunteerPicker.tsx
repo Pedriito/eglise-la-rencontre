@@ -6,6 +6,7 @@ type Props = {
   planId: string
   detail: PlanDetail
   fillKey: string | null
+  returnTo: string
 }
 
 function resolveFillTarget(detail: PlanDetail, fillKey: string | null) {
@@ -70,9 +71,8 @@ function CandidateRow({
   )
 }
 
-export function VolunteerPicker({ planId, detail, fillKey }: Props) {
+export function VolunteerPicker({ planId, detail, fillKey, returnTo }: Props) {
   const target = resolveFillTarget(detail, fillKey)
-  const returnTo = `/benevoles/admin/plans?plan=${planId}`
 
   if (!target) {
     return (

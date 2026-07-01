@@ -136,6 +136,29 @@ export async function addAssignment(formData: FormData) {
       team_id: teamId,
       status: 'pending',
     })
+
+    // Notification push si l'utilisateur a activé les notifs
+    const [{ data: plan }, { data: position }] = await Promise.all([
+      admin.from('plans').select('title, service_date').eq('id', planId).single(),
+      positionId
+        ? admin.from('positions').select('name').eq('id', positionId).single()
+        : Promise.resolve({ data: null }),
+    ])
+
+    if (plan) {
+      const date = new Date(plan.service_date).toLocaleDateString('fr-FR', {
+        weekday: 'long', day: 'numeric', month: 'long',
+      })
+      const role = (position as { name: string } | null)?.name ?? null
+      await sendPushToUser(userId, {
+        title: '📋 Tu as été planifié·e',
+        body: role
+          ? `${role} · ${date} — confirme ta présence !`
+          : `${plan.title} · ${date} — confirme ta présence !`,
+        url: '/benevoles/historique',
+        tag: `assignment-${planId}`,
+      })
+    }
   }
 
   redirect(returnTo)

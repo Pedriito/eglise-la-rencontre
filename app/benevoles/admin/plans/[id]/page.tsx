@@ -2,10 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { removeAssignment, deletePlan, sendSingleInvitation, respondAssignmentOnPlanDetail } from '../actions'
-import { PlanTimeEditor } from '../PlanTimeEditor'
 import { IconEnvelope, IconMusicalNote, IconPlay, IconProjector, IconWarning } from '@/app/benevoles/_components/Icons'
-import { SongsSection } from './SongsSection'
-import { CopySetlistButton } from './CopySetlistButton'
 import { StatusDot } from '../../../_components/StatusDot'
 import { FlashMessage } from '../../../_components/FlashMessage'
 import { AddAssignmentForm } from './AddAssignmentForm'
@@ -14,6 +11,8 @@ import SermonSection from './SermonSection'
 import VideoSection from './VideoSection'
 import ShareButton from './ShareButton'
 import { getPlanDetail, INVITE_EXT_ID } from '../getPlanDetail'
+import { AssignmentBoard } from '../AssignmentBoard'
+import { VolunteerPicker } from '../VolunteerPicker'
 
 const PLAN_TYPE_LABELS: Record<string, string> = {
   sunday_service: 'Culte',
@@ -27,10 +26,11 @@ export default async function PlanDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ error?: string; sent?: string }>
+  searchParams: Promise<{ error?: string; sent?: string; fill?: string }>
 }) {
   const { id } = await params
-  const { error: flashError, sent: flashSent } = await searchParams
+  const { error: flashError, sent: flashSent, fill: fillParam } = await searchParams
+  const fillKey = fillParam ?? null
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/benevoles/login')
@@ -109,7 +109,11 @@ export default async function PlanDetailPage({
                 {typeLabel}
               </p>
               <h1 className="font-display text-[2rem] font-light leading-tight">{plan.title}</h1>
-              <p className="font-sans text-sm text-white/65 capitalize mt-1">
+              <p className="font-sans text-sm text-white/65 capitalize mt-1 flex items-center gap-1.5">
+                <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5 shrink-0 opacity-70" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="3" width="12" height="11" rx="2" />
+                  <path d="M5 1v4M11 1v4M2 7h12" />
+                </svg>
                 {dateMed} · {time}
               </p>
 
@@ -155,20 +159,35 @@ export default async function PlanDetailPage({
                       </div>
                     </>
                   ) : (
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="font-sans text-xs text-white/55">Mon rôle</p>
-                        <p className="font-sans text-sm text-white font-medium mt-0.5">
+                        <p className="font-sans text-[10px] uppercase tracking-widest text-white/55 font-semibold">Mon rôle</p>
+                        <p className="font-sans text-base text-white font-semibold mt-0.5">
                           {myAssignment.positions?.name ?? 'Bénévole'}
                         </p>
                       </div>
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-sans text-xs font-medium ${
-                        myAssignment.status === 'confirmed'
-                          ? 'bg-white/20 text-white'
-                          : 'bg-white/10 text-white/60'
-                      }`}>
-                        {myAssignment.status === 'confirmed' ? '✓ Confirmé·e' : 'Décliné'}
-                      </span>
+                      <div className="flex flex-col items-end gap-1.5 shrink-0">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-sans text-xs font-medium ${
+                          myAssignment.status === 'confirmed'
+                            ? 'bg-white/20 text-white'
+                            : 'bg-white/10 text-white/60'
+                        }`}>
+                          {myAssignment.status === 'confirmed' ? '✓ Confirmé·e' : 'Décliné'}
+                        </span>
+                        {myAssignment.status === 'confirmed' && (
+                          <form action={respondAssignmentOnPlanDetail}>
+                            <input type="hidden" name="assignment_id" value={myAssignment.id} />
+                            <input type="hidden" name="status" value="declined" />
+                            <input type="hidden" name="plan_id" value={id} />
+                            <button
+                              type="submit"
+                              className="font-sans text-xs text-white/50 hover:text-white transition-colors"
+                            >
+                              Se désister
+                            </button>
+                          </form>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -190,78 +209,111 @@ export default async function PlanDetailPage({
           )}
 
           {/* Équipes */}
-          {!isRehearsal && visibleTeams.map(team => (
-            <div key={team.id} className="bg-white rounded-2xl shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
-              <div className="px-4 py-3 border-b border-teal/10 flex items-center justify-between bg-teal-50/50">
-                <p className="font-sans text-[10px] uppercase tracking-widest text-dark/40 font-semibold">{team.name}</p>
-                {team.assignments.length > 0 && (
-                  <span className="font-sans text-xs text-dark/25 tabular-nums">{team.assignments.length}</span>
-                )}
-              </div>
+          {!isRehearsal && visibleTeams.length > 0 && (
+            <>
+              <p className="font-sans text-[10px] uppercase tracking-widest text-dark/40 font-semibold px-1 pt-1">
+                Équipe du culte
+              </p>
+              {visibleTeams.map(team => {
+                const filledPositionIds = new Set(team.assignments.map(a => a.position_id).filter(Boolean) as string[])
+                const openPositions = team.positions.filter(p => !filledPositionIds.has(p.id))
+                const noNamedPos = team.positions.length === 0
+                const hasOpenSlots = openPositions.length > 0 || (noNamedPos && team.assignments.length === 0)
 
-              <div className="divide-y divide-teal/8">
-                {team.assignments.length === 0 && (
-                  <p className="px-4 py-3.5 font-sans text-sm text-dark/35 italic">Aucun bénévole</p>
-                )}
-                {team.assignments.map(a => {
-                  const isMe      = a.user_id === user.id
-                  const isInvite  = a.user_id === INVITE_EXT_ID
-                  const name = isInvite
-                    ? (a.external_name ?? 'Invité')
-                    : `${a.profiles?.first_name ?? ''} ${a.profiles?.last_name ?? ''}`
-                  const canSendInvite = isInvite ? !!a.external_email : a.status === 'pending'
-                  return (
-                    <div key={a.id} className={`px-4 py-3 flex items-center gap-3 ${isMe ? 'bg-teal/5' : ''}`}>
-                      <StatusDot status={a.status} />
-                      <div className="flex-1 min-w-0">
-                        <p className={`font-sans text-sm truncate ${isMe ? 'font-semibold text-teal-dark' : 'text-dark'}`}>
-                          {name}{isMe ? ' · moi' : ''}
-                        </p>
-                        {a.positions && !team.hidePositions && (
-                          <p className="font-sans text-xs text-dark/40 mt-0.5">{a.positions.name}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {!isInvite && a.unavailable && (
-                          <span className="text-red-400" title="Indisponible"><IconWarning className="w-3.5 h-3.5" /></span>
-                        )}
-                        {canManage && canSendInvite && (
-                          <form action={sendSingleInvitation}>
-                            <input type="hidden" name="assignment_id" value={a.id} />
-                            <input type="hidden" name="plan_id" value={id} />
-                            <button type="submit" title="Envoyer l'invitation" className="p-1.5 text-dark/30 hover:text-teal transition-colors">
-                              <IconEnvelope className="w-4 h-4" />
-                            </button>
-                          </form>
-                        )}
-                        {canManage && (
-                          <form action={removeAssignment}>
-                            <input type="hidden" name="plan_id" value={id} />
-                            <input type="hidden" name="assignment_id" value={a.id} />
-                            <button type="submit" aria-label="Retirer" className="p-1.5 text-dark/20 hover:text-red-400 transition-colors font-sans text-xl leading-none">×</button>
-                          </form>
-                        )}
-                      </div>
+                return (
+                  <div key={team.id} className="bg-white rounded-2xl shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
+                    <div className="px-4 py-3 border-b border-teal/10 flex items-center justify-between">
+                      <p className="font-sans text-[10px] uppercase tracking-widest text-dark/40 font-semibold">{team.name}</p>
+                      {hasOpenSlots ? (
+                        <span className="px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-500 font-sans text-[10px] font-semibold">
+                          À pourvoir
+                        </span>
+                      ) : team.assignments.length > 0 ? (
+                        <span className="font-sans text-xs text-dark/25 tabular-nums">{team.assignments.length}</span>
+                      ) : null}
                     </div>
-                  )
-                })}
-              </div>
 
-              {canManage && (
-                <div className="px-4 py-3 border-t border-teal/10 bg-teal-50/30">
-                  <AddAssignmentForm
-                    planId={id}
-                    teamId={team.id}
-                    teamPositions={team.positions}
-                    teamProfiles={team.candidateProfiles}
-                    candidatesByPosition={team.candidatesByPosition}
-                    isInviteTeam={team.allowsGuests}
-                    hidePositions={team.hidePositions}
-                  />
-                </div>
-              )}
-            </div>
-          ))}
+                    <div className="p-3 space-y-2">
+                      {team.assignments.map(a => {
+                        const isMe     = a.user_id === user.id
+                        const isInvite = a.user_id === INVITE_EXT_ID
+                        const name = isInvite
+                          ? (a.external_name ?? 'Invité')
+                          : `${a.profiles?.first_name ?? ''} ${a.profiles?.last_name ?? ''}`
+                        const canSendInvite = isInvite ? !!a.external_email : a.status === 'pending'
+                        return (
+                          <div key={a.id} className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 ${isMe ? 'bg-teal/10' : 'bg-teal/5'}`}>
+                            <StatusDot status={a.status} />
+                            <div className="flex-1 min-w-0">
+                              <p className={`font-sans text-sm truncate ${isMe ? 'font-semibold text-teal-dark' : 'text-dark'}`}>
+                                {name}{isMe ? ' · moi' : ''}
+                              </p>
+                              {a.positions && !team.hidePositions && (
+                                <p className="font-sans text-xs text-dark/40 mt-0.5">{a.positions.name}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {!isInvite && a.unavailable && (
+                                <span className="text-red-400" title="Indisponible"><IconWarning className="w-3.5 h-3.5" /></span>
+                              )}
+                              {canManage && canSendInvite && (
+                                <form action={sendSingleInvitation}>
+                                  <input type="hidden" name="assignment_id" value={a.id} />
+                                  <input type="hidden" name="plan_id" value={id} />
+                                  <button type="submit" title="Envoyer l'invitation" className="p-1.5 text-dark/30 hover:text-teal transition-colors">
+                                    <IconEnvelope className="w-4 h-4" />
+                                  </button>
+                                </form>
+                              )}
+                              {canManage && (
+                                <form action={removeAssignment}>
+                                  <input type="hidden" name="plan_id" value={id} />
+                                  <input type="hidden" name="assignment_id" value={a.id} />
+                                  <button type="submit" aria-label="Retirer" className="p-1.5 text-dark/20 hover:text-red-400 transition-colors font-sans text-xl leading-none">×</button>
+                                </form>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+
+                      {openPositions.length > 0 ? openPositions.map(pos => (
+                        <div key={pos.id} className="flex items-center gap-3 border-2 border-dashed border-orange-200 rounded-xl px-3.5 py-2.5 bg-orange-50/30">
+                          <div className="w-7 h-7 rounded-full border-2 border-dashed border-orange-300 flex items-center justify-center shrink-0 text-orange-300">
+                            <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+                              <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-5 5a5 5 0 0 1 10 0H3Z" />
+                            </svg>
+                          </div>
+                          <span className="font-sans text-sm text-dark/30 italic">Aucun bénévole</span>
+                        </div>
+                      )) : hasOpenSlots ? (
+                        <div className="flex items-center gap-3 border-2 border-dashed border-orange-200 rounded-xl px-3.5 py-2.5 bg-orange-50/30">
+                          <div className="w-7 h-7 rounded-full border-2 border-dashed border-orange-300 flex items-center justify-center shrink-0 text-orange-300">
+                            <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+                              <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-5 5a5 5 0 0 1 10 0H3Z" />
+                            </svg>
+                          </div>
+                          <span className="font-sans text-sm text-dark/30 italic">Aucun bénévole</span>
+                        </div>
+                      ) : null}
+
+                      {canManage && (
+                        <AddAssignmentForm
+                          planId={id}
+                          teamId={team.id}
+                          teamPositions={team.positions}
+                          teamProfiles={team.candidateProfiles}
+                          candidatesByPosition={team.candidatesByPosition}
+                          isInviteTeam={team.allowsGuests}
+                          hidePositions={team.hidePositions}
+                        />
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </>
+          )}
 
           {/* Chants */}
           {(planSongs as unknown[]).length > 0 && (
@@ -367,208 +419,46 @@ export default async function PlanDetailPage({
       {/* ════════════════════════════════════════════════════
           DESKTOP  (lg+)
       ════════════════════════════════════════════════════ */}
-      <div className="hidden lg:block">
-        <header className="bg-white border-b border-teal/20 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/benevoles/admin/plans" className="text-dark/40 hover:text-dark transition-colors font-sans text-sm">
-              ← Planification
-            </Link>
-            <div>
-              <div className="flex items-center gap-2">
+      <div className="hidden lg:block bg-sand min-h-screen">
+        {canManage ? (
+          <div className="flex gap-5 items-start max-w-5xl mx-auto px-6 py-6">
+            <AssignmentBoard
+              planId={id}
+              detail={detail}
+              fillKey={fillKey}
+              isAdmin={isAdmin}
+              flashError={flashError ?? undefined}
+              flashSent={flashSent ?? undefined}
+              returnTo={`/benevoles/admin/plans/${id}`}
+              slotHref={(k) => `?fill=${k}`}
+            />
+            <VolunteerPicker
+              planId={id}
+              detail={detail}
+              fillKey={fillKey}
+              returnTo={`/benevoles/admin/plans/${id}`}
+            />
+          </div>
+        ) : (
+          <main className="max-w-3xl mx-auto px-6 py-8 space-y-6">
+            <div className="flex items-center gap-3 mb-2">
+              <Link href="/benevoles/admin/plans" className="text-dark/40 hover:text-dark transition-colors font-sans text-sm">←</Link>
+              <div>
+                <p className="font-sans text-xs text-dark/40 uppercase tracking-widest font-medium capitalize">{dateLong} · {time}</p>
                 <h1 className="font-display text-2xl text-dark font-light">{plan.title}</h1>
-                {isRehearsal && (
-                  <span className="inline-flex items-center gap-1 font-sans text-xs bg-teal/10 text-teal px-2 py-0.5 rounded-full">
-                    <IconMusicalNote className="w-3 h-3" /> Répétition
-                  </span>
-                )}
               </div>
-              <p className="text-xs text-dark/50 font-sans capitalize">
-                {dateLong} ·{' '}
-                {canManage ? (
-                  <PlanTimeEditor
-                    planId={id}
-                    serviceDate={plan.service_date}
-                    className="font-sans text-xs tabular-nums text-dark/50 hover:text-teal transition-colors cursor-pointer hover:underline decoration-dotted"
-                    inputClassName="font-sans text-xs border border-teal/40 rounded px-1.5 py-0.5 bg-transparent text-dark/60 focus:outline-none focus:border-teal"
-                  />
-                ) : (
-                  time
-                )}
-              </p>
             </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <ShareButton planId={id} />
-            <Link href={`/benevoles/admin/plans/${id}/setlist`} className="inline-flex items-center gap-1.5 font-sans text-xs font-semibold px-3 py-1.5 bg-teal text-white rounded-lg hover:bg-teal-dark transition-colors">
-              <IconPlay className="w-3.5 h-3.5" /> Mode live
-            </Link>
-            <Link href={`/benevoles/admin/plans/${id}/setlist?projection=1`} className="inline-flex items-center gap-1.5 font-sans text-xs font-semibold px-3 py-1.5 bg-dark text-white rounded-lg hover:bg-dark/80 transition-colors">
-              <IconProjector className="w-3.5 h-3.5" /> Projection
-            </Link>
-            {isAdmin && (
-              <form action={deletePlan}>
-                <input type="hidden" name="plan_id" value={id} />
-                <button type="submit" className="text-xs text-dark/30 hover:text-red-400 transition-colors font-sans">
-                  Supprimer
-                </button>
-              </form>
+            {plan.notes && (
+              <div className="bg-teal/10 rounded-xl px-5 py-3 font-sans text-sm text-dark/70">{plan.notes}</div>
             )}
-          </div>
-        </header>
-
-        <main className="max-w-6xl mx-auto px-6 py-8 space-y-6">
-          {flashError && <FlashMessage message={`Erreur : ${flashError}`} type="error" />}
-          {flashSent  && <FlashMessage message="Invitation envoyée avec succès." type="success" />}
-          {plan.notes && (
-            <div className="bg-teal/10 rounded-xl px-5 py-3 font-sans text-sm text-dark/70">
-              {plan.notes}
-            </div>
-          )}
-
-          {!isRehearsal && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {teams.filter(t => t.visible).map(team => (
-                <div key={team.id} className="bg-white rounded-2xl border border-teal/20 overflow-hidden flex flex-col">
-                  <div className="px-5 py-3 border-b border-teal/10 bg-teal-50/50 flex items-center justify-between">
-                    <p className="font-sans text-xs text-dark/50 uppercase tracking-widest font-medium">{team.name}</p>
-                    {team.assignments.length > 0 && (
-                      <span className="text-xs text-dark/30 font-sans tabular-nums">{team.assignments.length}</span>
-                    )}
-                  </div>
-                  <div className="divide-y divide-teal/10 flex-1">
-                    {team.assignments.length === 0 && (
-                      <p className="px-5 py-4 text-xs text-dark/50 font-sans italic">Aucun bénévole</p>
-                    )}
-                    {team.assignments.map(a => {
-                      const isInvite = a.user_id === INVITE_EXT_ID
-                      const displayName = isInvite
-                        ? (a.external_name ?? 'Invité (Ext)')
-                        : `${a.profiles?.first_name} ${a.profiles?.last_name}`
-                      const canSendInvite = isInvite ? !!a.external_email : a.status === 'pending'
-                      return (
-                        <div key={a.id} className="px-5 py-3 flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            {a.positions && (
-                              <p className="text-xs text-teal/60 font-sans uppercase tracking-wide leading-none mb-1">{a.positions.name}</p>
-                            )}
-                            <p className="font-sans text-sm text-dark font-medium truncate">{displayName}</p>
-                            {isInvite && a.external_email && (
-                              <p className="text-xs text-dark/30 font-sans truncate">{a.external_email}</p>
-                            )}
-                            {a.invitation_sent_at && (
-                              <p className="text-xs text-teal/60 font-sans mt-0.5">
-                                <span className="inline-flex items-center gap-1">
-                                  <IconEnvelope className="w-3 h-3" />
-                                  envoyée le {new Date(a.invitation_sent_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                                </span>
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {!isInvite && a.unavailable && (
-                              <span className="text-red-400" title="Indisponible ce jour-là"><IconWarning className="w-3.5 h-3.5" /></span>
-                            )}
-                            <StatusDot status={a.status} />
-                            {canManage && canSendInvite && (
-                              <form action={sendSingleInvitation}>
-                                <input type="hidden" name="assignment_id" value={a.id} />
-                                <input type="hidden" name="plan_id" value={id} />
-                                <button type="submit" title="Envoyer l'invitation" className="text-dark/40 hover:text-teal transition-colors">
-                                  <IconEnvelope className="w-4 h-4" />
-                                </button>
-                              </form>
-                            )}
-                            {canManage && (
-                              <form action={removeAssignment}>
-                                <input type="hidden" name="plan_id" value={id} />
-                                <input type="hidden" name="assignment_id" value={a.id} />
-                                <button type="submit" aria-label="Retirer" className="text-dark/20 hover:text-red-400 transition-colors font-sans text-lg leading-none">×</button>
-                              </form>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                  {canManage && (
-                    <div className="px-4 py-3 border-t border-teal/10 bg-teal-50/20">
-                      <AddAssignmentForm
-                        planId={id}
-                        teamId={team.id}
-                        teamPositions={team.positions}
-                        teamProfiles={team.candidateProfiles}
-                        candidatesByPosition={team.candidatesByPosition}
-                        isInviteTeam={team.allowsGuests}
-                        hidePositions={team.hidePositions}
-                      />
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="space-y-2">
-            {canManage && (planSongs as unknown[]).length > 0 && (
-              <div className="flex justify-end">
-                <CopySetlistButton planId={id} songCount={(planSongs as unknown[]).length} />
+            {myAssignment && (
+              <div className="bg-white rounded-2xl border border-teal/20 px-5 py-4">
+                <p className="font-sans text-xs text-dark/40 uppercase tracking-widest font-medium mb-1">Mon rôle</p>
+                <p className="font-sans text-sm font-medium text-dark">{myAssignment.positions?.name ?? 'Bénévole'}</p>
               </div>
             )}
-            <SongsSection planId={id} planSongs={planSongs as any} allSongs={allSongs as any} />
-          </div>
-
-          <section className="bg-white rounded-2xl border border-teal/20 overflow-hidden">
-            <div className="px-5 py-3 border-b border-teal/10 bg-teal-50/50">
-              <p className="font-sans text-xs text-dark/50 uppercase tracking-widest font-medium">Annonces</p>
-            </div>
-            <div className="p-4">
-              <AnnoncesSection planId={id} initial={announcements as any} initialRecurring={recurringAnnouncements as any} canManage={canManage} />
-            </div>
-          </section>
-
-          <section className="bg-white rounded-2xl border border-teal/20 overflow-hidden">
-            <div className="px-5 py-3 border-b border-teal/10 bg-teal-50/50">
-              <p className="font-sans text-xs text-dark/50 uppercase tracking-widest font-medium">Prédication</p>
-            </div>
-            <div className="p-4">
-              <SermonSection planId={id} initial={sermons as any} canManage={canManage} />
-            </div>
-          </section>
-
-          <section className="bg-white rounded-2xl border border-teal/20 overflow-hidden">
-            <div className="px-5 py-3 border-b border-teal/10 bg-teal-50/50">
-              <p className="font-sans text-xs text-dark/50 uppercase tracking-widest font-medium">Vidéos</p>
-            </div>
-            <div className="p-4">
-              <VideoSection planId={id} initial={videos as any} canManage={canManage} />
-            </div>
-          </section>
-
-          {noTeamAssignments.length > 0 && (
-            <div className="bg-white rounded-2xl border border-teal/20 overflow-hidden">
-              <div className="px-5 py-3 border-b border-teal/10 bg-teal-50/50">
-                <p className="font-sans text-xs text-dark/50 uppercase tracking-widest font-medium">Sans équipe</p>
-              </div>
-              <div className="divide-y divide-teal/10">
-                {noTeamAssignments.map(a => (
-                  <div key={a.id} className="px-5 py-3 flex items-center justify-between gap-3">
-                    <p className="font-sans text-sm text-dark font-medium">
-                      {a.profiles?.first_name} {a.profiles?.last_name}
-                    </p>
-                    <div className="flex gap-2 items-center">
-                      <StatusDot status={a.status} />
-                      <form action={removeAssignment}>
-                        <input type="hidden" name="plan_id" value={id} />
-                        <input type="hidden" name="assignment_id" value={a.id} />
-                        <button type="submit" aria-label="Retirer" className="text-dark/20 hover:text-red-400 font-sans text-lg leading-none">×</button>
-                      </form>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </main>
+          </main>
+        )}
       </div>
     </div>
   )

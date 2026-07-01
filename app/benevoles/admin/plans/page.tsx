@@ -381,8 +381,15 @@ export default async function PlansPage({
                 isAdmin={isAdmin}
                 flashError={params.error}
                 flashSent={params.sent}
+                returnTo={`/benevoles/admin/plans?plan=${selectedPlanId}`}
+                slotHref={(k) => `?plan=${selectedPlanId}&fill=${k}`}
               />
-              <VolunteerPicker planId={selectedPlanId} detail={detail} fillKey={fillKey} />
+              <VolunteerPicker
+                planId={selectedPlanId}
+                detail={detail}
+                fillKey={fillKey}
+                returnTo={`/benevoles/admin/plans?plan=${selectedPlanId}`}
+              />
             </div>
             {/* < xl : liste classique */}
             <div className="xl:hidden">

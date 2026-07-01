@@ -19,6 +19,8 @@ type Props = {
   isAdmin: boolean
   flashError?: string
   flashSent?: string
+  returnTo: string
+  slotHref: (key: string) => string
 }
 
 function initials(firstName?: string, lastName?: string) {
@@ -84,9 +86,8 @@ function OpenSlotCard({ label, href, active }: { label: string; href: string; ac
   )
 }
 
-export function AssignmentBoard({ planId, detail, fillKey, isAdmin, flashError, flashSent }: Props) {
+export function AssignmentBoard({ planId, detail, fillKey, isAdmin, flashError, flashSent, returnTo, slotHref }: Props) {
   const { plan, isRehearsal, teams, noTeamAssignments, planSongs, allSongs, announcements, recurringAnnouncements, sermons, videos } = detail
-  const returnTo = `/benevoles/admin/plans?plan=${planId}`
 
   const visibleTeams = teams.filter(t => t.visible)
   const positionTeams = visibleTeams.filter(t => t.positions.length > 0)
@@ -189,14 +190,14 @@ export function AssignmentBoard({ planId, detail, fillKey, isAdmin, flashError, 
                 <OpenSlotCard
                   key={pos.id}
                   label={pos.name}
-                  href={`?plan=${planId}&fill=pos:${pos.id}`}
+                  href={slotHref(`pos:${pos.id}`)}
                   active={fillKey === `pos:${pos.id}`}
                 />
               ))}
               {noNamedPositions && (
                 <OpenSlotCard
                   label="Ajouter un bénévole"
-                  href={`?plan=${planId}&fill=team:${team.id}`}
+                  href={slotHref(`team:${team.id}`)}
                   active={fillKey === `team:${team.id}`}
                 />
               )}

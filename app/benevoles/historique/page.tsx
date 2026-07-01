@@ -70,7 +70,7 @@ export default async function HistoriquePage() {
           {details && <p className="font-sans text-xs text-dark/40 mt-0.5">{details}</p>}
         </Link>
 
-        {/* Droite : boutons si en attente, badge sinon */}
+        {/* Droite : boutons si en attente, badge + désistement si confirmé, badge seul sinon */}
         {isPending ? (
           <div className="flex items-center gap-2 shrink-0">
             <form action={respondAssignmentOnHistorique}>
@@ -101,10 +101,21 @@ export default async function HistoriquePage() {
             </form>
           </div>
         ) : (
-          <span className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-sans text-xs font-medium ${badge.pill}`}>
-            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${badge.dot}`} />
-            {badge.label}
-          </span>
+          <div className="shrink-0 flex flex-col items-end gap-1">
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-sans text-xs font-medium ${badge.pill}`}>
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${badge.dot}`} />
+              {badge.label}
+            </span>
+            {!dimmed && a.status === 'confirmed' && (
+              <form action={respondAssignmentOnHistorique}>
+                <input type="hidden" name="assignment_id" value={a.id} />
+                <input type="hidden" name="status" value="declined" />
+                <button type="submit" className="font-sans text-xs text-red-400/70 hover:text-red-500 transition-colors">
+                  Se désister
+                </button>
+              </form>
+            )}
+          </div>
         )}
       </div>
     )
