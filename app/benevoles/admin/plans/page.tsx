@@ -322,37 +322,55 @@ export default async function PlansPage({
 
   return (
     <div className="min-h-screen bg-sand">
-      <header className="bg-white border-b border-teal/20 px-4 md:px-6 py-4 flex items-center gap-4">
-        <Link href="/benevoles/dashboard" className="text-dark/40 hover:text-dark transition-colors font-sans text-sm shrink-0">←</Link>
-        <div className="flex-1 min-w-0">
-          <p className="font-sans text-xs text-dark/40 uppercase tracking-widest font-medium">Planifier</p>
-          <h1 className="font-display text-2xl text-dark font-light">Planification</h1>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Toggle Liste / Calendrier */}
-          <div className="flex rounded-full bg-dark/5 p-1 gap-1">
-            <Link
-              href="?view=list"
-              className={`px-3 py-1.5 rounded-full font-sans text-xs font-medium transition-colors flex items-center gap-1 ${view === 'list' ? 'bg-white text-dark shadow-sm' : 'text-dark/45 hover:text-dark'}`}
-            >
-              ☰ Liste
-            </Link>
-            <Link
-              href="?view=calendar"
-              className={`px-3 py-1.5 rounded-full font-sans text-xs font-medium transition-colors flex items-center gap-1 ${view === 'calendar' ? 'bg-white text-dark shadow-sm' : 'text-dark/45 hover:text-dark'}`}
-            >
-              <IconCalendar className="w-3 h-3" />
-              Calendrier
-            </Link>
+      <header className="bg-white border-b border-teal/20 px-4 md:px-6 pt-4 pb-3">
+        <div className="flex items-center gap-4">
+          <Link href="/benevoles/dashboard" className="text-dark/40 hover:text-dark transition-colors font-sans text-sm shrink-0">←</Link>
+          <div className="flex-1 min-w-0">
+            <p className="font-sans text-xs text-dark/40 uppercase tracking-widest font-medium">Planifier</p>
+            <h1 className="font-display text-2xl text-dark font-light">Planification</h1>
           </div>
-          {canManage && (
-            <Link
-              href="/benevoles/admin/plans/nouveau"
-              className="shrink-0 px-3.5 py-1.5 bg-coral text-white rounded-full font-sans text-sm font-medium hover:opacity-90 transition-opacity"
-            >
-              + Nouveau
-            </Link>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Toggle Liste / Calendrier — desktop uniquement */}
+            <div className="hidden md:flex rounded-full bg-dark/5 p-1 gap-1">
+              <Link
+                href="?view=list"
+                className={`px-3 py-1.5 rounded-full font-sans text-xs font-medium transition-colors flex items-center gap-1 ${view === 'list' ? 'bg-white text-dark shadow-sm' : 'text-dark/45 hover:text-dark'}`}
+              >
+                ☰ Liste
+              </Link>
+              <Link
+                href="?view=calendar"
+                className={`px-3 py-1.5 rounded-full font-sans text-xs font-medium transition-colors flex items-center gap-1 ${view === 'calendar' ? 'bg-white text-dark shadow-sm' : 'text-dark/45 hover:text-dark'}`}
+              >
+                <IconCalendar className="w-3 h-3" />
+                Calendrier
+              </Link>
+            </div>
+            {canManage && (
+              <Link
+                href="/benevoles/admin/plans/nouveau"
+                className="shrink-0 px-3.5 py-1.5 bg-coral text-white rounded-full font-sans text-sm font-medium hover:opacity-90 transition-opacity"
+              >
+                + Nouveau
+              </Link>
+            )}
+          </div>
+        </div>
+        {/* Toggle Liste / Calendrier — mobile uniquement */}
+        <div className="md:hidden flex mt-3 rounded-full bg-dark/5 p-1 gap-1 w-fit">
+          <Link
+            href="?view=list"
+            className={`px-3 py-1.5 rounded-full font-sans text-xs font-medium transition-colors flex items-center gap-1 ${view === 'list' ? 'bg-white text-dark shadow-sm' : 'text-dark/45 hover:text-dark'}`}
+          >
+            ☰ Liste
+          </Link>
+          <Link
+            href="?view=calendar"
+            className={`px-3 py-1.5 rounded-full font-sans text-xs font-medium transition-colors flex items-center gap-1 ${view === 'calendar' ? 'bg-white text-dark shadow-sm' : 'text-dark/45 hover:text-dark'}`}
+          >
+            <IconCalendar className="w-3 h-3" />
+            Calendrier
+          </Link>
         </div>
       </header>
 
