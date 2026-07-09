@@ -31,12 +31,20 @@ type NavGroup = {
   items: NavItem[]
 }
 
-const BOTTOM_TABS: NavItem[] = [
+const BOTTOM_TABS_DEFAULT: NavItem[] = [
   { label: 'Accueil',  href: '/benevoles/dashboard',             icon: IconHome,        match: p => p === '/benevoles/dashboard' },
   { label: 'Planning', href: '/benevoles/historique',            icon: IconCalendar,    match: p => p.startsWith('/benevoles/historique') },
   { label: 'Chants',   href: '/benevoles/chants',                icon: IconMusicalNote, match: p => p.startsWith('/benevoles/chants') || p.startsWith('/benevoles/admin/chants') },
   { label: 'Indispos', href: '/benevoles/mes-indisponibilites',  icon: IconBan,         match: p => p.startsWith('/benevoles/mes-indisponibilites') },
   { label: 'Profil',   href: '/benevoles/profil',                icon: IconUser,        match: p => p === '/benevoles/profil' },
+]
+
+const BOTTOM_TABS_ADMIN: NavItem[] = [
+  { label: 'Accueil',       href: '/benevoles/dashboard',            icon: IconHome,        match: p => p === '/benevoles/dashboard' },
+  { label: 'Planification', href: '/benevoles/admin/plans',          icon: IconCalendar,    match: p => p.startsWith('/benevoles/admin/plans') },
+  { label: 'Chants',        href: '/benevoles/admin/chants',         icon: IconMusicalNote, match: p => p.startsWith('/benevoles/chants') || p.startsWith('/benevoles/admin/chants') },
+  { label: 'Indispos',      href: '/benevoles/mes-indisponibilites', icon: IconBan,         match: p => p.startsWith('/benevoles/mes-indisponibilites') },
+  { label: 'Profil',        href: '/benevoles/profil',               icon: IconUser,        match: p => p === '/benevoles/profil' },
 ]
 
 export function BenevoleNav({ permission, firstName, lastName }: Props) {
@@ -169,6 +177,7 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
         }}
       >
         {(() => {
+          const BOTTOM_TABS = isAdmin || isEditor ? BOTTOM_TABS_ADMIN : BOTTOM_TABS_DEFAULT
           const activeIndex = BOTTOM_TABS.findIndex(tab => tab.match(pathname))
           return (
             <div className="relative flex items-center px-2 py-2">
