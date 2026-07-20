@@ -322,7 +322,7 @@ export default async function PlansPage({
 
   return (
     <div className="min-h-screen bg-sand">
-      <header className="bg-white border-b border-teal/20 px-4 md:px-6 pt-4 pb-3">
+      <header className="bg-white border-b border-teal/20 px-4 md:px-6 pb-3" style={{ paddingTop: 'max(env(safe-area-inset-top, 0px) + 16px, 16px)' }}>
         <div className="flex items-center gap-4">
           <Link href="/benevoles/dashboard" className="text-dark/40 hover:text-dark transition-colors font-sans text-sm shrink-0">←</Link>
           <div className="flex-1 min-w-0">

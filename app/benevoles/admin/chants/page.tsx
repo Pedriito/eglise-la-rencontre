@@ -62,7 +62,7 @@ export default async function AdminChantsPage({
 
   return (
     <div className="min-h-screen bg-teal-50">
-      <header className="bg-white border-b border-teal/20 px-4 md:px-6 py-4 flex items-center gap-4">
+      <header className="bg-white border-b border-teal/20 px-4 md:px-6 pb-4 flex items-center gap-4" style={{ paddingTop: 'max(env(safe-area-inset-top, 0px) + 16px, 16px)' }}>
         <Link href="/benevoles/admin" className="text-dark/40 hover:text-dark transition-colors font-sans text-sm shrink-0">←</Link>
         <div className="flex-1 min-w-0">
           <p className="font-sans text-xs text-dark/40 uppercase tracking-widest font-medium">Banque de Louange</p>
