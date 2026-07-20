@@ -20,9 +20,11 @@ type Song = {
 
 type Props = { planId: string; songs: Song[]; settings?: ProjectionSettings }
 
-export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props) {
+export function ProjectorScreen({ planId, songs: songsProp, settings: settingsProp }: Props) {
   // Fusion avec les defaults pour gérer les nouvelles colonnes nulles en DB
   const [settings, setSettings] = useState<ProjectionSettings>(mergeSettings(settingsProp ?? null))
+  // Songs en state pour recevoir les chants ajoutés à la volée depuis l'opérateur
+  const [songs, setSongs] = useState(songsProp)
 
   // Écouter les changements de settings en temps réel (modifiés depuis la page Paramètres)
   useEffect(() => {
@@ -213,6 +215,9 @@ export function ProjectorScreen({ planId, songs, settings: settingsProp }: Props
       }
       if (e.data?.type === 'CLEAR_VIDEO') {
         setProjectedVideo(null)
+      }
+      if (e.data?.type === 'ADD_SONG') {
+        setSongs(prev => [...prev, { ...e.data.song, arrangement: e.data.song.arrangement ? { ...e.data.song.arrangement, slide_style: null } : null }])
       }
     }
     ch.postMessage({ type: 'READY' })

@@ -166,6 +166,8 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
         : null,
     }
     setExtraSongs(prev => [...prev, newSong])
+    // Synchronise le projecteur : sans ça, il ne connaît pas ce chant et projette du noir
+    channelRef.current?.postMessage({ type: 'ADD_SONG', song: newSong })
     setShowAddSong(false)
     setAddQuery('')
     setSearchResults([])
