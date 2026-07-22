@@ -10,6 +10,8 @@ import Contact from "./components/sections/Contact";
 import Footer from "./components/sections/Footer";
 import { getChurchSettings } from "@/lib/churchSettings";
 
+export const revalidate = 3600
+
 export default async function Home() {
   const s = await getChurchSettings()
 

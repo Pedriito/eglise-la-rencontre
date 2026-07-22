@@ -4,15 +4,9 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**.supabase.co' },
+      { protocol: 'https', hostname: 'i.ytimg.com' },
     ],
   },
-  transpilePackages: [
-    '@fullcalendar/core',
-    '@fullcalendar/react',
-    '@fullcalendar/daygrid',
-    '@fullcalendar/timegrid',
-    '@fullcalendar/interaction',
-  ],
 };
 
 export default nextConfig;
