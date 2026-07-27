@@ -1,3 +1,5 @@
+import Image from 'next/image'
+
 // 115 BPM = 60 000 / 115 ≈ 521 ms par temps
 const BPM_BEAT = Math.round(60_000 / 115)
 
@@ -48,10 +50,11 @@ export function CountdownDisplay({ seconds }: { seconds: number }) {
         style={{ gap: 'clamp(0.9rem, 2vh, 1.8rem)', animation: 'cdFadeIn 0.7s ease-out both' }}
       >
         {/* Logo */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src="/logo.png"
           alt="Église La Rencontre"
+          width={220}
+          height={220}
           style={{ height: 'clamp(5rem, 14vh, 11rem)', width: 'auto', objectFit: 'contain', opacity: 0.92 }}
         />
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Image from 'next/image'
 import { createInviteToken, revokeInviteToken, resetInviteTokenUses, type InviteToken } from './invite-token-actions'
 
 type Props = { initial: InviteToken[] }
@@ -142,8 +143,7 @@ export default function InviteTokenPanel({ initial }: Props) {
           </div>
 
           {/* QR code */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&margin=6&data=${encodeURIComponent(shareUrl(t.token))}`}
             alt="QR Code"
             width={120}

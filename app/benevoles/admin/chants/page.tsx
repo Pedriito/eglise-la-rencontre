@@ -165,7 +165,7 @@ export default async function AdminChantsPage({
           /* Vue alphabétique */
           <div className="space-y-6">
             {ALPHABET.filter(l => grouped[l]?.length).map(letter => (
-              <div key={letter} id={`letter-${letter}`}>
+              <div key={letter} id={`letter-${letter}`} style={{ contentVisibility: 'auto', containIntrinsicSize: '0 300px' }}>
                 <div className="flex items-center justify-between mb-2">
                   <h2 className="font-display text-xl text-teal font-light">{letter}</h2>
                   <span className="font-sans text-xs text-dark/40">{grouped[letter]!.length}</span>
@@ -212,12 +212,14 @@ function SongRow({
       <div className="flex items-center gap-2 shrink-0">
         <Link
           href={`/benevoles/chants/${song.id}`}
+          prefetch={false}
           className="px-3 py-1.5 font-sans text-xs text-dark/40 hover:text-dark hover:bg-teal/5 rounded-lg transition-colors"
         >
           Voir
         </Link>
         <Link
           href={`/benevoles/admin/chants/${song.id}/modifier`}
+          prefetch={false}
           className="px-3 py-1.5 bg-teal/10 text-teal font-sans text-xs rounded-lg hover:bg-teal/20 transition-colors font-medium"
         >
           Modifier

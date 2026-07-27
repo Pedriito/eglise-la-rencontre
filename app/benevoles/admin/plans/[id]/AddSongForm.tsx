@@ -77,7 +77,7 @@ export function AddSongForm({ planId, songs, compact = false }: { planId: string
               <button
                 key={song.id}
                 type="button"
-                onMouseDown={() => pickSong(song)}
+                onPointerDown={(e) => { e.preventDefault(); pickSong(song) }}
                 className="w-full text-left px-3 py-2 font-sans text-sm text-dark hover:bg-teal/5 transition-colors"
               >
                 {song.title}

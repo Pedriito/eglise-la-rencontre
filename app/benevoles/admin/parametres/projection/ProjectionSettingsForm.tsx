@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
+import Image from 'next/image'
 import { saveProjectionSettings } from './actions'
 
 type BgType        = 'color' | 'gradient' | 'image'
@@ -162,8 +163,7 @@ function BackgroundPicker({
                 <button key={file.id} type="button" onClick={() => onBgImageUrl(file.url)}
                   className={`relative aspect-video rounded-lg overflow-hidden border-2 transition-all ${bgImageUrl === file.url ? 'ring-2 ring-teal-500 ring-offset-1 border-teal-500' : 'border-transparent hover:border-gray-300'}`}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={file.url} alt={file.name} className="absolute inset-0 w-full h-full object-cover" />
+                  <Image src={file.url} alt={file.name} fill sizes="(max-width:640px) 50vw, 33vw" className="object-cover" />
                 </button>
               ))}
             </div>

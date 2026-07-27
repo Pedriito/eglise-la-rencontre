@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Image from 'next/image'
 import { addVideo, deleteVideo } from './video-actions'
 import { getYoutubeThumbnail, getPlatformLabel, getEmbedUrl } from '@/lib/videoEmbed'
 
@@ -57,8 +58,7 @@ export default function VideoSection({ planId, initial, canManage }: Props) {
           <div key={item.id} className="bg-white rounded-xl border border-teal/20 overflow-hidden flex items-center gap-3 px-3 py-2.5">
             {/* Miniature */}
             {thumb ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={thumb} alt="" className="w-20 h-11 object-cover rounded-lg shrink-0 bg-dark/10" />
+              <Image src={thumb} alt="" width={80} height={44} className="w-20 h-11 object-cover rounded-lg shrink-0 bg-dark/10" />
             ) : (
               <div className="w-20 h-11 rounded-lg bg-dark/10 flex items-center justify-center shrink-0">
                 <span className="text-dark/30 text-xs">▶</span>

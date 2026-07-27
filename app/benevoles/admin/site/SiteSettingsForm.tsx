@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition, useRef } from 'react'
+import Image from 'next/image'
 import { saveChurchSettings } from './actions'
 import type { ChurchSettings } from '@/lib/churchSettings'
 
@@ -44,13 +45,15 @@ export default function SiteSettingsForm({ initial }: { initial: ChurchSettings 
           <div className="space-y-2">
             <label className="font-sans text-xs text-dark/50">Photo des pasteurs</label>
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-xl bg-coral/15 border border-teal/10 flex items-center justify-center overflow-hidden shrink-0">
+              <div className="relative w-16 h-16 rounded-xl bg-coral/15 border border-teal/10 flex items-center justify-center overflow-hidden shrink-0">
                 {(photoPreview ?? initial.pastors_photo_url) ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
                     src={photoPreview ?? initial.pastors_photo_url}
                     alt="Photo pasteurs"
-                    className="w-full h-full object-cover"
+                    fill
+                    unoptimized
+                    sizes="64px"
+                    className="object-cover"
                   />
                 ) : (
                   <svg className="w-7 h-7 text-coral/50" viewBox="0 0 24 24" fill="currentColor">

@@ -19,22 +19,15 @@ export default async function Pasteurs() {
 
         <div className="flex flex-col items-center">
           <div className="rounded-xl overflow-hidden mb-6 ring-4 ring-teal-light">
-            {isExternal ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={s.pastors_photo_url}
-                alt={s.pastors_names}
-                className="w-full max-w-lg h-auto object-cover"
-              />
-            ) : (
-              <Image
-                src={s.pastors_photo_url}
-                alt={s.pastors_names}
-                width={600}
-                height={400}
-                className="w-full max-w-lg h-auto object-cover"
-              />
-            )}
+            <Image
+              src={s.pastors_photo_url}
+              alt={s.pastors_names}
+              width={600}
+              height={400}
+              priority
+              unoptimized={isExternal}
+              className="w-full max-w-lg h-auto object-cover"
+            />
           </div>
           <h3 className="font-display text-2xl font-semibold text-dark">
             {s.pastors_names}

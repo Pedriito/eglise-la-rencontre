@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { getEmbedUrl, getPlatformLabel, getYoutubeThumbnail } from '@/lib/videoEmbed'
 
 type Props = {
@@ -34,8 +35,7 @@ export function MediaPlayer({ youtubeUrl, audioUrl }: Props) {
               className="relative w-full aspect-video flex items-center justify-center bg-dark/5 hover:bg-dark/10 transition-colors group"
             >
               {thumbnail && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={thumbnail} alt="" className="absolute inset-0 w-full h-full object-cover opacity-80" />
+                <Image src={thumbnail} alt="" fill sizes="(max-width:768px) 100vw, 50vw" className="object-cover opacity-80" />
               )}
               <div className="relative z-10 w-14 h-14 rounded-full bg-black/60 group-hover:bg-teal/80 flex items-center justify-center transition-colors">
                 <span className="text-white text-2xl ml-1">▶</span>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { buildAllSlides, type Slide } from '@/lib/parseSlides'
 import { updateSlideLyrics, searchSongsForProjection, type SongSearchResult } from '@/app/benevoles/admin/plans/actions'
@@ -932,8 +933,7 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
                         isActive ? 'border-teal ring-1 ring-teal/50' : 'border-white/10 hover:border-white/40'
                       }`}
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={f.url} alt={f.name} className="w-full h-full object-cover" />
+                      <Image src={f.url} alt={f.name} fill sizes="(max-width:640px) 33vw, 25vw" className="object-cover" />
                       {isActive && (
                         <div className="absolute inset-0 bg-teal/30 flex items-center justify-center">
                           <span className="text-white text-lg">✓</span>
@@ -1086,8 +1086,7 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
                       }`}
                     >
                       {thumb ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={thumb} alt="" className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
+                        <Image src={thumb} alt="" fill sizes="(max-width:640px) 33vw, 25vw" className="object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
                       ) : (
                         <div className="absolute inset-0 bg-blue-900/30" />
                       )}
@@ -1148,8 +1147,7 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
                     >
                       {/* Miniature en fond si image */}
                       {ann.image_url && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={ann.image_url} alt="" className="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-30 transition-opacity" />
+                        <Image src={ann.image_url} alt="" fill sizes="(max-width:640px) 33vw, 25vw" className="object-cover opacity-20 group-hover:opacity-30 transition-opacity" />
                       )}
                       {eff.title && (
                         <p className={`relative z-10 text-[9px] uppercase tracking-widest leading-none mb-1 truncate w-full ${hasOverride ? 'text-amber-300/80' : 'text-amber-400/70'}`}>
