@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import Image from 'next/image'
 import { buildAllSlides, type Slide } from '@/lib/parseSlides'
 import { CountdownDisplay, COUNTDOWN_SECONDS } from '@/app/_components/CountdownDisplay'
 import { type ProjectionSettings, DEFAULT_SETTINGS, getBgStyle, getAnnBgStyle, getTextStyle, getAnnTextStyle, loadGoogleFont, mergeSettings, calcFontSize, calcAnnFontSize, SETTINGS_ID } from '@/lib/projectionSettings'
@@ -361,8 +362,7 @@ export function ProjectorScreen({ planId, songs: songsProp, settings: settingsPr
         if (hasImage && isLandscape) {
           return (
             <div className="absolute inset-0 z-10">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={announcement.imageUrl!} alt="" className="absolute inset-0 w-full h-full object-cover" />
+              <Image src={announcement.imageUrl!} alt="" fill sizes="100vw" className="object-cover" />
               <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.1) 100%)' }} />
               <div className="absolute bottom-0 left-0 right-0 pb-[6%]" style={{ paddingLeft: annPad, paddingRight: annPad }}>
                 {announcement.title && (
@@ -410,9 +410,8 @@ export function ProjectorScreen({ planId, songs: songsProp, settings: settingsPr
                   </div>
                 </div>
               </div>
-              <div className="w-[42%] h-full overflow-hidden">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={announcement.imageUrl!} alt="" className="w-full h-full object-cover" />
+              <div className="relative w-[42%] h-full overflow-hidden">
+                <Image src={announcement.imageUrl!} alt="" fill sizes="42vw" className="object-cover" />
               </div>
             </div>
           )

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Image from 'next/image'
 
 type Sermon = { id: string; title: string; url: string }
 
@@ -118,8 +119,7 @@ export function SermonPdfPanel({ sermons, onProjectPage, projectedLabel, onClear
                 }`}
                 title={`Page ${i + 1}`}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={dataUrl} alt={`Page ${i + 1}`} className="w-full h-full object-contain bg-white" />
+                <Image src={dataUrl} alt={`Page ${i + 1}`} fill unoptimized className="object-contain bg-white" />
                 <span className="absolute bottom-0.5 right-1 text-[9px] text-white/60 font-sans bg-black/50 rounded px-1">
                   {i + 1}
                 </span>

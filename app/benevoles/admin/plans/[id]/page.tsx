@@ -11,6 +11,8 @@ import AnnoncesSection from './AnnoncesSection'
 import SermonSection from './SermonSection'
 import VideoSection from './VideoSection'
 import ShareButton from './ShareButton'
+import { MobileOpenSlot } from './MobileOpenSlot'
+import { AddSongForm } from './AddSongForm'
 import { getPlanDetail, INVITE_EXT_ID } from '../getPlanDetail'
 import { AssignmentBoard } from '../AssignmentBoard'
 import { VolunteerPicker } from '../VolunteerPicker'
@@ -278,25 +280,50 @@ export default async function PlanDetailPage({
                         )
                       })}
 
-                      {openPositions.length > 0 ? openPositions.map(pos => (
-                        <div key={pos.id} className="flex items-center gap-3 border-2 border-dashed border-orange-200 rounded-xl px-3.5 py-2.5 bg-orange-50/30">
-                          <div className="w-7 h-7 rounded-full border-2 border-dashed border-orange-300 flex items-center justify-center shrink-0 text-orange-300">
-                            <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
-                              <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-5 5a5 5 0 0 1 10 0H3Z" />
-                            </svg>
+                      {canManage ? (
+                        openPositions.length > 0 ? openPositions.map(pos => (
+                          <MobileOpenSlot
+                            key={pos.id}
+                            planId={id}
+                            teamId={team.id}
+                            positionId={pos.id}
+                            positionName={team.hidePositions ? 'Poste disponible' : pos.name}
+                            candidates={team.candidatesByPosition[pos.id] ?? []}
+                            isInviteTeam={team.allowsGuests}
+                          />
+                        )) : hasOpenSlots ? (
+                          <MobileOpenSlot
+                            planId={id}
+                            teamId={team.id}
+                            positionId={null}
+                            positionName="Ajouter un bénévole"
+                            candidates={team.candidateProfiles}
+                            isInviteTeam={team.allowsGuests}
+                          />
+                        ) : null
+                      ) : (
+                        openPositions.length > 0 ? openPositions.map(pos => (
+                          <div key={pos.id} className="flex items-center gap-3 border-2 border-dashed border-orange-200 rounded-xl px-3.5 py-2.5 bg-orange-50/30">
+                            <div className="w-7 h-7 rounded-full border-2 border-dashed border-orange-300 flex items-center justify-center shrink-0 text-orange-300">
+                              <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+                                <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-5 5a5 5 0 0 1 10 0H3Z" />
+                              </svg>
+                            </div>
+                            <span className="font-sans text-sm text-dark/40 italic">
+                              {team.hidePositions ? 'Poste disponible' : pos.name}
+                            </span>
                           </div>
-                          <span className="font-sans text-sm text-dark/30 italic">Aucun bénévole</span>
-                        </div>
-                      )) : hasOpenSlots ? (
-                        <div className="flex items-center gap-3 border-2 border-dashed border-orange-200 rounded-xl px-3.5 py-2.5 bg-orange-50/30">
-                          <div className="w-7 h-7 rounded-full border-2 border-dashed border-orange-300 flex items-center justify-center shrink-0 text-orange-300">
-                            <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
-                              <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-5 5a5 5 0 0 1 10 0H3Z" />
-                            </svg>
+                        )) : hasOpenSlots ? (
+                          <div className="flex items-center gap-3 border-2 border-dashed border-orange-200 rounded-xl px-3.5 py-2.5 bg-orange-50/30">
+                            <div className="w-7 h-7 rounded-full border-2 border-dashed border-orange-300 flex items-center justify-center shrink-0 text-orange-300">
+                              <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+                                <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-5 5a5 5 0 0 1 10 0H3Z" />
+                              </svg>
+                            </div>
+                            <span className="font-sans text-sm text-dark/30 italic">Aucun bénévole</span>
                           </div>
-                          <span className="font-sans text-sm text-dark/30 italic">Aucun bénévole</span>
-                        </div>
-                      ) : null}
+                        ) : null
+                      )}
 
                       {canManage && (
                         <AddAssignmentForm
@@ -324,9 +351,11 @@ export default async function PlanDetailPage({
                   <IconMusicalNote className="w-3 h-3 inline-block mr-1 text-dark/30" />
                   Chants
                 </p>
-                <Link href={`/benevoles/admin/plans/${id}/setlist`} className="font-sans text-xs text-teal">
-                  Setlist →
-                </Link>
+                {(planSongs as unknown[]).length > 0 && (
+                  <Link href={`/benevoles/admin/plans/${id}/setlist`} className="font-sans text-xs text-teal">
+                    Setlist →
+                  </Link>
+                )}
               </div>
               <div className="divide-y divide-teal/8">
                 {(planSongs as unknown[]).length === 0 && (

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { deleteMediaFile, searchUnsplash, importUnsplashPhoto } from './actions'
 import type { UnsplashPhoto, MediaFile } from './actions'
@@ -207,11 +208,10 @@ export default function MediaLibrary({ initial }: Props) {
                   <button
                     type="button"
                     onClick={() => handleCopy(file)}
-                    className="block w-full aspect-square focus:outline-none"
+                    className="relative block w-full aspect-square focus:outline-none"
                     title="Cliquer pour copier l'URL"
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={file.url} alt={file.name} className="w-full h-full object-cover" />
+                    <Image src={file.url} alt={file.name} fill sizes="(max-width:640px) 33vw, 25vw" className="object-cover" />
                     <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <span className="text-white text-xs font-semibold bg-black/50 rounded px-2 py-1">
                         {copiedId === file.id ? '✓ Copié' : 'Copier l\'URL'}
@@ -282,11 +282,12 @@ export default function MediaLibrary({ initial }: Props) {
                       key={photo.id}
                       className="group relative bg-white rounded-xl overflow-hidden shadow-sm border border-teal/10 hover:shadow-md transition-shadow"
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
+                      <Image
                         src={photo.urls.small}
                         alt={photo.description ?? photo.alt_description ?? ''}
-                        className="w-full aspect-square object-cover"
+                        fill
+                        sizes="(max-width:640px) 33vw, 25vw"
+                        className="aspect-square object-cover"
                       />
                       {/* Overlay import */}
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">

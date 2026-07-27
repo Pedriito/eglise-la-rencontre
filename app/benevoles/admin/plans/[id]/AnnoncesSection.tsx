@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition, useRef } from 'react'
+import Image from 'next/image'
 import {
   addAnnouncement, updateAnnouncement, deleteAnnouncement, moveAnnouncement, uploadAnnouncementImage,
   addRecurringAnnouncement, updateRecurringAnnouncement, deleteRecurringAnnouncement, moveRecurringAnnouncement,
@@ -59,8 +60,7 @@ function ImagePicker({
     <div className="space-y-2">
       {value ? (
         <div className="relative inline-block">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={value} alt="" className="h-20 rounded-lg object-cover border border-teal/20" />
+          <Image src={value} alt="" width={120} height={80} className="h-20 rounded-lg object-cover border border-teal/20" />
           {!disabled && (
             <button
               type="button"
@@ -275,10 +275,11 @@ export default function AnnoncesSection({ planId, initial, initialRecurring, can
         ) : (
           <div className="flex items-start gap-3 px-4 py-3">
             {item.image_url && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={item.image_url}
                 alt=""
+                width={56}
+                height={40}
                 className="w-14 h-10 object-cover rounded-lg shrink-0 border border-teal/10"
               />
             )}

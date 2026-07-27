@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 
 type Video = { id: string; titre: string }
 
@@ -27,11 +28,12 @@ function VideoCard({ video }: { video: Video }) {
       className="aspect-video bg-teal-light rounded-sm overflow-hidden shadow-sm relative group w-full block"
       aria-label={`Lire : ${video.titre}`}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <Image
         src={`https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`}
         alt={video.titre}
-        className="w-full h-full object-cover"
+        fill
+        sizes="(max-width:768px) 100vw, 50vw"
+        className="object-cover"
       />
       {/* Overlay */}
       <div className="absolute inset-0 bg-black/30 group-hover:bg-black/20 transition-colors" />

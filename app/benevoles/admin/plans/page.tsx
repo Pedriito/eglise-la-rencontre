@@ -29,34 +29,35 @@ export default async function PlansPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/benevoles/login')
 
-  const { data: me } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
-
-  const isAdmin   = ['admin', 'super_admin'].includes(me?.permission ?? '')
-  const isEditor  = me?.permission === 'editor'
-  const canManage = isAdmin || isEditor
-
   const params = await searchParams
   const view   = params.view === 'calendar' ? 'calendar' : 'list'
+  const now    = new Date().toISOString()
 
-  // Pour le calendrier : charger les plans du mois en cours + 2 mois
-  // Pour la liste : plans à venir + 10 passés
-  const now = new Date().toISOString()
-
-  const [{ data: upcoming }, { data: past }] = await Promise.all([
+  // me + upcoming + calToken en parallèle (tous indépendants après auth)
+  const admin = createAdminClient()
+  const [{ data: me }, { data: upcoming }, { data: calSettings }] = await Promise.all([
+    supabase.from('profiles').select('permission').eq('id', user.id).single(),
     supabase
       .from('plans')
       .select('id, title, service_date, plan_type, teams(name)')
       .gte('service_date', now)
       .order('service_date'),
-    canManage
-      ? supabase
-          .from('plans')
-          .select('id, title, service_date, plan_type, teams(name)')
-          .lt('service_date', now)
-          .order('service_date', { ascending: false })
-          .limit(view === 'calendar' ? 60 : 10)
-      : Promise.resolve({ data: [] as PlanItem[] }),
+    admin.from('projection_settings').select('calendar_token').single(),
   ])
+
+  const isAdmin   = ['admin', 'super_admin'].includes(me?.permission ?? '')
+  const isEditor  = me?.permission === 'editor'
+  const canManage = isAdmin || isEditor
+
+  // past dépend de canManage et view → séquentiel mais sur une seule requête
+  const { data: past } = await (canManage
+    ? supabase
+        .from('plans')
+        .select('id, title, service_date, plan_type, teams(name)')
+        .lt('service_date', now)
+        .order('service_date', { ascending: false })
+        .limit(view === 'calendar' ? 60 : 10)
+    : Promise.resolve({ data: [] as PlanItem[] }))
 
   const upcomingPlans = (upcoming ?? []) as PlanItem[]
   const pastPlans = (past ?? []) as PlanItem[]
@@ -82,13 +83,8 @@ export default async function PlansPage({
     (myAssignments ?? []).map(a => [a.plan_id, a as MyAssignment])
   )
 
-  // Token iCal (généré une fois, stocké dans projection_settings)
-  const admin = createAdminClient()
-  const { data: settings } = await admin
-    .from('projection_settings')
-    .select('calendar_token')
-    .single()
-  let calToken = settings?.calendar_token as string | null
+  // Token iCal (récupéré dans le Promise.all ci-dessus)
+  let calToken = calSettings?.calendar_token as string | null
   if (!calToken) {
     calToken = crypto.randomUUID()
     await admin.from('projection_settings').update({ calendar_token: calToken }).not('id', 'is', null)
@@ -181,15 +177,7 @@ export default async function PlansPage({
             <p className="font-sans text-sm text-dark font-medium truncate">{plan.title}</p>
           </div>
           <p className="font-sans text-xs text-dark/50 capitalize">
-            {date} ·{' '}
-            {canManage ? (
-              <PlanTimeEditor
-                planId={plan.id}
-                serviceDate={plan.service_date}
-                stopPropagation
-                className="font-sans text-xs tabular-nums text-dark/50 hover:text-teal transition-colors cursor-pointer hover:underline decoration-dotted"
-              />
-            ) : time}
+            {date} · {time}
           </p>
           {team && <p className="font-sans text-xs text-dark/40 mt-0.5">{team.name}</p>}
         </Link>

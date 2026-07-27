@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Image from 'next/image'
 import { getOrCreateShareToken, regenerateShareToken } from './share-actions'
 
 type Props = { planId: string }
@@ -75,8 +76,7 @@ export default function ShareButton({ planId }: Props) {
               <>
                 {/* QR Code */}
                 <div className="flex justify-center">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(shareUrl(token))}`}
                     alt="QR Code"
                     width={180}
