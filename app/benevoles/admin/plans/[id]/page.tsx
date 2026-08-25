@@ -317,7 +317,7 @@ export default async function PlanDetailPage({
           )}
 
           {/* Chants */}
-          {(canManage || (planSongs as unknown[]).length > 0) && (
+          {((planSongs as unknown[]).length > 0 || true) && (
             <div className="bg-white rounded-2xl shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
               <div className="px-4 py-3 border-b border-teal/10 flex items-center justify-between bg-teal-50/50">
                 <p className="font-sans text-[10px] uppercase tracking-widest text-dark/40 font-semibold">
@@ -347,11 +347,9 @@ export default async function PlanDetailPage({
                   </div>
                 ))}
               </div>
-              {canManage && (
-                <div className="border-t border-teal/10 px-4 py-3 bg-teal-50/20">
-                  <AddSongForm planId={id} songs={allSongs as any} />
-                </div>
-              )}
+              <div className="border-t border-teal/10 px-4 py-3 bg-teal-50/20">
+                <AddSongForm planId={id} songs={allSongs as any} />
+              </div>
             </div>
           )}
 
