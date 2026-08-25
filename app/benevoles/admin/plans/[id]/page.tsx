@@ -6,6 +6,7 @@ import { IconEnvelope, IconMusicalNote, IconPlay, IconProjector, IconWarning } f
 import { StatusDot } from '../../../_components/StatusDot'
 import { FlashMessage } from '../../../_components/FlashMessage'
 import { AddAssignmentForm } from './AddAssignmentForm'
+import { AddSongForm } from './AddSongForm'
 import AnnoncesSection from './AnnoncesSection'
 import SermonSection from './SermonSection'
 import VideoSection from './VideoSection'
@@ -316,7 +317,7 @@ export default async function PlanDetailPage({
           )}
 
           {/* Chants */}
-          {(planSongs as unknown[]).length > 0 && (
+          {(canManage || (planSongs as unknown[]).length > 0) && (
             <div className="bg-white rounded-2xl shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
               <div className="px-4 py-3 border-b border-teal/10 flex items-center justify-between bg-teal-50/50">
                 <p className="font-sans text-[10px] uppercase tracking-widest text-dark/40 font-semibold">
@@ -328,6 +329,9 @@ export default async function PlanDetailPage({
                 </Link>
               </div>
               <div className="divide-y divide-teal/8">
+                {(planSongs as unknown[]).length === 0 && (
+                  <p className="px-4 py-4 font-sans text-xs text-dark/40 italic text-center">Aucun chant ajouté</p>
+                )}
                 {(planSongs as any[]).map((ps, i) => (
                   <div key={ps.id} className="px-4 py-3 flex items-center gap-3">
                     <span className="font-sans text-xs text-dark/25 tabular-nums w-5 text-right shrink-0">{i + 1}</span>
@@ -343,6 +347,11 @@ export default async function PlanDetailPage({
                   </div>
                 ))}
               </div>
+              {canManage && (
+                <div className="border-t border-teal/10 px-4 py-3 bg-teal-50/20">
+                  <AddSongForm planId={id} songs={allSongs as any} />
+                </div>
+              )}
             </div>
           )}
 
