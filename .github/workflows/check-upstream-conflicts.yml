@@ -1,0 +1,62 @@
+name: Vérifie les conflits avec upstream
+
+# Ce dépôt est un fork utilisé pour proposer des PR vers nicolasqdnp/eglise-la-rencontre.
+# GitHub n'exécute pas les workflows de ce fork dans le contexte d'une PR cross-repo
+# (ça reste sous le contrôle du dépôt upstream) — ce workflow tourne donc ici, sur le
+# fork, à chaque push, pour savoir à l'avance si la branche poussée fusionnerait
+# proprement dans upstream/main avant même d'ouvrir la PR.
+
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+
+jobs:
+  check-conflicts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurer git
+        run: |
+          git config user.name "conflict-check-bot"
+          git config user.email "actions@github.com"
+
+      - name: Récupérer upstream/main
+        run: |
+          git remote add upstream https://github.com/nicolasqdnp/eglise-la-rencontre.git
+          git fetch upstream main
+
+      - name: Tester la fusion (sans rien committer)
+        id: merge_check
+        run: |
+          set +e
+          git merge --no-commit --no-ff upstream/main
+          status=$?
+          set -e
+
+          if [ $status -ne 0 ]; then
+            echo "conflicts=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "## ❌ Conflits détectés avec \`upstream/main\`"
+              echo ""
+              echo "Fichiers en conflit :"
+              echo '```'
+              git diff --name-only --diff-filter=U
+              echo '```'
+              echo ""
+              echo "Résous-les localement (\`git fetch upstream && git merge upstream/main\`) avant d'ouvrir la PR."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "conflicts=false" >> "$GITHUB_OUTPUT"
+            echo "## ✅ Aucun conflit — la branche fusionnerait proprement dans \`upstream/main\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          git merge --abort || true
+
+      - name: Échouer si des conflits ont été trouvés
+        if: steps.merge_check.outputs.conflicts == 'true'
+        run: exit 1
