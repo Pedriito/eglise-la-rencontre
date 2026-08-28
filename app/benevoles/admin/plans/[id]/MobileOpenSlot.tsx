@@ -21,6 +21,7 @@ export function MobileOpenSlot({
   positionName,
   candidates,
   isInviteTeam,
+  variant = 'open',
 }: {
   planId: string
   teamId: string
@@ -28,10 +29,14 @@ export function MobileOpenSlot({
   positionName: string
   candidates: Profile[]
   isInviteTeam: boolean
+  /** 'open' = poste vide à pourvoir (orange). 'more' = poste déjà pourvu mais qui accepte
+   *  plusieurs bénévoles (ex : Chorale) — style neutre pour ne pas laisser croire qu'il est vide. */
+  variant?: 'open' | 'more'
 }) {
   const [expanded, setExpanded] = useState(false)
   const [userId, setUserId]     = useState('')
   const isExternal = userId === INVITE_EXT_ID
+  const isOpen = variant === 'open'
 
   const available   = candidates.filter(p => !p.unavailable)
   const unavailable = candidates.filter(p => p.unavailable)
@@ -42,14 +47,20 @@ export function MobileOpenSlot({
       <button
         type="button"
         onClick={() => setExpanded(true)}
-        className="w-full flex items-center gap-3 border-2 border-dashed border-orange-200 rounded-xl px-3.5 py-2.5 bg-orange-50/30 text-left"
+        className={`w-full flex items-center gap-3 border-2 border-dashed rounded-xl px-3.5 py-2.5 text-left ${
+          isOpen ? 'border-orange-200 bg-orange-50/30' : 'border-teal/25 bg-teal/5'
+        }`}
       >
-        <div className="w-7 h-7 rounded-full border-2 border-dashed border-orange-300 flex items-center justify-center shrink-0 text-orange-300">
+        <div className={`w-7 h-7 rounded-full border-2 border-dashed flex items-center justify-center shrink-0 ${
+          isOpen ? 'border-orange-300 text-orange-300' : 'border-teal/40 text-teal'
+        }`}>
           <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
             <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-5 5a5 5 0 0 1 10 0H3Z" />
           </svg>
         </div>
-        <span className="font-sans text-sm text-dark/50 flex-1 min-w-0 truncate">{positionName}</span>
+        <span className="font-sans text-sm text-dark/50 flex-1 min-w-0 truncate">
+          {isOpen ? positionName : `Ajouter · ${positionName}`}
+        </span>
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="w-4 h-4 text-teal/50 shrink-0">
           <path d="M8 3v10M3 8h10" />
         </svg>

@@ -1,12 +1,16 @@
-import Link from 'next/link'
-import { addAssignment } from './actions'
+'use client'
+
+import { useRef, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { addAssignmentAsync } from './actions'
+import { AssignVolunteerButton } from './AssignVolunteerButton'
 import { INVITE_EXT_ID, type PlanDetail, type Profile, type TeamDetail } from './getPlanDetail'
 
 type Props = {
   planId: string
   detail: PlanDetail
   fillKey: string | null
-  returnTo: string
+  onClose: () => void
 }
 
 function resolveFillTarget(detail: PlanDetail, fillKey: string | null) {
@@ -33,13 +37,13 @@ function initials(firstName?: string, lastName?: string) {
 }
 
 function CandidateRow({
-  p, team, planId, positionId, returnTo, warn,
+  p, team, planId, positionId, onAssigned, warn,
 }: {
   p: Profile
   team: TeamDetail
   planId: string
   positionId: string | null
-  returnTo: string
+  onAssigned: () => void
   warn?: 'busy' | 'unavailable'
 }) {
   return (
@@ -52,26 +56,87 @@ function CandidateRow({
         {warn === 'unavailable' && <p className="font-sans text-xs text-red-400">Indisponible ce jour-là</p>}
         {warn === 'busy' && <p className="font-sans text-xs text-amber-600">⚡ déjà {p.recentCount} services (60j)</p>}
       </div>
-      <form action={addAssignment}>
-        <input type="hidden" name="plan_id" value={planId} />
-        <input type="hidden" name="team_id" value={team.id} />
-        <input type="hidden" name="user_id" value={p.id} />
-        {positionId && <input type="hidden" name="position_id" value={positionId} />}
-        <input type="hidden" name="return_to" value={returnTo} />
-        <button
-          type="submit"
-          className={`font-sans text-xs font-semibold px-3 py-1.5 rounded-full transition-colors shrink-0 ${
-            warn ? 'border border-amber-300 text-amber-700 hover:bg-amber-50' : 'bg-teal text-white hover:bg-teal-dark'
-          }`}
-        >
-          Assigner
-        </button>
-      </form>
+      <AssignVolunteerButton
+        planId={planId}
+        teamId={team.id}
+        userId={p.id}
+        positionId={positionId}
+        onAssigned={onAssigned}
+        className={`font-sans text-xs font-semibold px-3 py-1.5 rounded-full transition-colors shrink-0 disabled:opacity-60 ${
+          warn ? 'border border-amber-300 text-amber-700 hover:bg-amber-50' : 'bg-teal text-white hover:bg-teal-dark'
+        }`}
+      >
+        Assigner
+      </AssignVolunteerButton>
     </div>
   )
 }
 
-export function VolunteerPicker({ planId, detail, fillKey, returnTo }: Props) {
+function ExternalGuestForm({
+  planId, team, positionId, positionName, onAssigned,
+}: {
+  planId: string
+  team: TeamDetail
+  positionId: string | null
+  positionName: string | null
+  onAssigned: () => void
+}) {
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+  const formRef = useRef<HTMLFormElement>(null)
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setError(null)
+    const fd = new FormData(e.currentTarget)
+    const externalName = fd.get('external_name') as string
+    const externalEmail = fd.get('external_email') as string
+    startTransition(async () => {
+      try {
+        const result = await addAssignmentAsync({
+          planId, teamId: team.id, userId: INVITE_EXT_ID, positionId, externalName, externalEmail,
+        })
+        if (result.ok) {
+          formRef.current?.reset()
+          onAssigned()
+          router.refresh()
+        } else {
+          setError(result.error ?? "Échec de l'invitation.")
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Échec de l'invitation.")
+      }
+    })
+  }
+
+  return (
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-1.5 mb-4 pb-4 border-b border-teal/10">
+      <p className="font-sans text-xs font-semibold text-dark/50 mb-1">
+        Invité externe · <span className="text-teal-dark">{positionName ?? team.name}</span>
+      </p>
+      <input
+        type="text"
+        name="external_name"
+        required
+        placeholder="Prénom Nom"
+        className="w-full px-2.5 py-1.5 rounded-lg border border-teal/30 bg-teal-50/40 text-dark placeholder:text-dark/30 font-sans text-xs focus:outline-none focus:ring-1 focus:ring-teal/40"
+      />
+      <input
+        type="email"
+        name="external_email"
+        placeholder="email@exemple.com (optionnel)"
+        className="w-full px-2.5 py-1.5 rounded-lg border border-teal/30 bg-teal-50/40 text-dark placeholder:text-dark/30 font-sans text-xs focus:outline-none focus:ring-1 focus:ring-teal/40"
+      />
+      <button type="submit" disabled={isPending} className="w-full py-1.5 bg-teal text-white rounded-lg font-sans text-xs font-semibold hover:bg-teal-dark transition-colors disabled:opacity-60">
+        {isPending ? 'Envoi…' : 'Inviter'}
+      </button>
+      {error && <p className="font-sans text-[10px] text-red-500">{error}</p>}
+    </form>
+  )
+}
+
+export function VolunteerPicker({ planId, detail, fillKey, onClose }: Props) {
   const target = resolveFillTarget(detail, fillKey)
 
   if (!target) {
@@ -102,41 +167,18 @@ export function VolunteerPicker({ planId, detail, fillKey, returnTo }: Props) {
             </p>
             <p className="font-display text-lg font-semibold text-dark leading-tight">Choisir un bénévole</p>
           </div>
-          <Link
-            href={returnTo}
-            scroll={false}
+          <button
+            type="button"
+            onClick={onClose}
             aria-label="Fermer"
             className="w-7 h-7 rounded-full bg-teal-50 flex items-center justify-center text-dark/40 hover:text-dark transition-colors shrink-0 font-sans text-sm"
           >
             ×
-          </Link>
+          </button>
         </div>
 
         {team.allowsGuests && (
-          <form action={addAssignment} className="space-y-1.5 mb-4 pb-4 border-b border-teal/10">
-            <input type="hidden" name="plan_id" value={planId} />
-            <input type="hidden" name="team_id" value={team.id} />
-            <input type="hidden" name="user_id" value={INVITE_EXT_ID} />
-            {positionId && <input type="hidden" name="position_id" value={positionId} />}
-            <input type="hidden" name="return_to" value={returnTo} />
-            <p className="font-sans text-xs font-semibold text-dark/50 mb-1">Invité externe</p>
-            <input
-              type="text"
-              name="external_name"
-              required
-              placeholder="Prénom Nom"
-              className="w-full px-2.5 py-1.5 rounded-lg border border-teal/30 bg-teal-50/40 text-dark placeholder:text-dark/30 font-sans text-xs focus:outline-none focus:ring-1 focus:ring-teal/40"
-            />
-            <input
-              type="email"
-              name="external_email"
-              placeholder="email@exemple.com (optionnel)"
-              className="w-full px-2.5 py-1.5 rounded-lg border border-teal/30 bg-teal-50/40 text-dark placeholder:text-dark/30 font-sans text-xs focus:outline-none focus:ring-1 focus:ring-teal/40"
-            />
-            <button type="submit" className="w-full py-1.5 bg-teal text-white rounded-lg font-sans text-xs font-semibold hover:bg-teal-dark transition-colors">
-              Inviter
-            </button>
-          </form>
+          <ExternalGuestForm planId={planId} team={team} positionId={positionId} positionName={positionName} onAssigned={onClose} />
         )}
 
         {available.length === 0 && busy.length === 0 && unavailable.length === 0 && (
@@ -152,7 +194,7 @@ export function VolunteerPicker({ planId, detail, fillKey, returnTo }: Props) {
             <p className="font-sans text-[10px] uppercase tracking-wide font-semibold text-green-600 mb-1">Disponibles · {available.length}</p>
             <div className="divide-y divide-teal/10">
               {available.map(p => (
-                <CandidateRow key={p.id} p={p} team={team} planId={planId} positionId={positionId} returnTo={returnTo} />
+                <CandidateRow key={p.id} p={p} team={team} planId={planId} positionId={positionId} onAssigned={onClose} />
               ))}
             </div>
           </div>
@@ -163,7 +205,7 @@ export function VolunteerPicker({ planId, detail, fillKey, returnTo }: Props) {
             <p className="font-sans text-[10px] uppercase tracking-wide font-semibold text-amber-600 mb-1">Charge élevée · {busy.length}</p>
             <div className="divide-y divide-teal/10">
               {busy.map(p => (
-                <CandidateRow key={p.id} p={p} team={team} planId={planId} positionId={positionId} returnTo={returnTo} warn="busy" />
+                <CandidateRow key={p.id} p={p} team={team} planId={planId} positionId={positionId} onAssigned={onClose} warn="busy" />
               ))}
             </div>
           </div>
@@ -174,7 +216,7 @@ export function VolunteerPicker({ planId, detail, fillKey, returnTo }: Props) {
             <p className="font-sans text-[10px] uppercase tracking-wide font-semibold text-dark/30 mb-1">Indisponibles ce jour · {unavailable.length}</p>
             <div className="divide-y divide-teal/10 opacity-60">
               {unavailable.map(p => (
-                <CandidateRow key={p.id} p={p} team={team} planId={planId} positionId={positionId} returnTo={returnTo} warn="unavailable" />
+                <CandidateRow key={p.id} p={p} team={team} planId={planId} positionId={positionId} onAssigned={onClose} warn="unavailable" />
               ))}
             </div>
           </div>

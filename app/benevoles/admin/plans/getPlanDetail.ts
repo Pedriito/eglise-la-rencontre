@@ -12,7 +12,9 @@ export type Profile = {
   recentCount: number    // nb de services les 60 derniers jours
 }
 
-export type Position = { id: string; name: string }
+// `allow_multiple` : ajouté par la migration 012, pas encore appliquée en base — optionnel
+// pour l'instant, sélectionné dès qu'elle l'est (voir la requête `teams` ci-dessous).
+export type Position = { id: string; name: string; allow_multiple?: boolean }
 
 export type AssignmentRow = {
   id: string
@@ -79,12 +81,14 @@ export async function getPlanDetail(
     { data: announcements },
     { data: sermons },
     { data: videos },
+    { data: recurringAnnouncements },
   ] = await Promise.all([
     supabase.from('plans').select('id, title, service_date, notes, plan_type').eq('id', planId).single(),
     supabase
       .from('plan_assignments')
       .select('id, status, user_id, position_id, team_id, external_name, external_email, invitation_sent_at, profiles(first_name, last_name), positions(id, name, team_id)')
       .eq('plan_id', planId),
+    // TODO: ajouter `allow_multiple` à la sélection une fois la migration 012 appliquée en base.
     supabase.from('teams').select('id, name, allows_guests, is_coordination, hide_positions, is_prayer_meeting, positions(id, name)').order('name'),
     supabase.from('profiles').select('id, first_name, last_name').order('first_name'),
     supabase.from('blockout_dates').select('user_id, start_date, end_date'),
@@ -114,16 +118,15 @@ export async function getPlanDetail(
       .select('id, title, url, order_index')
       .eq('plan_id', planId)
       .order('order_index'),
+    // Annonces récurrentes (globales, apparaissent sur tous les cultes) — pas de dépendance sur `plan`, chargées en parallèle
+    supabase
+      .from('recurring_announcements')
+      .select('id, title, body, order_index, image_url, video_url, active')
+      .eq('active', true)
+      .order('order_index'),
   ])
 
   if (!plan) return null
-
-  // Annonces récurrentes (globales, apparaissent sur tous les cultes)
-  const { data: recurringAnnouncements } = await supabase
-    .from('recurring_announcements')
-    .select('id, title, body, order_index, image_url, video_url, active')
-    .eq('active', true)
-    .order('order_index')
 
   // Fréquence récente : nb de services les 60 derniers jours par bénévole
   const cutoff = new Date()
@@ -209,25 +212,41 @@ export async function getPlanDetail(
     const teamPositions = team.positions as unknown as Position[]
     const teamAssignments = assignmentsByTeam[team.id] ?? []
     const teamMemberIds = membersByTeam[team.id]
-    const alreadyInThisTeam = new Set(teamAssignments.map(a => a.user_id))
 
-    const candidateProfiles: Profile[] = (allProfiles ?? [])
-      .filter(p => {
-        if (alreadyInThisTeam.has(p.id)) return false
-        if (!teamMemberIds || teamMemberIds.size === 0) return true
-        return teamMemberIds.has(p.id)
-      })
+    // Qui occupe déjà quel poste dans cette équipe pour ce service ('' = affectation sans
+    // poste nommé) — permet à la même personne de cumuler plusieurs postes différents
+    // (ex : conducteur + guitare, piano + DM, basse + DM), tout en évitant de la reproposer
+    // pour un poste qu'elle occupe déjà.
+    const assignedUserIdsByPosition: Record<string, Set<string>> = {}
+    teamAssignments.forEach(a => {
+      const key = a.position_id ?? ''
+      if (!assignedUserIdsByPosition[key]) assignedUserIdsByPosition[key] = new Set()
+      assignedUserIdsByPosition[key].add(a.user_id)
+    })
+
+    const eligibleProfiles: Profile[] = (allProfiles ?? [])
+      .filter(p => !teamMemberIds || teamMemberIds.size === 0 || teamMemberIds.has(p.id))
       .map(p => ({
         ...p,
         unavailable: unavailableIds.has(p.id),
         recentCount: recentCountMap[p.id] ?? 0,
       }))
 
-    // Pour chaque poste nommé, on ne propose que les bénévoles cochés pour ce poste précis.
+    // Pool pour une équipe SANS postes nommés : un seul rôle possible par personne, donc on
+    // exclut qui est déjà affecté à l'équipe (pas de cumul possible sans poste pour distinguer).
+    const candidateProfiles: Profile[] = eligibleProfiles.filter(
+      p => !assignedUserIdsByPosition['']?.has(p.id)
+    )
+
+    // Pour chaque poste nommé, on ne propose que les bénévoles cochés pour ce poste précis,
+    // en excluant seulement ceux qui occupent déjà CE poste (le cumul sur un autre poste reste possible).
     const candidatesByPosition: Record<string, Profile[]> = {}
     teamPositions.forEach(pos => {
       const qualifiedIds = userIdsByPosition[pos.id]
-      candidatesByPosition[pos.id] = candidateProfiles.filter(p => qualifiedIds?.has(p.id))
+      const alreadyHere = assignedUserIdsByPosition[pos.id]
+      candidatesByPosition[pos.id] = eligibleProfiles.filter(
+        p => qualifiedIds?.has(p.id) && !alreadyHere?.has(p.id)
+      )
     })
 
     return {

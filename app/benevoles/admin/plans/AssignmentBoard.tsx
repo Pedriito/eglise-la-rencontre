@@ -1,6 +1,9 @@
+'use client'
+
 import Link from 'next/link'
-import { removeAssignment, deletePlan, sendSingleInvitation } from './actions'
+import { deletePlan, sendSingleInvitation } from './actions'
 import { PlanTimeEditor } from './PlanTimeEditor'
+import { RemoveAssignmentButton } from './RemoveAssignmentButton'
 import { INVITE_EXT_ID, type PlanDetail, type TeamDetail } from './getPlanDetail'
 import { IconEnvelope, IconMusicalNote, IconPlay, IconProjector, IconWarning } from '@/app/benevoles/_components/Icons'
 import { StatusDot } from '../../_components/StatusDot'
@@ -20,7 +23,7 @@ type Props = {
   flashError?: string
   flashSent?: string
   returnTo: string
-  slotHref: (key: string) => string
+  onSlotClick: (key: string) => void
 }
 
 function initials(firstName?: string, lastName?: string) {
@@ -57,36 +60,53 @@ function PersonCard({ planId, a, returnTo }: { planId: string; a: TeamDetail['as
             </button>
           </form>
         )}
-        <form action={removeAssignment}>
-          <input type="hidden" name="plan_id" value={planId} />
-          <input type="hidden" name="assignment_id" value={a.id} />
-          <input type="hidden" name="return_to" value={returnTo} />
-          <button type="submit" aria-label="Retirer" className="text-dark/20 hover:text-red-400 transition-colors font-sans text-lg leading-none">×</button>
-        </form>
+        <RemoveAssignmentButton
+          assignmentId={a.id}
+          planId={planId}
+          className="text-dark/20 hover:text-red-400 transition-colors font-sans text-lg leading-none disabled:opacity-40"
+        />
       </div>
     </div>
   )
 }
 
-function OpenSlotCard({ label, href, active }: { label: string; href: string; active: boolean }) {
+function OpenSlotCard({
+  label, onClick, active, variant = 'open',
+}: {
+  label: string
+  onClick: () => void
+  active: boolean
+  /** 'open' = poste vide à pourvoir (orange). 'more' = poste déjà pourvu mais qui accepte
+   *  plusieurs bénévoles (ex : Chorale) — style neutre pour ne pas laisser croire qu'il est vide. */
+  variant?: 'open' | 'more'
+}) {
+  const isOpen = variant === 'open'
   return (
-    <Link
-      href={href}
-      scroll={false}
-      className={`rounded-xl px-3.5 py-3 flex items-center gap-3 border-2 border-dashed transition-colors ${
-        active ? 'border-teal bg-teal/5' : 'border-orange-200 hover:border-orange-300 bg-orange-50/40'
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-xl px-3.5 py-3 flex items-center gap-3 border-2 border-dashed transition-colors text-left ${
+        active
+          ? 'border-teal bg-teal/5'
+          : isOpen
+            ? 'border-orange-200 hover:border-orange-300 bg-orange-50/40'
+            : 'border-teal/25 hover:border-teal/40 bg-teal/5'
       }`}
     >
-      <div className="w-9 h-9 rounded-full border-2 border-dashed border-orange-300 flex items-center justify-center text-orange-400 text-lg shrink-0">+</div>
+      <div className={`w-9 h-9 rounded-full border-2 border-dashed flex items-center justify-center text-lg shrink-0 ${
+        isOpen ? 'border-orange-300 text-orange-400' : 'border-teal/40 text-teal'
+      }`}>+</div>
       <div className="min-w-0">
         <p className="font-sans text-sm font-medium text-dark truncate">{label}</p>
-        <p className="font-sans text-xs text-orange-500 font-medium">Poste à pourvoir</p>
+        <p className={`font-sans text-xs font-medium ${isOpen ? 'text-orange-500' : 'text-teal'}`}>
+          {isOpen ? 'Poste à pourvoir' : 'Ajouter quelqu’un d’autre'}
+        </p>
       </div>
-    </Link>
+    </button>
   )
 }
 
-export function AssignmentBoard({ planId, detail, fillKey, isAdmin, flashError, flashSent, returnTo, slotHref }: Props) {
+export function AssignmentBoard({ planId, detail, fillKey, isAdmin, flashError, flashSent, returnTo, onSlotClick }: Props) {
   const { plan, isRehearsal, teams, noTeamAssignments, planSongs, allSongs, announcements, recurringAnnouncements, sermons, videos } = detail
 
   const visibleTeams = teams.filter(t => t.visible)
@@ -167,6 +187,8 @@ export function AssignmentBoard({ planId, detail, fillKey, isAdmin, flashError, 
       {!isRehearsal && visibleTeams.map(team => {
         const filledPositionIds = new Set(team.assignments.map(a => a.position_id).filter(Boolean) as string[])
         const openPositions = team.positions.filter(p => !filledPositionIds.has(p.id))
+        // Postes déjà pourvus mais qui acceptent plusieurs bénévoles (ex : Chorale, Choriste)
+        const multiPositions = team.positions.filter(p => p.allow_multiple && filledPositionIds.has(p.id))
         const noNamedPositions = team.positions.length === 0
 
         return (
@@ -190,14 +212,23 @@ export function AssignmentBoard({ planId, detail, fillKey, isAdmin, flashError, 
                 <OpenSlotCard
                   key={pos.id}
                   label={pos.name}
-                  href={slotHref(`pos:${pos.id}`)}
+                  onClick={() => onSlotClick(`pos:${pos.id}`)}
+                  active={fillKey === `pos:${pos.id}`}
+                />
+              ))}
+              {multiPositions.map(pos => (
+                <OpenSlotCard
+                  key={`more:${pos.id}`}
+                  label={pos.name}
+                  variant="more"
+                  onClick={() => onSlotClick(`pos:${pos.id}`)}
                   active={fillKey === `pos:${pos.id}`}
                 />
               ))}
               {noNamedPositions && (
                 <OpenSlotCard
                   label="Ajouter un bénévole"
-                  href={slotHref(`team:${team.id}`)}
+                  onClick={() => onSlotClick(`team:${team.id}`)}
                   active={fillKey === `team:${team.id}`}
                 />
               )}
@@ -258,12 +289,11 @@ export function AssignmentBoard({ planId, detail, fillKey, isAdmin, flashError, 
                 <p className="font-sans text-sm text-dark font-medium">{a.profiles?.first_name} {a.profiles?.last_name}</p>
                 <div className="flex gap-2 items-center">
                   <StatusDot status={a.status} />
-                  <form action={removeAssignment}>
-                    <input type="hidden" name="plan_id" value={planId} />
-                    <input type="hidden" name="assignment_id" value={a.id} />
-                    <input type="hidden" name="return_to" value={returnTo} />
-                    <button type="submit" aria-label="Retirer" className="text-dark/20 hover:text-red-400 font-sans text-lg leading-none">×</button>
-                  </form>
+                  <RemoveAssignmentButton
+                    assignmentId={a.id}
+                    planId={planId}
+                    className="text-dark/20 hover:text-red-400 font-sans text-lg leading-none disabled:opacity-40"
+                  />
                 </div>
               </div>
             ))}
