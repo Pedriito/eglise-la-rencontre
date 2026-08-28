@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { sendPlanAssignmentEmail, sendCancellationNotificationEmail, sendExternalGuestInvitationEmail } from '@/lib/email'
-import { sendPushToUser } from '@/lib/pushNotifications'
+import { sendPushToUser, sendPushToUsers } from '@/lib/pushNotifications'
 
 const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
 
@@ -21,6 +21,54 @@ async function requireAdmin() {
   const { data: profile } = await supabase.from('profiles').select('permission, church_id').eq('id', user.id).single()
   if (!profile || !['admin', 'editor', 'super_admin'].includes(profile.permission)) redirect('/benevoles/dashboard')
   return { admin: createAdminClient(), church_id: profile.church_id as string }
+}
+
+/** Notifie par push les responsables (leaders) de l'équipe concernée qu'un bénévole a
+ *  confirmé ou décliné une affectation. Non-bloquant : une erreur ici ne doit jamais faire
+ *  échouer la réponse du bénévole, déjà enregistrée à ce stade. */
+async function notifyTeamLeadersOfResponse(assignmentId: string, status: string) {
+  if (status !== 'confirmed' && status !== 'declined') return
+  try {
+    const admin = createAdminClient()
+    const { data: assignment } = await admin
+      .from('plan_assignments')
+      .select('user_id, team_id, plan_id, plans(id, title, service_date), positions(name, team_id), profiles(first_name, last_name)')
+      .eq('id', assignmentId)
+      .single()
+    if (!assignment) return
+
+    const position = assignment.positions as unknown as { name: string; team_id: string } | null
+    const teamId = assignment.team_id ?? position?.team_id ?? null
+    if (!teamId) return
+
+    const { data: leaders } = await admin
+      .from('team_members')
+      .select('user_id')
+      .eq('team_id', teamId)
+      .eq('role', 'leader')
+
+    const leaderIds = (leaders ?? [])
+      .map(l => l.user_id)
+      .filter(id => id !== assignment.user_id)
+    if (leaderIds.length === 0) return
+
+    const plan = assignment.plans as unknown as { id: string; title: string; service_date: string } | null
+    const profile = assignment.profiles as unknown as { first_name: string; last_name: string } | null
+    const volunteerName = `${profile?.first_name ?? ''} ${profile?.last_name ?? ''}`.trim() || 'Un·e bénévole'
+    const date = plan
+      ? new Date(plan.service_date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+      : ''
+    const verb = status === 'confirmed' ? 'a confirmé sa présence' : 'a décliné'
+
+    await sendPushToUsers(leaderIds, {
+      title: status === 'confirmed' ? '✅ Réponse reçue' : '❌ Réponse reçue',
+      body: `${volunteerName} ${verb}${position ? ` · ${position.name}` : ''}${plan ? ` · ${plan.title} (${date})` : ''}`,
+      url: plan ? `/benevoles/admin/plans/${plan.id}` : '/benevoles/dashboard',
+      tag: `response-${assignmentId}`,
+    })
+  } catch (err) {
+    console.error('[notifyTeamLeadersOfResponse] échec (non-bloquant):', err)
+  }
 }
 
 export async function createPlan(formData: FormData) {
@@ -173,6 +221,86 @@ export async function removeAssignment(formData: FormData) {
   redirect(returnTo)
 }
 
+/** Variante sans redirect, pour un appel direct depuis un composant client (mise à jour optimiste). */
+export async function removeAssignmentAsync(
+  assignmentId: string,
+  planId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const { admin } = await requireAdmin()
+  const { error } = await admin.from('plan_assignments').delete().eq('id', assignmentId)
+  if (error) return { ok: false, error: error.message }
+  revalidatePath(`/benevoles/admin/plans/${planId}`)
+  revalidatePath('/benevoles/admin/plans')
+  return { ok: true }
+}
+
+/** Variante sans redirect de addAssignment, pour un appel direct depuis un composant client. */
+export async function addAssignmentAsync(input: {
+  planId: string
+  userId: string
+  positionId?: string | null
+  teamId?: string | null
+  externalName?: string | null
+  externalEmail?: string | null
+}): Promise<{ ok: boolean; error?: string }> {
+  const { admin } = await requireAdmin()
+  const { planId, userId, positionId = null, teamId = null, externalName = null, externalEmail = null } = input
+
+  if (userId === INVITE_EXT_ID) {
+    const { error } = await admin.from('plan_assignments').insert({
+      plan_id: planId,
+      user_id: userId,
+      position_id: positionId,
+      team_id: teamId,
+      status: 'pending',
+      external_name: externalName?.trim() || null,
+      external_email: externalEmail?.trim() || null,
+    })
+    if (error) return { ok: false, error: error.message }
+  } else {
+    const { error } = await admin.from('plan_assignments').insert({
+      plan_id: planId,
+      user_id: userId,
+      position_id: positionId,
+      team_id: teamId,
+      status: 'pending',
+    })
+    if (error) return { ok: false, error: error.message }
+
+    // La notification push est un bonus non-bloquant : l'affectation est déjà enregistrée
+    // à ce stade, une erreur ici (VAPID, réseau...) ne doit jamais faire échouer l'action.
+    try {
+      const [{ data: plan }, { data: position }] = await Promise.all([
+        admin.from('plans').select('title, service_date').eq('id', planId).single(),
+        positionId
+          ? admin.from('positions').select('name').eq('id', positionId).single()
+          : Promise.resolve({ data: null }),
+      ])
+
+      if (plan) {
+        const date = new Date(plan.service_date).toLocaleDateString('fr-FR', {
+          weekday: 'long', day: 'numeric', month: 'long',
+        })
+        const role = (position as { name: string } | null)?.name ?? null
+        await sendPushToUser(userId, {
+          title: '📋 Tu as été planifié·e',
+          body: role
+            ? `${role} · ${date} — confirme ta présence !`
+            : `${plan.title} · ${date} — confirme ta présence !`,
+          url: '/benevoles/historique',
+          tag: `assignment-${planId}`,
+        })
+      }
+    } catch (err) {
+      console.error('[addAssignmentAsync] notification push échouée (non-bloquant):', err)
+    }
+  }
+
+  revalidatePath(`/benevoles/admin/plans/${planId}`)
+  revalidatePath('/benevoles/admin/plans')
+  return { ok: true }
+}
+
 export async function sendSingleInvitation(formData: FormData) {
   const { admin } = await requireAdmin()
   const assignmentId = formData.get('assignment_id') as string
@@ -273,26 +401,35 @@ export async function respondAssignment(formData: FormData) {
     .eq('id', assignmentId)
     .eq('user_id', user.id)
 
+  await notifyTeamLeadersOfResponse(assignmentId, status)
+
   redirect('/benevoles/dashboard')
 }
 
-export async function respondAssignmentOnPlanDetail(formData: FormData) {
+/** Variante sans redirect, pour un appel direct depuis un composant client (mise à jour optimiste).
+ *  `planId` est optionnel : quand fourni, revalide aussi la page de détail du plan concerné. */
+export async function respondAssignmentAsync(
+  assignmentId: string,
+  status: string,
+  planId?: string,
+): Promise<{ ok: boolean; error?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/benevoles/login')
+  if (!user) return { ok: false, error: 'Non connecté' }
 
-  const assignmentId = formData.get('assignment_id') as string
-  const status = formData.get('status') as string
-  const planId = formData.get('plan_id') as string
-
-  await supabase
+  const { error } = await supabase
     .from('plan_assignments')
     .update({ status })
     .eq('id', assignmentId)
     .eq('user_id', user.id)
 
-  revalidatePath(`/benevoles/admin/plans/${planId}`)
-  redirect(`/benevoles/admin/plans/${planId}`)
+  if (error) return { ok: false, error: error.message }
+
+  await notifyTeamLeadersOfResponse(assignmentId, status)
+
+  revalidatePath('/benevoles/admin/plans')
+  if (planId) revalidatePath(`/benevoles/admin/plans/${planId}`)
+  return { ok: true }
 }
 
 export async function respondAssignmentOnHistorique(formData: FormData) {
@@ -309,27 +446,10 @@ export async function respondAssignmentOnHistorique(formData: FormData) {
     .eq('id', assignmentId)
     .eq('user_id', user.id)
 
+  await notifyTeamLeadersOfResponse(assignmentId, status)
+
   revalidatePath('/benevoles/historique')
   redirect('/benevoles/historique')
-}
-
-export async function respondAssignmentOnPlans(formData: FormData) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/benevoles/login')
-
-  const assignmentId = formData.get('assignment_id') as string
-  const status = formData.get('status') as string
-  const view = (formData.get('view') as string) || 'list'
-
-  await supabase
-    .from('plan_assignments')
-    .update({ status })
-    .eq('id', assignmentId)
-    .eq('user_id', user.id)
-
-  revalidatePath('/benevoles/admin/plans')
-  redirect(`/benevoles/admin/plans?view=${view}`)
 }
 
 export async function cancelAssignment(formData: FormData) {

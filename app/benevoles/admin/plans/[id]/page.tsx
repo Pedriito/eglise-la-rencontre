@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { removeAssignment, deletePlan, sendSingleInvitation, respondAssignmentOnPlanDetail } from '../actions'
+import { deletePlan, sendSingleInvitation } from '../actions'
 import { IconEnvelope, IconMusicalNote, IconPlay, IconProjector, IconWarning } from '@/app/benevoles/_components/Icons'
 import { StatusDot } from '../../../_components/StatusDot'
 import { FlashMessage } from '../../../_components/FlashMessage'
@@ -12,10 +12,10 @@ import SermonSection from './SermonSection'
 import VideoSection from './VideoSection'
 import ShareButton from './ShareButton'
 import { MobileOpenSlot } from './MobileOpenSlot'
-import { AddSongForm } from './AddSongForm'
 import { getPlanDetail, INVITE_EXT_ID } from '../getPlanDetail'
-import { AssignmentBoard } from '../AssignmentBoard'
-import { VolunteerPicker } from '../VolunteerPicker'
+import { PlanWorkspace } from '../PlanWorkspace'
+import { MyAssignmentPanel } from '../RespondAssignmentButtons'
+import { RemoveAssignmentButton } from '../RemoveAssignmentButton'
 
 const PLAN_TYPE_LABELS: Record<string, string> = {
   sunday_service: 'Culte',
@@ -123,76 +123,12 @@ export default async function PlanDetailPage({
               {/* Mon affectation */}
               {myAssignment && (
                 <div className="mt-4 pt-4 border-t border-white/20">
-                  {myAssignment.status === 'pending' ? (
-                    <>
-                      <p className="font-sans text-xs text-white/55 mb-3">
-                        {myAssignment.positions?.name
-                          ? `Demande · ${myAssignment.positions.name}`
-                          : 'Demande en attente de confirmation'}
-                      </p>
-                      <div className="flex gap-3">
-                        <form action={respondAssignmentOnPlanDetail} className="flex-1">
-                          <input type="hidden" name="assignment_id" value={myAssignment.id} />
-                          <input type="hidden" name="status" value="declined" />
-                          <input type="hidden" name="plan_id" value={id} />
-                          <button
-                            type="submit"
-                            className="w-full py-2.5 rounded-2xl font-sans text-sm border border-white/30 bg-white/10 text-white flex items-center justify-center gap-2"
-                          >
-                            <svg viewBox="0 0 14 14" fill="none" className="w-3.5 h-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                              <path d="M2 2l10 10M12 2L2 12" />
-                            </svg>
-                            Décliner
-                          </button>
-                        </form>
-                        <form action={respondAssignmentOnPlanDetail} className="flex-1">
-                          <input type="hidden" name="assignment_id" value={myAssignment.id} />
-                          <input type="hidden" name="status" value="confirmed" />
-                          <input type="hidden" name="plan_id" value={id} />
-                          <button
-                            type="submit"
-                            className="w-full py-2.5 rounded-2xl font-sans text-sm font-semibold bg-white text-teal-dark flex items-center justify-center gap-2"
-                          >
-                            <svg viewBox="0 0 14 14" fill="none" className="w-3.5 h-3.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M1.5 7.5l3.5 3.5 7-7" />
-                            </svg>
-                            Je serai là
-                          </button>
-                        </form>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="font-sans text-[10px] uppercase tracking-widest text-white/55 font-semibold">Mon rôle</p>
-                        <p className="font-sans text-base text-white font-semibold mt-0.5">
-                          {myAssignment.positions?.name ?? 'Bénévole'}
-                        </p>
-                      </div>
-                      <div className="flex flex-col items-end gap-1.5 shrink-0">
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-sans text-xs font-medium ${
-                          myAssignment.status === 'confirmed'
-                            ? 'bg-white/20 text-white'
-                            : 'bg-white/10 text-white/60'
-                        }`}>
-                          {myAssignment.status === 'confirmed' ? '✓ Confirmé·e' : 'Décliné'}
-                        </span>
-                        {myAssignment.status === 'confirmed' && (
-                          <form action={respondAssignmentOnPlanDetail}>
-                            <input type="hidden" name="assignment_id" value={myAssignment.id} />
-                            <input type="hidden" name="status" value="declined" />
-                            <input type="hidden" name="plan_id" value={id} />
-                            <button
-                              type="submit"
-                              className="font-sans text-xs text-white/50 hover:text-white transition-colors"
-                            >
-                              Se désister
-                            </button>
-                          </form>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                  <MyAssignmentPanel
+                    assignmentId={myAssignment.id}
+                    planId={id}
+                    positionName={myAssignment.positions?.name ?? null}
+                    initialStatus={myAssignment.status as 'pending' | 'confirmed' | 'declined'}
+                  />
                 </div>
               )}
             </div>
@@ -220,6 +156,8 @@ export default async function PlanDetailPage({
               {visibleTeams.map(team => {
                 const filledPositionIds = new Set(team.assignments.map(a => a.position_id).filter(Boolean) as string[])
                 const openPositions = team.positions.filter(p => !filledPositionIds.has(p.id))
+                // Postes déjà pourvus mais qui acceptent plusieurs bénévoles (ex : Chorale, Choriste)
+                const multiPositions = team.positions.filter(p => p.allow_multiple && filledPositionIds.has(p.id))
                 const noNamedPos = team.positions.length === 0
                 const hasOpenSlots = openPositions.length > 0 || (noNamedPos && team.assignments.length === 0)
 
@@ -269,11 +207,11 @@ export default async function PlanDetailPage({
                                 </form>
                               )}
                               {canManage && (
-                                <form action={removeAssignment}>
-                                  <input type="hidden" name="plan_id" value={id} />
-                                  <input type="hidden" name="assignment_id" value={a.id} />
-                                  <button type="submit" aria-label="Retirer" className="p-1.5 text-dark/20 hover:text-red-400 transition-colors font-sans text-xl leading-none">×</button>
-                                </form>
+                                <RemoveAssignmentButton
+                                  assignmentId={a.id}
+                                  planId={id}
+                                  className="p-1.5 text-dark/20 hover:text-red-400 transition-colors font-sans text-xl leading-none disabled:opacity-40"
+                                />
                               )}
                             </div>
                           </div>
@@ -301,7 +239,22 @@ export default async function PlanDetailPage({
                             isInviteTeam={team.allowsGuests}
                           />
                         ) : null
-                      ) : (
+                      ) : null}
+
+                      {canManage && multiPositions.map(pos => (
+                        <MobileOpenSlot
+                          key={`more:${pos.id}`}
+                          planId={id}
+                          teamId={team.id}
+                          positionId={pos.id}
+                          positionName={team.hidePositions ? 'Poste disponible' : pos.name}
+                          candidates={team.candidatesByPosition[pos.id] ?? []}
+                          isInviteTeam={team.allowsGuests}
+                          variant="more"
+                        />
+                      ))}
+
+                      {!canManage && (
                         openPositions.length > 0 ? openPositions.map(pos => (
                           <div key={pos.id} className="flex items-center gap-3 border-2 border-dashed border-orange-200 rounded-xl px-3.5 py-2.5 bg-orange-50/30">
                             <div className="w-7 h-7 rounded-full border-2 border-dashed border-orange-300 flex items-center justify-center shrink-0 text-orange-300">
@@ -426,11 +379,11 @@ export default async function PlanDetailPage({
                       {a.profiles?.first_name} {a.profiles?.last_name}
                     </p>
                     {canManage && (
-                      <form action={removeAssignment}>
-                        <input type="hidden" name="plan_id" value={id} />
-                        <input type="hidden" name="assignment_id" value={a.id} />
-                        <button type="submit" aria-label="Retirer" className="p-1.5 text-dark/20 hover:text-red-400 transition-colors font-sans text-xl leading-none">×</button>
-                      </form>
+                      <RemoveAssignmentButton
+                        assignmentId={a.id}
+                        planId={id}
+                        className="p-1.5 text-dark/20 hover:text-red-400 transition-colors font-sans text-xl leading-none disabled:opacity-40"
+                      />
                     )}
                   </div>
                 ))}
@@ -458,21 +411,14 @@ export default async function PlanDetailPage({
       <div className="hidden lg:block bg-sand min-h-screen">
         {canManage ? (
           <div className="flex gap-5 items-start max-w-5xl mx-auto px-6 py-6">
-            <AssignmentBoard
+            <PlanWorkspace
               planId={id}
               detail={detail}
-              fillKey={fillKey}
               isAdmin={isAdmin}
               flashError={flashError ?? undefined}
               flashSent={flashSent ?? undefined}
               returnTo={`/benevoles/admin/plans/${id}`}
-              slotHref={(k) => `?fill=${k}`}
-            />
-            <VolunteerPicker
-              planId={id}
-              detail={detail}
-              fillKey={fillKey}
-              returnTo={`/benevoles/admin/plans/${id}`}
+              initialFillKey={fillKey}
             />
           </div>
         ) : (

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import type { PlanItem } from './page'
 import { TYPE_COLORS } from './planTypeStyles'
 import { IconWarning } from '@/app/benevoles/_components/Icons'
+import { LinkPendingSpinner } from '@/app/benevoles/_components/LinkPendingSpinner'
 
 type Props = {
   plans: PlanItem[]
@@ -24,10 +25,11 @@ function ServiceRow({ plan, n, active }: { plan: PlanItem; n: number; active: bo
   return (
     <Link
       href={`?plan=${plan.id}`}
-      className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors ${
+      className={`relative flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors ${
         active ? 'border-teal bg-white shadow-sm' : 'border-teal/15 bg-white hover:border-teal/40'
       }`}
     >
+      <LinkPendingSpinner />
       <div className={`w-9 text-center rounded-lg py-1 shrink-0 ${colors.bg}`}>
         <div className="font-display text-base font-semibold leading-none text-dark">{day}</div>
         <div className="text-[9px] uppercase tracking-wide font-semibold text-dark/50 mt-0.5">{month}</div>

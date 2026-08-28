@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { movePlan, copyPlan } from './actions'
 import { SubscribeCalendarButton } from './SubscribeCalendarButton'
+import { LinkPendingSpinner } from '@/app/benevoles/_components/LinkPendingSpinner'
 import type { PlanItem } from './page'
 
 // ── Palette ───────────────────────────────────────────────────────────────────
@@ -103,12 +104,14 @@ function DescriptionModal({ plan, onClose }: { plan: PlanItem; onClose: () => vo
           <h2 className="font-display text-2xl text-dark font-light">{plan.title}</h2>
           <p className="font-sans text-sm text-dark/50 capitalize mt-1">{dateLabel} · {timeLabel}</p>
         </div>
+        {/* Pas de onClick={onClose} ici : on laisse la modale ouverte (avec son spinner)
+            pendant la navigation, elle disparaît naturellement une fois la page changée. */}
         <Link
           href={`/benevoles/admin/plans/${plan.id}`}
-          onClick={onClose}
-          className="flex items-center justify-center w-full py-3 rounded-xl font-sans text-sm font-semibold text-white hover:opacity-85 transition-opacity"
+          className="relative flex items-center justify-center w-full py-3 rounded-xl font-sans text-sm font-semibold text-white hover:opacity-85 transition-opacity"
           style={{ backgroundColor: c.main }}
         >
+          <LinkPendingSpinner />
           Voir le service →
         </Link>
       </div>
@@ -425,9 +428,10 @@ export function PlanCalendar({ plans, icalUrl, canManage, countByPlan = {} }: Pr
                       <Link
                         key={p.id}
                         href={`/benevoles/admin/plans/${p.id}`}
-                        className="block rounded-xl border p-3 hover:opacity-90 transition-opacity"
+                        className="relative block rounded-xl border p-3 hover:opacity-90 transition-opacity"
                         style={{ borderColor: `${c.main}55`, backgroundColor: c.bg }}
                       >
+                        <LinkPendingSpinner />
                         <p className="font-sans text-sm font-semibold text-dark truncate">{p.title}</p>
                         <p className="font-sans text-xs text-dark/50 mt-0.5 capitalize">
                           {fmtDate(p)} · {fmtTime(p)}{n > 0 ? ` · ${n}` : ''}
