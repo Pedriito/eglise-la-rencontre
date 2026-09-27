@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { addAssignment } from '../actions'
 import { IconWarning } from '@/app/benevoles/_components/Icons'
+import { frequencyLabels } from '@/lib/labels'
 
 const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
 
@@ -12,6 +13,8 @@ type Profile = {
   last_name: string
   unavailable: boolean   // blockout ce jour
   recentCount: number    // nb de services les 60 derniers jours
+  desired_frequency: string | null
+  servedThisMonth: number
 }
 type Position = { id: string; name: string }
 
@@ -53,9 +56,12 @@ export function AddAssignmentForm({
 
   function label(p: Profile) {
     const name = `${p.first_name} ${p.last_name}`
+    const freqPart = p.desired_frequency
+      ? ` · ${frequencyLabels[p.desired_frequency] ?? p.desired_frequency} (${p.servedThisMonth} ce mois)`
+      : ''
     if (p.unavailable) return `✗ ${name} — indisponible`
-    if (p.recentCount >= 3) return `${name} ⚡ ${p.recentCount}×`
-    return name
+    if (p.recentCount >= 3) return `${name} ⚡ ${p.recentCount}×${freqPart}`
+    return `${name}${freqPart}`
   }
 
   return (
@@ -144,6 +150,13 @@ export function AddAssignmentForm({
       {selected && !selected.unavailable && selected.recentCount >= 3 && (
         <p className="font-sans text-[10px] text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-2 py-1">
           ⚡ {selected.first_name} a déjà été planifié(e) {selected.recentCount} fois ces 60 derniers jours.
+        </p>
+      )}
+
+      {/* Rythme souhaité */}
+      {selected?.desired_frequency && (
+        <p className="font-sans text-[10px] text-dark/40 px-1">
+          Rythme souhaité : {frequencyLabels[selected.desired_frequency] ?? selected.desired_frequency} · {selected.servedThisMonth} ce mois-ci
         </p>
       )}
 

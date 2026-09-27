@@ -217,14 +217,28 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
                   aria-hidden="true"
                   style={{
                     position: 'absolute',
-                    top: '8px',
-                    bottom: '8px',
-                    left: '8px',
-                    width: `calc((100% - 16px) / ${BOTTOM_TABS.length})`,
+                    // Géométrie calée exactement sur un onglet : ils sont `flex-1` sans
+                    // espacement dans CE conteneur, donc chacun mesure 100% / n. Le rembourrage
+                    // de 8px appartient au conteneur parent — le compenser ici rendait la
+                    // pastille trop étroite et décalée, d'autant plus visible que `translateX`
+                    // se calcule sur sa propre largeur : l'erreur se déplaçait avec l'onglet.
+                    // Épouse exactement l'onglet, verticalement comme horizontalement. La
+                    // respiration vis-à-vis du bord de la barre vient du `py-2` du parent :
+                    // l'ajouter ici aussi rabotait la pastille deux fois.
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    width: `calc(100% / ${BOTTOM_TABS.length})`,
                     borderRadius: '18px',
                     background: 'rgba(90,158,166,0.13)',
                     transform: `translateX(calc(${Math.max(0, activeIndex)} * 100%))`,
-                    transition: 'transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                    // Aucun des 5 onglets n'est actif quand on est sur une page admin accessible
+                    // uniquement via le bouton "Admin" (Équipes, Pastorale...) — on masque alors
+                    // la pastille plutôt que de la laisser se rabattre à tort sur "Accueil"
+                    // (index -1 → Math.max(0, -1) = 0), ce qui la faisait apparaître au mauvais
+                    // endroit avec la mauvaise taille perçue.
+                    opacity: activeIndex === -1 ? 0 : 1,
+                    transition: 'transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease',
                   }}
                 />
                 {BOTTOM_TABS.map(tab => {

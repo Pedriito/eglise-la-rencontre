@@ -3,9 +3,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, refresh } from 'next/cache'
 import { sendPlanAssignmentEmail, sendCancellationNotificationEmail, sendExternalGuestInvitationEmail } from '@/lib/email'
 import { sendPushToUser, sendPushToUsers } from '@/lib/pushNotifications'
+import { parisLocalToUtcIso } from '@/lib/timezone'
 
 const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
 
@@ -86,7 +87,7 @@ export async function createPlan(formData: FormData) {
     .from('plans')
     .insert({
       title,
-      service_date: serviceDate,
+      service_date: parisLocalToUtcIso(serviceDate),
       team_id:      resolvedTeamIds?.[0] ?? null,   // garde la colonne legacy
       team_ids:     resolvedTeamIds ?? null,
       notes,
@@ -113,30 +114,41 @@ export async function setPlanTeams(formData: FormData) {
   revalidatePath('/benevoles/admin/plans')
 }
 
-/** Exclut ou réintègre un poste pour un plan donné (sans le supprimer de l'équipe). */
-export async function excludePlanPosition(formData: FormData) {
+/** Exclut ou réintègre un poste pour un plan donné (sans le supprimer de l'équipe).
+ *  Relit `excluded_position_ids` juste avant d'écrire (plutôt que de faire confiance à la
+ *  valeur connue du client) : si deux clics se suivent avant que le premier rafraîchissement
+ *  soit revenu, un tableau client obsolète écraserait silencieusement le changement précédent. */
+export async function excludePlanPositionAsync(
+  planId: string,
+  positionId: string,
+  exclude: boolean,
+): Promise<{ ok: boolean; error?: string }> {
   const { admin } = await requireAdmin()
-  const planId     = formData.get('plan_id') as string
-  const positionId = formData.get('position_id') as string
-  const exclude    = formData.get('exclude') === '1'
 
-  const { data: plan } = await admin
+  const { data: plan, error: fetchError } = await admin
     .from('plans')
     .select('excluded_position_ids')
     .eq('id', planId)
     .single()
+  if (fetchError) return { ok: false, error: fetchError.message }
 
   const current = (plan?.excluded_position_ids ?? []) as string[]
   const next = exclude
     ? [...new Set([...current, positionId])]
     : current.filter(id => id !== positionId)
 
-  await admin
+  const { error } = await admin
     .from('plans')
     .update({ excluded_position_ids: next.length > 0 ? next : null })
     .eq('id', planId)
+  if (error) return { ok: false, error: error.message }
   revalidatePath(`/benevoles/admin/plans/${planId}`)
   revalidatePath('/benevoles/admin/plans')
+  // `revalidatePath` seul ne garantit pas que le composant déjà monté (bloc d'équipe replié/
+  // déplié) reçoive la donnée fraîche dans la même transition que le `router.refresh()` client
+  // — `refresh()` force le "read-your-writes" immédiat sur cette requête.
+  refresh()
+  return { ok: true }
 }
 
 /** Crée un ou plusieurs plans depuis un formulaire unifié (champ date_mode = "single" | "multi"). */
@@ -164,7 +176,7 @@ export async function createPlans(formData: FormData) {
     .from('plans')
     .insert(dates.map(d => ({
       title,
-      service_date: d,
+      service_date: parisLocalToUtcIso(d),
       team_id:  resolvedTeamIds?.[0] ?? null,
       team_ids: resolvedTeamIds ?? null,
       notes,
@@ -199,7 +211,7 @@ export async function duplicatePlanToDate(formData: FormData) {
       team_id:      source.team_id,
       team_ids:     (source as any).team_ids ?? null,
       notes:        source.notes,
-      service_date: serviceDate,
+      service_date: parisLocalToUtcIso(serviceDate),
       church_id,
     })
     .select('id')
@@ -223,7 +235,7 @@ export async function movePlan(
   newServiceDate: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const { admin } = await requireAdmin()
-  const { error } = await admin.from('plans').update({ service_date: newServiceDate }).eq('id', planId)
+  const { error } = await admin.from('plans').update({ service_date: parisLocalToUtcIso(newServiceDate) }).eq('id', planId)
   if (error) return { ok: false, error: error.message }
   revalidatePath('/benevoles/admin/plans')
   return { ok: true }
@@ -243,7 +255,7 @@ export async function copyPlan(
   if (fetchError || !original) return { ok: false, error: fetchError?.message ?? 'Plan introuvable.' }
   const { error } = await admin.from('plans').insert({
     title: original.title,
-    service_date: newServiceDate,
+    service_date: parisLocalToUtcIso(newServiceDate),
     plan_type: original.plan_type,
     team_id: original.team_id,
     notes: original.notes,
@@ -329,6 +341,56 @@ export async function removeAssignmentAsync(
   const { admin } = await requireAdmin()
   const { error } = await admin.from('plan_assignments').delete().eq('id', assignmentId)
   if (error) return { ok: false, error: error.message }
+  revalidatePath(`/benevoles/admin/plans/${planId}`)
+  revalidatePath('/benevoles/admin/plans')
+  return { ok: true }
+}
+
+/** Fait porter le rôle "DM" par la personne actuellement affectée à l'un des postes
+ *  instrumentaux (Piano/Basse/Batterie), plutôt que de créer deux affectations manuelles
+ *  distinctes et indépendantes. `sourcePositionId = null` retire l'affectation DM en cours
+ *  sans la remplacer (désélection). */
+export async function setDmHolder(
+  planId: string,
+  teamId: string,
+  dmPositionId: string,
+  sourcePositionId: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  const { admin } = await requireAdmin()
+
+  const { error: deleteError } = await admin
+    .from('plan_assignments')
+    .delete()
+    .eq('plan_id', planId)
+    .eq('position_id', dmPositionId)
+  if (deleteError) return { ok: false, error: deleteError.message }
+
+  if (!sourcePositionId) {
+    revalidatePath(`/benevoles/admin/plans/${planId}`)
+    revalidatePath('/benevoles/admin/plans')
+    return { ok: true }
+  }
+
+  const { data: sourceAssignment, error: fetchError } = await admin
+    .from('plan_assignments')
+    .select('user_id')
+    .eq('plan_id', planId)
+    .eq('position_id', sourcePositionId)
+    .neq('user_id', INVITE_EXT_ID)
+    .maybeSingle()
+
+  if (fetchError) return { ok: false, error: fetchError.message }
+  if (!sourceAssignment) return { ok: false, error: "Ce poste n'a personne d'affecté pour ce service." }
+
+  const { error: insertError } = await admin.from('plan_assignments').insert({
+    plan_id: planId,
+    user_id: sourceAssignment.user_id,
+    position_id: dmPositionId,
+    team_id: teamId,
+    status: 'pending',
+  })
+  if (insertError) return { ok: false, error: insertError.message }
+
   revalidatePath(`/benevoles/admin/plans/${planId}`)
   revalidatePath('/benevoles/admin/plans')
   return { ok: true }

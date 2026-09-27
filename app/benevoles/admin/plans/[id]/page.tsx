@@ -11,7 +11,6 @@ import AnnoncesSection from './AnnoncesSection'
 import SermonSection from './SermonSection'
 import VideoSection from './VideoSection'
 import ShareButton from './ShareButton'
-import { MobileOpenSlot } from './MobileOpenSlot'
 import { getPlanDetail, INVITE_EXT_ID } from '../getPlanDetail'
 import { PlanWorkspace } from '../PlanWorkspace'
 import { MyAssignmentPanel } from '../RespondAssignmentButtons'
@@ -19,6 +18,12 @@ import { RemoveAssignmentButton } from '../RemoveAssignmentButton'
 import { MobileSongsList } from './MobileSongsList'
 import { AddPlanDateForm } from './AddPlanDateForm'
 import { PlanTeamsManager } from './PlanTeamsManager'
+import { DmSelector } from '../DmSelector'
+import { MobileTeamBlock } from './MobileTeamBlock'
+import { MobileTeamPositions } from './MobileTeamPositions'
+
+/** Postes instrumentaux éligibles au rôle DM (cf. DmSelector). */
+const DM_SOURCE_POSITIONS = ['Piano', 'Basse', 'Batterie']
 
 const PLAN_TYPE_LABELS: Record<string, string> = {
   sunday_service: 'Culte',
@@ -193,27 +198,36 @@ export default async function PlanDetailPage({
                 Équipe du culte
               </p>
               {visibleTeams.map(team => {
+                const excludedIds = new Set(plan.excluded_position_ids ?? [])
                 const filledPositionIds = new Set(team.assignments.map(a => a.position_id).filter(Boolean) as string[])
-                const openPositions = team.positions.filter(p => !filledPositionIds.has(p.id))
-                // Postes déjà pourvus mais qui acceptent plusieurs bénévoles (ex : Chorale, Choriste)
-                const multiPositions = team.positions.filter(p => p.allow_multiple && filledPositionIds.has(p.id))
+                // "DM" se règle exclusivement via le DmSelector (choix parmi Piano/Basse/Batterie).
+                const openPositions = team.positions.filter(p => !filledPositionIds.has(p.id) && !excludedIds.has(p.id) && p.name !== 'DM')
                 const noNamedPos = team.positions.length === 0
+                // Badge d'en-tête seulement : le détail des postes est géré par MobileTeamPositions.
                 const hasOpenSlots = openPositions.length > 0 || (noNamedPos && team.assignments.length === 0)
+                const dmPosition = team.positions.find(p => p.name === 'DM')
+                const dmInstruments = team.positions.filter(p => DM_SOURCE_POSITIONS.includes(p.name))
+                const showDmSelector = !!dmPosition && dmInstruments.length > 0
+
+                const isMember = team.isMyTeam || team.assignments.some(a => a.user_id === user.id)
 
                 return (
-                  <div key={team.id} className="bg-white rounded-2xl shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
-                    <div className="px-4 py-3 border-b border-teal/10 flex items-center justify-between">
-                      <p className="font-sans text-[10px] uppercase tracking-widest text-dark/40 font-semibold">{team.name}</p>
-                      {hasOpenSlots ? (
-                        <span className="px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-500 font-sans text-[10px] font-semibold">
-                          À pourvoir
-                        </span>
-                      ) : team.assignments.length > 0 ? (
-                        <span className="font-sans text-xs text-dark/25 tabular-nums">{team.assignments.length}</span>
-                      ) : null}
-                    </div>
-
-                    <div className="p-3 space-y-2">
+                  <MobileTeamBlock
+                    key={team.id}
+                    defaultExpanded={isMember}
+                    header={
+                      <>
+                        <p className="font-sans text-[10px] uppercase tracking-widest text-dark/40 font-semibold">{team.name}</p>
+                        {hasOpenSlots ? (
+                          <span className="px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-500 font-sans text-[10px] font-semibold">
+                            À pourvoir
+                          </span>
+                        ) : team.assignments.length > 0 ? (
+                          <span className="font-sans text-xs text-dark/25 tabular-nums">{team.assignments.length}</span>
+                        ) : null}
+                      </>
+                    }
+                  >
                       {team.assignments.map(a => {
                         const isMe     = a.user_id === user.id
                         const isInvite = a.user_id === INVITE_EXT_ID
@@ -257,79 +271,48 @@ export default async function PlanDetailPage({
                         )
                       })}
 
-                      {canManage ? (
-                        openPositions.length > 0 ? openPositions.map(pos => (
-                          <MobileOpenSlot
-                            key={pos.id}
-                            planId={id}
-                            teamId={team.id}
-                            positionId={pos.id}
-                            positionName={team.hidePositions ? 'Poste disponible' : pos.name}
-                            candidates={team.candidatesByPosition[pos.id] ?? []}
-                            isInviteTeam={team.allowsGuests}
-                          />
-                        )) : hasOpenSlots ? (
-                          <MobileOpenSlot
-                            planId={id}
-                            teamId={team.id}
-                            positionId={null}
-                            positionName="Ajouter un bénévole"
-                            candidates={team.candidateProfiles}
-                            isInviteTeam={team.allowsGuests}
-                          />
-                        ) : null
-                      ) : null}
+                      <MobileTeamPositions
+                        planId={id}
+                        teamId={team.id}
+                        positions={team.positions}
+                        filledPositionIds={[...filledPositionIds]}
+                        initialExcludedIds={plan.excluded_position_ids ?? []}
+                        candidatesByPosition={team.candidatesByPosition}
+                        candidateProfiles={team.candidateProfiles}
+                        assignmentsCount={team.assignments.length}
+                        allowsGuests={team.allowsGuests}
+                        hidePositions={team.hidePositions}
+                        canManage={canManage}
+                        isAdmin={isAdmin}
+                      />
 
-                      {canManage && multiPositions.map(pos => (
-                        <MobileOpenSlot
-                          key={`more:${pos.id}`}
+                      {showDmSelector && (
+                        <DmSelector
                           planId={id}
                           teamId={team.id}
-                          positionId={pos.id}
-                          positionName={team.hidePositions ? 'Poste disponible' : pos.name}
-                          candidates={team.candidatesByPosition[pos.id] ?? []}
-                          isInviteTeam={team.allowsGuests}
-                          variant="more"
+                          dmPositionId={dmPosition!.id}
+                          dmAssignment={team.assignments.find(a => a.position_id === dmPosition!.id) ?? null}
+                          instruments={dmInstruments.map(pos => ({
+                            positionId: pos.id,
+                            positionName: pos.name,
+                            assignment: team.assignments.find(a => a.position_id === pos.id) ?? null,
+                          }))}
                         />
-                      ))}
-
-                      {!canManage && (
-                        openPositions.length > 0 ? openPositions.map(pos => (
-                          <div key={pos.id} className="flex items-center gap-3 border-2 border-dashed border-orange-200 rounded-xl px-3.5 py-2.5 bg-orange-50/30">
-                            <div className="w-7 h-7 rounded-full border-2 border-dashed border-orange-300 flex items-center justify-center shrink-0 text-orange-300">
-                              <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
-                                <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-5 5a5 5 0 0 1 10 0H3Z" />
-                              </svg>
-                            </div>
-                            <span className="font-sans text-sm text-dark/40 italic">
-                              {team.hidePositions ? 'Poste disponible' : pos.name}
-                            </span>
-                          </div>
-                        )) : hasOpenSlots ? (
-                          <div className="flex items-center gap-3 border-2 border-dashed border-orange-200 rounded-xl px-3.5 py-2.5 bg-orange-50/30">
-                            <div className="w-7 h-7 rounded-full border-2 border-dashed border-orange-300 flex items-center justify-center shrink-0 text-orange-300">
-                              <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
-                                <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-5 5a5 5 0 0 1 10 0H3Z" />
-                              </svg>
-                            </div>
-                            <span className="font-sans text-sm text-dark/30 italic">Aucun bénévole</span>
-                          </div>
-                        ) : null
                       )}
 
                       {canManage && (
                         <AddAssignmentForm
                           planId={id}
                           teamId={team.id}
-                          teamPositions={team.positions}
+                          // "DM" exclu : se règle exclusivement via le DmSelector ci-dessus.
+                          teamPositions={team.positions.filter(p => p.name !== 'DM')}
                           teamProfiles={team.candidateProfiles}
                           candidatesByPosition={team.candidatesByPosition}
                           isInviteTeam={team.allowsGuests}
                           hidePositions={team.hidePositions}
                         />
                       )}
-                    </div>
-                  </div>
+                  </MobileTeamBlock>
                 )
               })}
             </>
@@ -414,6 +397,7 @@ export default async function PlanDetailPage({
             <PlanWorkspace
               planId={id}
               detail={detail}
+              userId={user.id}
               isAdmin={isAdmin}
               flashError={flashError ?? undefined}
               flashSent={flashSent ?? undefined}

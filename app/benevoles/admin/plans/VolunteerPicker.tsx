@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { addAssignmentAsync } from './actions'
 import { AssignVolunteerButton } from './AssignVolunteerButton'
 import { INVITE_EXT_ID, type PlanDetail, type Profile, type TeamDetail } from './getPlanDetail'
+import { frequencyLabels } from '@/lib/labels'
 
 type Props = {
   planId: string
@@ -55,6 +56,11 @@ function CandidateRow({
         <p className="font-sans text-sm font-medium text-dark truncate">{p.first_name} {p.last_name}</p>
         {warn === 'unavailable' && <p className="font-sans text-xs text-red-400">Indisponible ce jour-là</p>}
         {warn === 'busy' && <p className="font-sans text-xs text-amber-600">⚡ déjà {p.recentCount} services (60j)</p>}
+        {p.desired_frequency && (
+          <p className="font-sans text-[11px] text-dark/35">
+            {frequencyLabels[p.desired_frequency] ?? p.desired_frequency} · {p.servedThisMonth} ce mois-ci
+          </p>
+        )}
       </div>
       <AssignVolunteerButton
         planId={planId}

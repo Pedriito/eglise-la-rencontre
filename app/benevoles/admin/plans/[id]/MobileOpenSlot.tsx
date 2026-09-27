@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { addAssignment } from '../actions'
 import { IconWarning } from '@/app/benevoles/_components/Icons'
+import { frequencyLabels } from '@/lib/labels'
 
 const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
 
@@ -12,6 +13,14 @@ type Profile = {
   last_name: string
   unavailable: boolean
   recentCount: number
+  desired_frequency: string | null
+  servedThisMonth: number
+}
+
+function optionLabel(p: Profile) {
+  return p.desired_frequency
+    ? `${p.first_name} ${p.last_name}${p.recentCount >= 3 ? ` ⚡${p.recentCount}×` : ''} · ${frequencyLabels[p.desired_frequency] ?? p.desired_frequency} (${p.servedThisMonth} ce mois)`
+    : `${p.first_name} ${p.last_name}${p.recentCount >= 3 ? ` ⚡${p.recentCount}×` : ''}`
 }
 
 export function MobileOpenSlot({
@@ -103,15 +112,11 @@ export function MobileOpenSlot({
             {available.length > 0 && unavailable.length > 0 ? (
               <optgroup label="Disponibles">
                 {available.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.first_name} {p.last_name}{p.recentCount >= 3 ? ` ⚡${p.recentCount}×` : ''}
-                  </option>
+                  <option key={p.id} value={p.id}>{optionLabel(p)}</option>
                 ))}
               </optgroup>
             ) : available.map(p => (
-              <option key={p.id} value={p.id}>
-                {p.first_name} {p.last_name}{p.recentCount >= 3 ? ` ⚡${p.recentCount}×` : ''}
-              </option>
+              <option key={p.id} value={p.id}>{optionLabel(p)}</option>
             ))}
 
             {unavailable.length > 0 && available.length > 0 ? (
@@ -148,6 +153,12 @@ export function MobileOpenSlot({
         {selected && !selected.unavailable && selected.recentCount >= 3 && (
           <p className="font-sans text-[10px] text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-2 py-1">
             ⚡ {selected.first_name} a déjà été planifié(e) {selected.recentCount} fois ces 60 derniers jours.
+          </p>
+        )}
+
+        {selected?.desired_frequency && (
+          <p className="font-sans text-[10px] text-dark/40 px-0.5">
+            Rythme souhaité : {frequencyLabels[selected.desired_frequency] ?? selected.desired_frequency} · {selected.servedThisMonth} ce mois-ci
           </p>
         )}
 

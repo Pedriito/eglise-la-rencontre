@@ -39,6 +39,7 @@ export function makeFakeSupabase(queues: Record<string, FakeResponse[]>) {
       update: () => builder,
       delete: () => builder,
       single: () => Promise.resolve(resp),
+      maybeSingle: () => Promise.resolve(resp),
       then: (resolve: (v: FakeResponse) => unknown, reject?: (e: unknown) => unknown) =>
         Promise.resolve(resp).then(resolve, reject),
     }

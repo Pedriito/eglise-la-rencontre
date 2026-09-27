@@ -47,7 +47,7 @@ export function PwaInstallBanner() {
 
   // ── Chromium (Brave, Chrome, Edge) ─────────────────────────────────────────
   if (deferredPrompt) return (
-    <div className="fixed bottom-4 left-4 right-4 z-50 bg-dark text-white rounded-2xl px-4 py-3 shadow-2xl flex items-center gap-3 lg:left-56 lg:right-auto lg:max-w-sm">
+    <div className="fixed bottom-[calc(88px_+_env(safe-area-inset-bottom))] lg:bottom-4 left-4 right-4 z-50 bg-dark text-white rounded-2xl px-4 py-3 shadow-2xl flex items-center gap-3 lg:left-56 lg:right-auto lg:max-w-sm">
       <span className="text-xl shrink-0">📲</span>
       <div className="flex-1 min-w-0">
         <p className="font-sans text-sm font-semibold leading-tight">Installer l'appli bénévoles</p>
@@ -65,7 +65,7 @@ export function PwaInstallBanner() {
 
   // ── iOS Safari ──────────────────────────────────────────────────────────────
   if (showIos) return (
-    <div className="fixed bottom-4 left-4 right-4 z-50 bg-dark text-white rounded-2xl px-4 py-3 shadow-2xl flex items-start gap-3 lg:left-56 lg:right-auto lg:max-w-sm">
+    <div className="fixed bottom-[calc(88px_+_env(safe-area-inset-bottom))] lg:bottom-4 left-4 right-4 z-50 bg-dark text-white rounded-2xl px-4 py-3 shadow-2xl flex items-start gap-3 lg:left-56 lg:right-auto lg:max-w-sm">
       <span className="text-xl shrink-0 mt-0.5">📲</span>
       <div className="flex-1 min-w-0">
         <p className="font-sans text-sm font-semibold leading-tight">Installer l'appli bénévoles</p>

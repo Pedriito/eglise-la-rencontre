@@ -54,6 +54,7 @@ export async function PlanWorkspaceData({
       <PlanWorkspace
         planId={selectedPlanId}
         detail={detail}
+        userId={userId}
         isAdmin={isAdmin}
         flashError={flashError}
         flashSent={flashSent}

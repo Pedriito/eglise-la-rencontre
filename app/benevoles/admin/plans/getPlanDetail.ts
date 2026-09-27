@@ -13,28 +13,39 @@ const getStableCatalog = unstable_cache(
   async () => {
     const admin = createAdminClient()
     const [
-      { data: teams },
-      { data: allProfiles },
-      { data: teamMemberships },
-      { data: memberPositions },
-      { data: allSongs },
-      { data: recurringAnnouncements },
+      teamsRes,
+      profilesRes,
+      teamMembershipsRes,
+      memberPositionsRes,
+      songsRes,
+      recurringAnnouncementsRes,
     ] = await Promise.all([
       // TODO: ajouter `allow_multiple` à la sélection une fois la migration 012 appliquée en base.
-      admin.from('teams').select('id, name, allows_guests, is_coordination, hide_positions, is_prayer_meeting, positions(id, name)').order('name'),
-      admin.from('profiles').select('id, first_name, last_name').order('first_name'),
+      admin.from('teams').select('id, name, allows_guests, is_coordination, hide_positions, is_prayer_meeting, positions(id, name, archived)').order('name'),
+      admin.from('profiles').select('id, first_name, last_name, desired_frequency').order('first_name'),
       admin.from('team_members').select('user_id, team_id'),
       admin.from('member_positions').select('user_id, position_id'),
       admin.from('songs').select('id, title, arrangements(id, name, chord_chart_key, keys_available)').order('title'),
       admin.from('recurring_announcements').select('id, title, body, order_index, image_url, video_url, active').eq('active', true).order('order_index'),
     ])
+
+    // Ne jamais avaler une erreur Supabase en silence (colonne manquante, réseau...) : sans ça,
+    // ce catalogue partagé par tout le module planning retomberait sur des tableaux vides
+    // pendant 5 min (durée du cache), invisible et indiscernable d'un catalogue légitimement vide.
+    for (const [label, res] of [
+      ['teams', teamsRes], ['profiles', profilesRes], ['team_members', teamMembershipsRes],
+      ['member_positions', memberPositionsRes], ['songs', songsRes], ['recurring_announcements', recurringAnnouncementsRes],
+    ] as const) {
+      if (res.error) console.error(`[getStableCatalog] échec requête "${label}":`, res.error.message)
+    }
+
     return {
-      teams: teams ?? [],
-      allProfiles: allProfiles ?? [],
-      teamMemberships: teamMemberships ?? [],
-      memberPositions: memberPositions ?? [],
-      allSongs: allSongs ?? [],
-      recurringAnnouncements: recurringAnnouncements ?? [],
+      teams: teamsRes.data ?? [],
+      allProfiles: profilesRes.data ?? [],
+      teamMemberships: teamMembershipsRes.data ?? [],
+      memberPositions: memberPositionsRes.data ?? [],
+      allSongs: songsRes.data ?? [],
+      recurringAnnouncements: recurringAnnouncementsRes.data ?? [],
     }
   },
   ['plan-detail-stable-catalog'],
@@ -49,11 +60,13 @@ export type Profile = {
   last_name: string
   unavailable: boolean   // blockout ce jour
   recentCount: number    // nb de services les 60 derniers jours
+  desired_frequency: string | null  // rythme souhaité, réglé par le bénévole dans son profil
+  servedThisMonth: number           // nb de services sur le mois calendaire courant
 }
 
 // `allow_multiple` : ajouté par la migration 012, pas encore appliquée en base — optionnel
 // pour l'instant, sélectionné dès qu'elle l'est (voir la requête `teams` ci-dessous).
-export type Position = { id: string; name: string; allow_multiple?: boolean }
+export type Position = { id: string; name: string; allow_multiple?: boolean; archived?: boolean }
 
 export type AssignmentRow = {
   id: string
@@ -77,6 +90,9 @@ export type TeamDetail = {
   hidePositions: boolean
   isPrayerMeeting: boolean
   visible: boolean
+  /** Le viewer est membre de cette équipe (team_members) — indépendant du fait qu'il soit
+   *  affecté ou non sur CE service. Sert au dépliage par défaut du bloc d'équipe. */
+  isMyTeam: boolean
   positions: Position[]
   assignments: AssignmentRow[]
   /** Pool de l'équipe entière — utilisé seulement quand l'équipe n'a pas de postes nommés. */
@@ -114,6 +130,16 @@ export async function getPlanDetail(
   const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - 60)
 
+  // Bornes du mois calendaire LOCAL, construites à la main. `toISOString()` convertirait
+  // minuit local en UTC et ferait reculer les deux bornes d'un jour aux fuseaux positifs
+  // (Europe/Paris) : le compteur incluait alors le dernier jour du mois précédent et
+  // ignorait le dernier jour du mois courant.
+  const now = new Date()
+  const firstOfMonth = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
+  const monthStart = firstOfMonth(now)
+  const monthEnd = firstOfMonth(new Date(now.getFullYear(), now.getMonth() + 1, 1))
+
   const [
     { data: plan },
     { data: rawAssignments },
@@ -124,6 +150,7 @@ export async function getPlanDetail(
     { data: sermons },
     { data: videos },
     { data: recentPlans },
+    { data: monthPlans },
   ] = await Promise.all([
     supabase.from('plans').select('id, title, service_date, notes, plan_type, team_ids, excluded_position_ids').eq('id', planId).single(),
     supabase
@@ -157,6 +184,11 @@ export async function getPlanDetail(
       .select('id')
       .gte('service_date', cutoff.toISOString().split('T')[0])
       .neq('id', planId),
+    supabase
+      .from('plans')
+      .select('id')
+      .gte('service_date', monthStart)
+      .lt('service_date', monthEnd),
   ])
 
   const { teams, allProfiles, teamMemberships, memberPositions, allSongs, recurringAnnouncements } = catalog
@@ -164,16 +196,25 @@ export async function getPlanDetail(
   if (!plan) return null
 
   const recentPlanIds = (recentPlans ?? []).map(p => p.id)
+  const monthPlanIds = (monthPlans ?? []).map(p => p.id)
+
+  const [{ data: recentAssignments }, { data: monthAssignments }] = await Promise.all([
+    recentPlanIds.length > 0
+      ? supabase.from('plan_assignments').select('user_id').in('plan_id', recentPlanIds).neq('user_id', INVITE_EXT_ID)
+      : Promise.resolve({ data: [] as { user_id: string }[] }),
+    monthPlanIds.length > 0
+      ? supabase.from('plan_assignments').select('user_id').in('plan_id', monthPlanIds).neq('user_id', INVITE_EXT_ID).neq('status', 'declined')
+      : Promise.resolve({ data: [] as { user_id: string }[] }),
+  ])
+
   const recentCountMap: Record<string, number> = {}
-  if (recentPlanIds.length > 0) {
-    const { data: recentAssignments } = await supabase
-      .from('plan_assignments')
-      .select('user_id')
-      .in('plan_id', recentPlanIds)
-      .neq('user_id', INVITE_EXT_ID)
-    for (const a of recentAssignments ?? []) {
-      recentCountMap[a.user_id] = (recentCountMap[a.user_id] ?? 0) + 1
-    }
+  for (const a of recentAssignments ?? []) {
+    recentCountMap[a.user_id] = (recentCountMap[a.user_id] ?? 0) + 1
+  }
+
+  const monthCountMap: Record<string, number> = {}
+  for (const a of monthAssignments ?? []) {
+    monthCountMap[a.user_id] = (monthCountMap[a.user_id] ?? 0) + 1
   }
 
   const planDate = plan.service_date.split('T')[0]
@@ -246,7 +287,10 @@ export async function getPlanDetail(
       : allTeams
 
   const teamDetails: TeamDetail[] = relevantTeams.map((team: any) => {
-    const teamPositions = team.positions as unknown as Position[]
+    // Postes masqués (archived) : jamais proposés comme créneaux à pourvoir, mais une
+    // affectation déjà enregistrée dessus continue de s'afficher normalement (elle vient de
+    // `team.assignments`, un flux de données séparé, non filtré ici).
+    const teamPositions = (team.positions as unknown as Position[]).filter(p => !p.archived)
     const teamAssignments = assignmentsByTeam[team.id] ?? []
     const teamMemberIds = membersByTeam[team.id]
 
@@ -267,6 +311,8 @@ export async function getPlanDetail(
         ...p,
         unavailable: unavailableIds.has(p.id),
         recentCount: recentCountMap[p.id] ?? 0,
+        desired_frequency: p.desired_frequency ?? null,
+        servedThisMonth: monthCountMap[p.id] ?? 0,
       }))
 
     // Pool pour une équipe SANS postes nommés : un seul rôle possible par personne, donc on
@@ -294,6 +340,7 @@ export async function getPlanDetail(
       hidePositions: !!team.hide_positions,
       isPrayerMeeting: !!team.is_prayer_meeting,
       visible: canSeeAllTeams || myTeamMemberIds.has(team.id),
+      isMyTeam: myTeamMemberIds.has(team.id),
       positions: teamPositions,
       assignments: teamAssignments,
       candidateProfiles,

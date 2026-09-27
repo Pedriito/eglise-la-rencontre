@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { frequencyLabels } from '@/lib/labels'
 
 export async function changePassword(formData: FormData) {
   const supabase = await createClient()
@@ -39,6 +40,11 @@ export async function saveProfile(formData: FormData) {
   const phone     = (formData.get('phone') as string)?.trim() || null
   const birthdate = (formData.get('birthdate') as string) || null
   const city      = (formData.get('city') as string)?.trim() || null
+  // Validé ici plutôt que laissé filer jusqu'à la contrainte CHECK : l'écriture du profil a lieu
+  // APRÈS la demande de changement d'e-mail, donc un rejet en base laisserait l'e-mail engagé
+  // sans que le reste du profil soit enregistré.
+  const rawFrequency = (formData.get('desired_frequency') as string)?.trim() || null
+  const desiredFrequency = rawFrequency && rawFrequency in frequencyLabels ? rawFrequency : null
 
   const emailChanged = newEmail && newEmail !== user.email
   let emailSent = false
@@ -60,6 +66,7 @@ export async function saveProfile(formData: FormData) {
       phone,
       birthdate,
       city,
+      desired_frequency: desiredFrequency,
       email: emailChanged ? newEmail : user.email,
       profile_complete: true,
     })

@@ -1,8 +1,9 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { deletePlan, sendSingleInvitation, excludePlanPosition } from './actions'
+import { deletePlan, sendSingleInvitation } from './actions'
+import { ExcludePositionButton } from './ExcludePositionButton'
 import { PlanTimeEditor } from './PlanTimeEditor'
 import { RemoveAssignmentButton } from './RemoveAssignmentButton'
 import { INVITE_EXT_ID, type PlanDetail, type TeamDetail } from './getPlanDetail'
@@ -17,10 +18,15 @@ import VideoSection from './[id]/VideoSection'
 import ShareButton from './[id]/ShareButton'
 import { AddPlanDateForm } from './[id]/AddPlanDateForm'
 import { PlanTeamsManager } from './[id]/PlanTeamsManager'
+import { DmSelector } from './DmSelector'
+
+/** Postes instrumentaux éligibles au rôle DM (cf. DmSelector). */
+const DM_SOURCE_POSITIONS = ['Piano', 'Basse', 'Batterie']
 
 type Props = {
   planId: string
   detail: PlanDetail
+  userId: string
   fillKey: string | null
   isAdmin: boolean
   flashError?: string
@@ -109,7 +115,7 @@ function OpenSlotCard({
   )
 }
 
-export function AssignmentBoard({ planId, detail, fillKey, isAdmin, flashError, flashSent, returnTo, onSlotClick }: Props) {
+export function AssignmentBoard({ planId, detail, userId, fillKey, isAdmin, flashError, flashSent, returnTo, onSlotClick }: Props) {
   const { plan, isRehearsal, teams, noTeamAssignments, planSongs, allSongs, announcements, recurringAnnouncements, sermons, videos } = detail
 
   const { visibleTeams, totalPositions, filledPositions } = useMemo(() => {
@@ -122,6 +128,35 @@ export function AssignmentBoard({ planId, detail, fillKey, isAdmin, flashError, 
     }, 0)
     return { visibleTeams, totalPositions, filledPositions }
   }, [teams])
+
+  // Dépliées si le viewer est membre de l'équipe, ou s'il y est affecté sur ce service.
+  // L'appartenance seule ne suffit pas côté affectation : une équipe encore vide (aucune
+  // affectation sur ce service) doit rester dépliée pour ses membres.
+  const [expandedTeams, setExpandedTeams] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(teams.map(t => [t.id, t.isMyTeam || t.assignments.some(a => a.user_id === userId)]))
+  )
+  function toggleTeam(teamId: string) {
+    setExpandedTeams(prev => ({ ...prev, [teamId]: !prev[teamId] }))
+  }
+
+  // Postes masqués pilotés localement : le rafraîchissement serveur produit bien un rendu avec
+  // la bonne donnée, mais React l'abandonne parfois sans le committer (rendu sans commit,
+  // constaté en production). Un état mis à jour par le clic lui-même est toujours appliqué.
+  const serverExcluded = plan.excluded_position_ids ?? []
+  const serverExcludedKey = serverExcluded.join(',')
+  const [localExcluded, setLocalExcluded] = useState<string[]>(serverExcluded)
+  useEffect(() => {
+    setLocalExcluded(serverExcluded)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverExcludedKey])
+
+  function applyToggle(positionId: string, exclude: boolean) {
+    setLocalExcluded(prev => (
+      exclude
+        ? (prev.includes(positionId) ? prev : [...prev, positionId])
+        : prev.filter(id => id !== positionId)
+    ))
+  }
 
   const date = new Date(plan.service_date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 
@@ -213,23 +248,46 @@ export function AssignmentBoard({ planId, detail, fillKey, isAdmin, flashError, 
 
       {/* Équipes — masquées pour les répétitions */}
       {!isRehearsal && visibleTeams.map(team => {
-        const excludedIds = new Set(plan.excluded_position_ids ?? [])
+        const excludedIds = new Set(localExcluded)
         const filledPositionIds = new Set(team.assignments.map(a => a.position_id).filter(Boolean) as string[])
-        const openPositions = team.positions.filter(p => !filledPositionIds.has(p.id) && !excludedIds.has(p.id))
+        // "DM" est retiré des créneaux ouverts classiques : il se règle exclusivement via le
+        // DmSelector ci-dessous (choix parmi Piano/Basse/Batterie), pour éviter deux façons
+        // différentes et potentiellement incohérentes d'assigner ce rôle.
+        const openPositions = team.positions.filter(p => !filledPositionIds.has(p.id) && !excludedIds.has(p.id) && p.name !== 'DM')
         const excludedPositions = team.positions.filter(p => excludedIds.has(p.id))
         // Postes déjà pourvus mais qui acceptent plusieurs bénévoles (ex : Chorale, Choriste)
         const multiPositions = team.positions.filter(p => p.allow_multiple && filledPositionIds.has(p.id))
         const noNamedPositions = team.positions.length === 0
 
+        const dmPosition = team.positions.find(p => p.name === 'DM')
+        const dmInstruments = team.positions.filter(p => DM_SOURCE_POSITIONS.includes(p.name))
+        const showDmSelector = !!dmPosition && dmInstruments.length > 0
+
+        const expanded = expandedTeams[team.id] ?? true
+
         return (
           <section key={team.id} className="space-y-2.5">
-            <div className="flex items-center justify-between px-1">
-              <p className="font-sans text-[10px] uppercase tracking-widest font-semibold text-dark/40">{team.name}</p>
-              {team.assignments.length > 0 && (
-                <span className="font-sans text-xs text-dark/30 tabular-nums">{team.assignments.length}</span>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={() => toggleTeam(team.id)}
+              className="w-full flex items-center justify-between gap-2 px-1 text-left"
+            >
+              <span className="font-sans text-[10px] uppercase tracking-widest font-semibold text-dark/40">{team.name}</span>
+              <span className="flex items-center gap-2 shrink-0">
+                {team.assignments.length > 0 && (
+                  <span className="font-sans text-xs text-dark/30 tabular-nums">{team.assignments.length}</span>
+                )}
+                <svg
+                  viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                  className={`w-3 h-3 text-dark/30 transition-transform ${expanded ? 'rotate-180' : ''}`}
+                >
+                  <path d="M4 6l4 4 4-4" />
+                </svg>
+              </span>
+            </button>
 
+            {expanded && (
+              <>
             {team.assignments.length === 0 && openPositions.length === 0 && !noNamedPositions && excludedPositions.length === 0 && (
               <p className="font-sans text-xs text-dark/40 italic px-1">Aucun bénévole</p>
             )}
@@ -246,16 +304,16 @@ export function AssignmentBoard({ planId, detail, fillKey, isAdmin, flashError, 
                     active={fillKey === `pos:${pos.id}`}
                   />
                   {isAdmin && (
-                    <form action={excludePlanPosition} className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <input type="hidden" name="plan_id" value={planId} />
-                      <input type="hidden" name="position_id" value={pos.id} />
-                      <input type="hidden" name="exclude" value="1" />
-                      <button
-                        type="submit"
+                    <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ExcludePositionButton
+                        planId={planId}
+                        positionId={pos.id}
+                        exclude
+                        onToggle={applyToggle}
                         title="Masquer ce poste pour ce service"
                         className="w-5 h-5 rounded-full bg-white shadow-sm border border-dark/10 text-dark/30 hover:text-red-400 hover:border-red-200 flex items-center justify-center text-xs font-bold transition-colors"
-                      >×</button>
-                    </form>
+                      >×</ExcludePositionButton>
+                    </div>
                   )}
                 </div>
               ))}
@@ -277,24 +335,39 @@ export function AssignmentBoard({ planId, detail, fillKey, isAdmin, flashError, 
               )}
             </div>
 
+            {showDmSelector && (
+              <DmSelector
+                planId={planId}
+                teamId={team.id}
+                dmPositionId={dmPosition!.id}
+                dmAssignment={team.assignments.find(a => a.position_id === dmPosition!.id) ?? null}
+                instruments={dmInstruments.map(pos => ({
+                  positionId: pos.id,
+                  positionName: pos.name,
+                  assignment: team.assignments.find(a => a.position_id === pos.id) ?? null,
+                }))}
+              />
+            )}
+
             {/* Postes masqués — restaurables */}
             {isAdmin && excludedPositions.length > 0 && (
               <div className="flex flex-wrap gap-1.5 pt-0.5">
                 {excludedPositions.map(pos => (
-                  <form key={pos.id} action={excludePlanPosition} className="inline-flex">
-                    <input type="hidden" name="plan_id" value={planId} />
-                    <input type="hidden" name="position_id" value={pos.id} />
-                    <input type="hidden" name="exclude" value="0" />
-                    <button
-                      type="submit"
-                      title="Réafficher ce poste"
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-dashed border-dark/20 text-dark/30 hover:text-dark/60 hover:border-dark/40 font-sans text-[10px] transition-colors"
-                    >
-                      + {pos.name}
-                    </button>
-                  </form>
+                  <ExcludePositionButton
+                    key={pos.id}
+                    planId={planId}
+                    positionId={pos.id}
+                    exclude={false}
+                    onToggle={applyToggle}
+                    title="Réafficher ce poste"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-dashed border-dark/20 text-dark/30 hover:text-dark/60 hover:border-dark/40 font-sans text-[10px] transition-colors"
+                  >
+                    + {pos.name}
+                  </ExcludePositionButton>
                 ))}
               </div>
+            )}
+              </>
             )}
           </section>
         )
