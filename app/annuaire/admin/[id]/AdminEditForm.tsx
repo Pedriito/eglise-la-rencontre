@@ -256,7 +256,7 @@ export function AdminEditForm({ entrepreneur: e }: { entrepreneur: Entrepreneur 
               {links.map((link, i) => (
                 <div key={i} className="flex gap-2 items-center">
                   <select value={link.type} onChange={ev => updateLink(i, 'type', ev.target.value)}
-                    className="shrink-0 px-2.5 py-2.5 rounded-xl border border-dark/10 bg-sand text-dark font-sans text-sm focus:outline-none">
+                    className="shrink-0 px-2.5 py-2.5 rounded-xl border border-dark/10 bg-sand text-dark font-sans text-sm focus:outline-none focus:ring-2 focus:ring-teal/20">
                     {LINK_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                   <input type="url" value={link.url} onChange={ev => updateLink(i, 'url', ev.target.value)}

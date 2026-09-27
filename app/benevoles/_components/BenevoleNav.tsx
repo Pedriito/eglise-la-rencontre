@@ -195,7 +195,7 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
       <nav
         className="lg:hidden fixed z-30"
         style={{
-          bottom: 'calc(12px + env(safe-area-inset-bottom))',
+          bottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
           left: '12px',
           right: '12px',
           background: 'rgba(255,255,255,0.38)',
@@ -297,7 +297,7 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
             aria-modal="true"
             aria-label="Menu d'administration"
             className="w-full max-h-[75vh] overflow-y-auto bg-white rounded-t-3xl shadow-2xl"
-            style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}
+            style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))' }}
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-center pt-2.5 pb-1">

@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { respondAssignmentOnHistorique } from '../admin/plans/actions'
+import { assignmentStatusLabels } from '@/lib/labels'
 
 export default async function HistoriquePage() {
   const supabase = await createClient()
@@ -37,9 +38,9 @@ export default async function HistoriquePage() {
     new Date(iso).toLocaleDateString('fr-FR', opts).replace('.', '').toUpperCase()
 
   const statusBadge = (status: string) => {
-    if (status === 'confirmed') return { dot: 'bg-green-500',  pill: 'bg-green-50 text-green-700',   label: 'Confirmé'   }
-    if (status === 'pending')   return { dot: 'bg-amber-400',  pill: 'bg-amber-50 text-amber-600',   label: 'En attente' }
-    return                             { dot: 'bg-red-400',    pill: 'bg-red-50 text-red-400',       label: 'Décliné'    }
+    if (status === 'confirmed') return { dot: 'bg-green-500',  pill: 'bg-green-50 text-green-700',   label: assignmentStatusLabels.confirmed }
+    if (status === 'pending')   return { dot: 'bg-amber-400',  pill: 'bg-amber-50 text-amber-600',   label: assignmentStatusLabels.pending   }
+    return                             { dot: 'bg-red-400',    pill: 'bg-red-50 text-red-400',       label: assignmentStatusLabels.declined  }
   }
 
   const AssignmentCard = ({ a, dimmed = false }: { a: Assignment; dimmed?: boolean }) => {
@@ -125,7 +126,7 @@ export default async function HistoriquePage() {
     <>
       {/* ══ MOBILE ══ */}
       <div className="lg:hidden min-h-screen bg-teal-50">
-        <div className="px-5 pb-4" style={{ paddingTop: 'max(env(safe-area-inset-top) + 16px, 52px)' }}>
+        <div className="px-5 pb-4" style={{ paddingTop: 'max(env(safe-area-inset-top, 0px) + 16px, 52px)' }}>
           <p className="font-sans text-[10px] uppercase tracking-widest text-teal font-semibold">Mes services</p>
           <h1 className="font-display text-[2.4rem] text-dark font-light leading-tight mt-0.5">Mon planning</h1>
         </div>

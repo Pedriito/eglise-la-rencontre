@@ -50,7 +50,7 @@ export default async function ChantsPage({
     <>
       {/* ══ MOBILE ══ */}
       <div className="lg:hidden min-h-screen bg-teal-50">
-        <div className="px-5 pb-4" style={{ paddingTop: 'max(env(safe-area-inset-top) + 16px, 52px)' }}>
+        <div className="px-5 pb-4" style={{ paddingTop: 'max(env(safe-area-inset-top, 0px) + 16px, 52px)' }}>
           <p className="font-sans text-[10px] uppercase tracking-widest text-teal font-semibold">Répertoire</p>
           <h1 className="font-display text-[2.4rem] text-dark font-light leading-tight mt-0.5">
             Chants
@@ -61,7 +61,7 @@ export default async function ChantsPage({
         <div className="px-4 pb-6 space-y-3">
           {/* Recherche */}
           <form method="GET">
-            <div className="flex items-center bg-white rounded-2xl shadow-[0_1px_4px_rgba(0,0,0,0.06)]" style={{ paddingLeft: '14px', paddingRight: '14px' }}>
+            <div className="flex items-center bg-white rounded-2xl focus-within:ring-2 focus-within:ring-teal/30 shadow-[0_1px_4px_rgba(0,0,0,0.06)]" style={{ paddingLeft: '14px', paddingRight: '14px' }}>
               <svg className="w-4 h-4 text-dark/30 shrink-0 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
               </svg>

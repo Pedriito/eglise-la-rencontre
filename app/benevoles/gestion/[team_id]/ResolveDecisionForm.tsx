@@ -48,7 +48,7 @@ export function ResolveDecisionForm({
   }
 
   return (
-    <div className="border-t border-amber-100 bg-amber-50/40 px-5 py-3 space-y-2">
+    <div className="border-t border-amber-100 bg-amber-50/40 px-5 py-3 space-y-2 focus-within:ring-2 focus-within:ring-amber-300/50">
       <textarea
         value={note}
         onChange={e => setNote(e.target.value)}

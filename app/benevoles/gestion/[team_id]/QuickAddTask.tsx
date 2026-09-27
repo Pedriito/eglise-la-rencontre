@@ -36,7 +36,7 @@ export function QuickAddTask({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-teal/20 overflow-hidden">
+    <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-teal/20 overflow-hidden focus-within:ring-2 focus-within:ring-teal/30">
       <div className="flex items-center gap-2 px-4 py-3">
         <span className="text-teal/30 text-lg shrink-0 select-none">○</span>
         <input

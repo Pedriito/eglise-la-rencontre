@@ -56,7 +56,7 @@ export default async function ProfilPage({
       <div className="lg:hidden min-h-screen bg-teal-50">
         <div
           className="flex flex-col items-center px-5 pb-6"
-          style={{ paddingTop: 'max(env(safe-area-inset-top) + 24px, 60px)' }}
+          style={{ paddingTop: 'max(env(safe-area-inset-top, 0px) + 24px, 60px)' }}
         >
           {/* Avatar */}
           <div className="w-20 h-20 rounded-full border-2 border-teal/20 bg-teal-50 flex items-center justify-center mb-4">

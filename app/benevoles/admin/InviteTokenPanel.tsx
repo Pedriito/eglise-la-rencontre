@@ -166,7 +166,7 @@ export default function InviteTokenPanel({ initial }: Props) {
           <div className="flex gap-3">
             <div className="flex-1 space-y-1">
               <label className="font-sans text-xs text-dark/40">Expiration</label>
-              <select name="expiry_days" className="w-full border border-teal/20 rounded-lg px-3 py-2 text-sm font-sans text-dark focus:outline-none">
+              <select name="expiry_days" className="w-full border border-teal/20 rounded-lg px-3 py-2 text-sm font-sans text-dark focus:outline-none focus:ring-2 focus:ring-teal/30">
                 {EXPIRY_OPTIONS.map(o => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
