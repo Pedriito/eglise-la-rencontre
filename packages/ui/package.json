@@ -11,22 +11,28 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./tokens.css": "./src/styles/tokens.css"
+    "./tokens.css": "./src/styles/tokens.css",
+    "./styles.css": "./dist/styles.css"
   },
   "files": [
     "dist",
     "src/styles"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && tailwindcss -i src/styles/index.css -o dist/styles.css --minify",
     "dev": "tsc -p tsconfig.json --watch",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "build:css": "tailwindcss -i src/styles/index.css -o dist/styles.css --minify"
   },
   "peerDependencies": {
     "react": "^19"
   },
   "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
     "@types/react": "^19",
     "typescript": "^5"
-  }
+  },
+  "sideEffects": [
+    "*.css"
+  ]
 }

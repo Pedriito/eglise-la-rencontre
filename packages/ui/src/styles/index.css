@@ -1,0 +1,14 @@
+/* Feuille de style autonome du design system.
+ *
+ * Compilée vers `dist/styles.css` par le build du paquet. Elle existe pour que les
+ * composants s'affichent HORS d'une application : un outil de design, une page de
+ * démonstration, ou un projet qui n'utilise pas Tailwind. Une application Tailwind v4
+ * n'en a pas besoin — elle importe `tokens.css` et déclare `@source` vers ce paquet,
+ * ce qui génère les mêmes classes dans sa propre feuille. */
+
+@import "tailwindcss";
+@import "./tokens.css";
+
+/* Limite la génération aux classes réellement employées par les composants du paquet :
+   sans cette borne, Tailwind analyserait le dépôt entier. */
+@source "../";
