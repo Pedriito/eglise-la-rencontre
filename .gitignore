@@ -45,3 +45,6 @@ next-env.d.ts
 
 # supabase CLI local state
 /supabase/.temp/
+
+# Build du design system (régénéré par `npm run build`)
+packages/*/dist

@@ -21,6 +21,7 @@ import { PlanTeamsManager } from './PlanTeamsManager'
 import { DmSelector } from '../DmSelector'
 import { MobileTeamBlock } from './MobileTeamBlock'
 import { MobileTeamPositions } from './MobileTeamPositions'
+import { Badge, SectionHeader } from '@eglise/ui'
 
 /** Postes instrumentaux éligibles au rôle DM (cf. DmSelector). */
 const DM_SOURCE_POSITIONS = ['Piano', 'Basse', 'Batterie']
@@ -217,11 +218,9 @@ export default async function PlanDetailPage({
                     defaultExpanded={isMember}
                     header={
                       <>
-                        <p className="font-sans text-[10px] uppercase tracking-widest text-dark/40 font-semibold">{team.name}</p>
+                        <SectionHeader>{team.name}</SectionHeader>
                         {hasOpenSlots ? (
-                          <span className="px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-500 font-sans text-[10px] font-semibold">
-                            À pourvoir
-                          </span>
+                          <Badge tone="orange">À pourvoir</Badge>
                         ) : team.assignments.length > 0 ? (
                           <span className="font-sans text-xs text-dark/25 tabular-nums">{team.assignments.length}</span>
                         ) : null}

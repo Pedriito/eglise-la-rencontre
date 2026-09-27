@@ -1,0 +1,29 @@
+/* Jetons de design de l'Église La Rencontre — source unique.
+ *
+ * Importé par l'application via app/globals.css. Ne pas redéfinir ces valeurs
+ * ailleurs : une couleur absente d'ici (par exemple `teal-200`) retombe
+ * silencieusement sur la palette Tailwind par défaut, donc hors charte. */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  /* Teal — couleur de marque */
+  --color-teal: #5A9EA6;
+  --color-teal-dark: #3D7D85;
+  --color-teal-light: #EBF5F6;
+  --color-teal-50: #F0F7F8;
+
+  /* Neutres */
+  --color-dark: #1C2B2D;
+  --color-sand: #EFECE3;
+  --color-ink: #16241F;
+  --color-ink-light: #1F362E;
+
+  /* Accent */
+  --color-coral: #E2693C;
+
+  /* Typographie */
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-cormorant);
+}
