@@ -23,7 +23,10 @@
   /* Accent */
   --color-coral: #E2693C;
 
-  /* Typographie */
-  --font-sans: var(--font-inter);
-  --font-display: var(--font-cormorant);
+  /* Typographie. Les variables `--font-inter` / `--font-cormorant` sont injectées par
+     next/font dans l'application ; elles n'existent nulle part ailleurs. Sans le nom de
+     famille en repli, tout rendu hors application — outil de design, page de démonstration —
+     retomberait silencieusement sur la police système. */
+  --font-sans: var(--font-inter, "Inter", ui-sans-serif, system-ui, sans-serif);
+  --font-display: var(--font-cormorant, "Cormorant Garamond", Georgia, serif);
 }

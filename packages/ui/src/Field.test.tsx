@@ -36,6 +36,22 @@ describe('fieldClasses — focus et erreur', () => {
     expect(fieldClasses({ invalid: false })).toContain('focus:ring-teal/30')
   })
 
+  // Émettre à la fois la bordure de surface et la bordure d'erreur laissait l'ordre de la
+  // feuille de style trancher : `border-teal/30` y figure après `border-red-300`, si bien
+  // qu'un champ en erreur restait bordé de teal sur deux surfaces sur trois — l'erreur
+  // n'était plus signalée que par son message.
+  it("n'émet jamais deux couleurs de bordure concurrentes", () => {
+    for (const surface of ['sand', 'tealSoft', 'plain'] as const) {
+      const invalide = fieldClasses({ surface, invalid: true })
+      expect(invalide).toContain('border-red-300')
+      expect(invalide).not.toMatch(/border-(teal|dark)\//)
+
+      const valide = fieldClasses({ surface, invalid: false })
+      expect(valide).toMatch(/border-(teal|dark)\//)
+      expect(valide).not.toContain('border-red-300')
+    }
+  })
+
   it('propose les trois surfaces réellement présentes dans l’application', () => {
     expect(fieldClasses({ surface: 'sand' })).toContain('bg-sand')
     expect(fieldClasses({ surface: 'tealSoft' })).toContain('bg-teal-50')

@@ -6,9 +6,22 @@
  * n'en a pas besoin — elle importe `tokens.css` et déclare `@source` vers ce paquet,
  * ce qui génère les mêmes classes dans sa propre feuille. */
 
+/* Les fichiers de police eux-mêmes, pour les rendus hors application. L'application, elle,
+   les charge déjà via next/font et n'utilise pas cette feuille — ce chargement distant ne
+   s'y ajoute donc jamais. Sans lui, les noms de famille en repli des jetons ne
+   désigneraient aucune police réellement disponible. */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Cormorant+Garamond:wght@300;400;500;600;700&display=swap");
+
 @import "tailwindcss";
 @import "./tokens.css";
 
 /* Limite la génération aux classes réellement employées par les composants du paquet :
    sans cette borne, Tailwind analyserait le dépôt entier. */
 @source "../";
+
+/* Les aperçus du design system composent les composants entre eux et ont donc besoin
+   des utilitaires de mise en page (`grid`, `flex`, `justify-between`, `divide-y`…) que
+   les composants eux-mêmes n'emploient pas. Sans cette ligne, les aperçus s'affichent
+   avec les bons composants mais sans aucune mise en page. Ces utilitaires servent aussi
+   à l'agent de design pour composer ses propres écrans. */
+@source "../../../../.design-sync/previews";

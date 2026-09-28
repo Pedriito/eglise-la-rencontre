@@ -48,3 +48,10 @@ next-env.d.ts
 
 # Build du design system (régénéré par `npm run build`)
 packages/*/dist
+
+# Outillage et sorties de la synchronisation design (regénérés)
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules

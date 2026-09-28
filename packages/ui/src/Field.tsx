@@ -14,9 +14,19 @@ export type FieldStyleOptions = {
 }
 
 const SURFACES: Record<FieldSurface, string> = {
-  sand: 'border border-dark/10 bg-sand',
-  tealSoft: 'border border-teal/30 bg-teal-50',
-  plain: 'border border-teal/20 bg-white',
+  sand: 'bg-sand',
+  tealSoft: 'bg-teal-50',
+  plain: 'bg-white',
+}
+
+/** Séparé du fond : un champ invalide doit émettre SA couleur de bordure et elle seule.
+ *  Émettre les deux laissait l'ordre de la feuille de style décider du gagnant — et
+ *  `border-teal/30` y figure après `border-red-300`, si bien qu'un champ en erreur
+ *  restait bordé de teal sur deux surfaces sur trois. */
+const SURFACE_BORDERS: Record<FieldSurface, string> = {
+  sand: 'border-dark/10',
+  tealSoft: 'border-teal/30',
+  plain: 'border-teal/20',
 }
 
 /** `text-base` sur mobile n'est pas un choix esthétique : sous 16px, iOS zoome
@@ -29,9 +39,11 @@ const SIZES: Record<FieldSize, string> = {
 
 export function fieldClasses({ surface = 'tealSoft', size = 'md', invalid = false, className }: FieldStyleOptions = {}): string {
   return cx(
-    'w-full rounded-xl text-dark font-sans placeholder:text-dark/30 transition-colors',
+    'w-full rounded-xl border text-dark font-sans placeholder:text-dark/30 transition-colors',
     'focus:outline-none focus:ring-2',
-    invalid ? 'border-red-300 focus:ring-red-200' : 'focus:ring-teal/30',
+    invalid
+      ? 'border-red-300 focus:ring-red-200'
+      : cx(SURFACE_BORDERS[surface], 'focus:ring-teal/30'),
     'disabled:opacity-60 disabled:pointer-events-none',
     SURFACES[surface],
     SIZES[size],
