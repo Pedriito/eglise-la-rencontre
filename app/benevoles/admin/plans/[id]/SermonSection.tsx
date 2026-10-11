@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { deleteSermon } from './sermon-actions'
+import { uploadSermon, deleteSermon } from './sermon-actions'
 
 export type Sermon = { id: string; title: string; url: string; storage_path: string; created_at: string }
 
@@ -25,26 +24,17 @@ export default function SermonSection({ planId, initial, canManage }: Props) {
     setUploadError(null)
     setUploading(true)
 
-    const supabase = createClient()
     const safeName = file.name
-      .normalize('NFD').replace(/[̀-ͯ]/g, '') // retire les accents
-      .replace(/[''`´]/g, '')                            // retire les apostrophes
-      .replace(/[^a-zA-Z0-9._-]/g, '_')                 // remplace tout le reste par _
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[''`´]/g, '')
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
     const path = `sermons/${planId}/${Date.now()}-${safeName}`
 
-    const { error: storageError } = await supabase.storage.from('media').upload(path, file)
-    if (storageError) { setUploadError(storageError.message); setUploading(false); return }
+    const bytes = Array.from(new Uint8Array(await file.arrayBuffer()))
+    const result = await uploadSermon(planId, title.trim() || 'Prédication', path, bytes, file.type)
 
-    const { data: urlData } = supabase.storage.from('media').getPublicUrl(path)
-
-    const { data: inserted, error: dbError } = await supabase
-      .from('plan_sermons')
-      .insert({ plan_id: planId, title: title.trim() || 'Prédication', storage_path: path, url: urlData.publicUrl })
-      .select('id, title, url, storage_path, created_at')
-      .single()
-
-    if (dbError) { setUploadError(dbError.message); setUploading(false); return }
-    if (inserted) setSermons(prev => [...prev, inserted as Sermon])
+    if (!result.ok) { setUploadError(result.error); setUploading(false); return }
+    setSermons(prev => [...prev, result.sermon])
 
     setUploading(false)
     setTitle('Prédication')
