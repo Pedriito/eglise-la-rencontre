@@ -359,26 +359,20 @@ export function ProjectorScreen({ planId, songs: songsProp, settings: settingsPr
         // Taille du corps : longueur min de 15 pour éviter les textes très courts (ex: "???") trop énormes
         const bodyEffectiveLen = Math.max(maxLen, 15)
 
-        // ── Paysage : image plein fond + texte en bas ─────────────────────────
+        // ── Image avec orientation encore inconnue : affiche d'emblée l'image ──
+        if (hasImage && annImgOrientation === null) {
+          return (
+            <div className="absolute inset-0 z-10">
+              <Image src={announcement.imageUrl!} alt="" fill sizes="100vw" className="object-contain" />
+            </div>
+          )
+        }
+
+        // ── Paysage : image plein écran, sans texte superposé ───────────────
         if (hasImage && isLandscape) {
           return (
             <div className="absolute inset-0 z-10">
-              <Image src={announcement.imageUrl!} alt="" fill sizes="100vw" className="object-cover" />
-              <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.1) 100%)' }} />
-              <div className="absolute bottom-0 left-0 right-0 pb-[6%]" style={{ paddingLeft: annPad, paddingRight: annPad }}>
-                {announcement.title && (
-                  <p className="uppercase tracking-[0.4em] mb-4 font-sans font-semibold" style={{ color: settings.ann_text_color + 'cc', fontSize: calcAnnFontSize(titleEffectiveLen, annTitleScale) }}>
-                    {announcement.title}
-                  </p>
-                )}
-                <div className="space-y-3">
-                  {lines.map((line, i) => (
-                    <p key={i} className="font-medium leading-tight drop-shadow-lg" style={{ ...annTxtStyle, fontSize: calcAnnFontSize(bodyEffectiveLen, annBodyScale) }}>
-                      {line}
-                    </p>
-                  ))}
-                </div>
-              </div>
+              <Image src={announcement.imageUrl!} alt="" fill sizes="100vw" className="object-contain" />
             </div>
           )
         }

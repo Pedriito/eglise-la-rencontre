@@ -128,7 +128,7 @@ export default function AnnoncesSection({ planId, initial, initialRecurring, can
   }
 
   function handleSaveEdit() {
-    if (!editingId || !editBody.trim()) return
+    if (!editingId || (!editTitle.trim() && !editBody.trim())) return
     const trimmedVideo = editVideoUrl.trim()
     if (trimmedVideo && !getEmbedUrl(trimmedVideo)) {
       setEditVideoError('URL non reconnue — colle un lien YouTube ou Vimeo')
@@ -155,7 +155,7 @@ export default function AnnoncesSection({ planId, initial, initialRecurring, can
   }
 
   function handleAdd() {
-    if (!newBody.trim()) return
+    if (!newTitle.trim() && !newBody.trim()) return
     const trimmedVideo = newVideoUrl.trim()
     if (trimmedVideo && !getEmbedUrl(trimmedVideo)) {
       setNewVideoError('URL non reconnue — colle un lien YouTube ou Vimeo')
@@ -249,7 +249,7 @@ export default function AnnoncesSection({ planId, initial, initialRecurring, can
           </button>
           <button
             onClick={handleSaveEdit}
-            disabled={!editBody.trim() || isPending}
+            disabled={(!editTitle.trim() && !editBody.trim()) || isPending}
             className="flex-1 py-1.5 rounded-lg bg-teal text-white font-sans text-xs font-medium hover:bg-teal/90 disabled:opacity-40"
           >
             ✓ Enregistrer
@@ -432,7 +432,7 @@ export default function AnnoncesSection({ planId, initial, initialRecurring, can
               </button>
               <button
                 onClick={handleAdd}
-                disabled={!newBody.trim() || isPending}
+                disabled={(!newTitle.trim() && !newBody.trim()) || isPending}
                 className="flex-1 py-1.5 rounded-lg bg-teal text-white font-sans text-xs font-medium hover:bg-teal/90 disabled:opacity-40"
               >
                 + Ajouter
