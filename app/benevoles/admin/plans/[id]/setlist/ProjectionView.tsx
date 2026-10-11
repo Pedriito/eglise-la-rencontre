@@ -1244,10 +1244,10 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
                   <div className="flex-1 h-px bg-white/10" />
                   <button
                     onClick={() => removeSong(allSongs[si].planSongId)}
-                    className="shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-red-500/30 text-white/25 hover:text-red-400 transition-all text-sm leading-none"
+                    className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-sans font-semibold text-white/40 hover:text-white hover:bg-red-500/60 transition-all leading-none"
                     title="Supprimer ce chant du plan"
                   >
-                    ×
+                    ✕
                   </button>
                 </div>
 
