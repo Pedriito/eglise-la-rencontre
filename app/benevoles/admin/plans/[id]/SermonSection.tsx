@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { uploadSermon, deleteSermon } from './sermon-actions'
+import { createClient } from '@/lib/supabase/client'
+import { saveSermonRecord, deleteSermon } from './sermon-actions'
 
 export type Sermon = { id: string; title: string; url: string; storage_path: string; created_at: string }
 
@@ -30,9 +31,15 @@ export default function SermonSection({ planId, initial, canManage }: Props) {
       .replace(/[^a-zA-Z0-9._-]/g, '_')
     const path = `sermons/${planId}/${Date.now()}-${safeName}`
 
-    const bytes = Array.from(new Uint8Array(await file.arrayBuffer()))
-    const result = await uploadSermon(planId, title.trim() || 'Prédication', path, bytes, file.type)
+    // 1. Upload du fichier directement depuis le client (Storage)
+    const supabase = createClient()
+    const { error: storageError } = await supabase.storage.from('media').upload(path, file)
+    if (storageError) { setUploadError(storageError.message); setUploading(false); return }
 
+    const { data: urlData } = supabase.storage.from('media').getPublicUrl(path)
+
+    // 2. Insertion en base via server action admin (bypass RLS)
+    const result = await saveSermonRecord(planId, title.trim() || 'Prédication', path, urlData.publicUrl)
     if (!result.ok) { setUploadError(result.error); setUploading(false); return }
     setSermons(prev => [...prev, result.sermon])
 

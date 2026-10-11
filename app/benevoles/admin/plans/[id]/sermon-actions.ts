@@ -14,25 +14,17 @@ async function requireEditor() {
   return createAdminClient()
 }
 
-export async function uploadSermon(
+export async function saveSermonRecord(
   planId: string,
   title: string,
   storagePath: string,
-  fileBytes: number[],
-  mimeType: string,
+  publicUrl: string,
 ): Promise<{ ok: true; sermon: { id: string; title: string; url: string; storage_path: string; created_at: string } } | { ok: false; error: string }> {
   const admin = await requireEditor()
 
-  const { error: storageError } = await admin.storage
-    .from('media')
-    .upload(storagePath, new Uint8Array(fileBytes), { contentType: mimeType, upsert: false })
-  if (storageError) return { ok: false, error: storageError.message }
-
-  const { data: urlData } = admin.storage.from('media').getPublicUrl(storagePath)
-
   const { data: inserted, error: dbError } = await admin
     .from('plan_sermons')
-    .insert({ plan_id: planId, title: title || 'Prédication', storage_path: storagePath, url: urlData.publicUrl })
+    .insert({ plan_id: planId, title: title || 'Prédication', storage_path: storagePath, url: publicUrl })
     .select('id, title, url, storage_path, created_at')
     .single()
   if (dbError) return { ok: false, error: dbError.message }
