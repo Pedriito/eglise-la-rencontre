@@ -4,7 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { buildAllSlides, type Slide } from '@/lib/parseSlides'
-import { updateSlideLyrics, searchSongsForProjection, type SongSearchResult } from '@/app/benevoles/admin/plans/actions'
+import { updateSlideLyrics, searchSongsForProjection, removePlanSong, type SongSearchResult } from '@/app/benevoles/admin/plans/actions'
+import { deleteAnnouncement } from '@/app/benevoles/admin/plans/[id]/annonces-actions'
 import { fetchBibleVerse, BIBLE_VERSIONS } from '@/lib/bible'
 import { createClient } from '@/lib/supabase/client'
 import { SermonPdfPanel } from './SermonPdfPanel'
@@ -56,6 +57,9 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
   const [editingAnnId, setEditingAnnId] = useState<string | null>(null)
   const [editAnnTitle, setEditAnnTitle] = useState('')
   const [editAnnBody, setEditAnnBody]   = useState('')
+  // Suppressions locales
+  const [removedAnnIds, setRemovedAnnIds]   = useState<Set<string>>(new Set())
+  const [removedSongIds, setRemovedSongIds] = useState<Set<string>>(new Set())
   // Ajout de chant à la volée
   const [showAddSong, setShowAddSong]   = useState(false)
   const [addQuery, setAddQuery]         = useState('')
@@ -89,7 +93,8 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
   // Vidéo projetée (id)
   const [projectedVideoId, setProjectedVideoId] = useState<string | null>(null)
 
-  const allSongs   = [...songs, ...extraSongs]
+  const allSongs   = [...songs, ...extraSongs].filter(s => !removedSongIds.has(s.planSongId))
+  const visibleAnnouncements = announcements.filter(a => !removedAnnIds.has(a.id))
   const songSlides = buildAllSlides(allSongs)
 
   // Toutes les diapos à plat
@@ -266,7 +271,7 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
     } else if (isShowingVerse && bibleResult) {
       ch.send({ type: 'broadcast', event: 'verse', payload: { text: bibleResult.text, display: bibleResult.display, versionName: bibleResult.versionName } })
     } else if (projectedAnnouncementId) {
-      const ann = announcements.find(a => a.id === projectedAnnouncementId)
+      const ann = visibleAnnouncements.find(a => a.id === projectedAnnouncementId)
       if (ann) {
         const eff = annOverrides.get(ann.id) ?? { title: ann.title, body: ann.body }
         ch.send({ type: 'broadcast', event: 'announcement', payload: { title: eff.title ?? null, body: eff.body } })
@@ -414,6 +419,27 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
     channelRef.current?.postMessage({ type: 'CLEAR_VIDEO' })
   }
 
+  async function deleteAnn(ann: Announcement) {
+    if (projectedAnnouncementId === ann.id) clearAnnouncement()
+    setRemovedAnnIds(prev => new Set(prev).add(ann.id))
+    await deleteAnnouncement(ann.id, planId)
+  }
+
+  async function removeSong(planSongId: string) {
+    const removedIdx = allSongs.findIndex(s => s.planSongId === planSongId)
+    if (removedIdx !== -1 && removedIdx <= current.songIdx) {
+      setCurrent({ songIdx: Math.max(0, current.songIdx - 1), slideIdx: 0 })
+    }
+    setRemovedSongIds(prev => new Set(prev).add(planSongId))
+    const isExtra = planSongId.startsWith('extra-')
+    if (!isExtra) {
+      const fd = new FormData()
+      fd.append('plan_song_id', planSongId)
+      fd.append('plan_id', planId)
+      await removePlanSong(fd)
+    }
+  }
+
   const COUNTDOWN_SECONDS = 5 * 60
 
   function sendCountdownStart() {
@@ -451,8 +477,8 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
   songSlidesRef.current = songSlides
   const autoLoopRef     = useRef(autoLoop)
   autoLoopRef.current   = autoLoop
-  const announcementsRef             = useRef(announcements)
-  announcementsRef.current           = announcements
+  const announcementsRef             = useRef(visibleAnnouncements)
+  announcementsRef.current           = visibleAnnouncements
   const projectedAnnIdRef            = useRef(projectedAnnouncementId)
   projectedAnnIdRef.current          = projectedAnnouncementId
   const projectAnnouncementRef       = useRef(projectAnnouncement)
@@ -859,11 +885,11 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
           </div>
 
           {/* Annonces */}
-          {announcements.length > 0 && (
+          {visibleAnnouncements.length > 0 && (
             <div className="border border-white/10 rounded-xl p-3 space-y-2">
               <p className="font-sans text-[10px] uppercase tracking-widest text-white/30">Annonces</p>
               <div className="space-y-1">
-                {announcements.map(ann => {
+                {visibleAnnouncements.map(ann => {
                   const isActive = projectedAnnouncementId === ann.id
                   return (
                     <button
@@ -884,7 +910,7 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
                 })}
               </div>
               {projectedAnnouncementId && (() => {
-                const ann = announcements.find(a => a.id === projectedAnnouncementId)
+                const ann = visibleAnnouncements.find(a => a.id === projectedAnnouncementId)
                 return (
                   <div className="space-y-1">
                     {ann?.video_url && (
@@ -989,7 +1015,7 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
                 {isHardOverlay
                   ? '⏸ Suspendu'
                   : projectedAnnouncementId
-                    ? `↻ Annonces (${announcements.findIndex(a => a.id === projectedAnnouncementId) + 1}/${announcements.length}) · ${autoAdvanceSecs}s`
+                    ? `↻ Annonces (${visibleAnnouncements.findIndex(a => a.id === projectedAnnouncementId) + 1}/${visibleAnnouncements.length}) · ${autoAdvanceSecs}s`
                     : `▶ ${autoAdvanceSecs}s / diapo${autoLoop ? ' · boucle ∞' : ''}`}
               </p>
             )}
@@ -1120,7 +1146,7 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
           )}
 
           {/* ── Section Annonces ── */}
-          {announcements.length > 0 && (
+          {visibleAnnouncements.length > 0 && (
             <div className="mb-6">
               <div className="flex items-center gap-3 mb-3">
                 <span className="font-sans text-xs text-amber-400/50 w-4">♦</span>
@@ -1128,7 +1154,7 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
                 <div className="flex-1 h-px bg-white/10" />
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 pl-7">
-                {announcements.map(ann => {
+                {visibleAnnouncements.map(ann => {
                   const isActive = projectedAnnouncementId === ann.id
                   const hasOverride = annOverrides.has(ann.id)
                   const eff = getEffectiveAnn(ann)
@@ -1162,7 +1188,7 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
                         ))}
                       </div>
                       {isActive && (
-                        <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-400" />
+                        <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-400 group-hover:hidden" />
                       )}
                       {hasOverride && (
                         <span className="absolute bottom-1 right-1 text-[8px] text-amber-400" title="Modifié">✏️</span>
@@ -1178,6 +1204,14 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
                         title="Modifier l'annonce"
                       >
                         ✏️
+                      </button>
+                      {/* Bouton suppression au hover */}
+                      <button
+                        onClick={e => { e.stopPropagation(); deleteAnn(ann) }}
+                        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 bg-black/70 hover:bg-red-500/80 rounded p-0.5 transition-all text-[10px] leading-none z-20"
+                        title="Supprimer l'annonce"
+                      >
+                        ✕
                       </button>
                       {/* Bouton lancer la vidéo au hover */}
                       {ann.video_url && (
@@ -1208,6 +1242,13 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
                   <span className="font-sans text-xs text-white/30 tabular-nums w-4">{si + 1}</span>
                   <p className="font-display text-sm text-white/60 font-light">{ss.title}</p>
                   <div className="flex-1 h-px bg-white/10" />
+                  <button
+                    onClick={() => removeSong(allSongs[si].planSongId)}
+                    className="shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-red-500/30 text-white/25 hover:text-red-400 transition-all text-sm leading-none"
+                    title="Supprimer ce chant du plan"
+                  >
+                    ×
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 pl-7">
