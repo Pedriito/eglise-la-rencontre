@@ -7,6 +7,7 @@ const links = [
   { label: "Accueil", href: "/#accueil" },
   { label: "Qui sommes-nous", href: "/#vision" },
   { label: "Cultes", href: "/#cultes" },
+  { label: "Événements", href: "/evenements/conference-prophetique" },
   { label: "Contact", href: "/#contact" },
 ];
 
