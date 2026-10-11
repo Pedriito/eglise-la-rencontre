@@ -26,7 +26,11 @@ export default function SermonSection({ planId, initial, canManage }: Props) {
     setUploading(true)
 
     const supabase = createClient()
-    const path = `sermons/${planId}/${Date.now()}-${file.name.replace(/\s+/g, '_')}`
+    const safeName = file.name
+      .normalize('NFD').replace(/[̀-ͯ]/g, '') // retire les accents
+      .replace(/[''`´]/g, '')                            // retire les apostrophes
+      .replace(/[^a-zA-Z0-9._-]/g, '_')                 // remplace tout le reste par _
+    const path = `sermons/${planId}/${Date.now()}-${safeName}`
 
     const { error: storageError } = await supabase.storage.from('media').upload(path, file)
     if (storageError) { setUploadError(storageError.message); setUploading(false); return }
