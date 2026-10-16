@@ -83,6 +83,8 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
   const channelRef = useRef<BroadcastChannel | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const realtimeRef = useRef<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const realtimeLiveRef = useRef<any>(null)
   // Médias
   const [mediaFiles, setMediaFiles] = useState<{ id: string; name: string; url: string }[]>([])
   const [projectedImageUrl, setProjectedImageUrl] = useState<string | null>(null)
@@ -144,6 +146,7 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
       const ann = announcements.find(a => a.id === editingAnnId)
       channelRef.current?.postMessage({ type: 'ANNOUNCEMENT', title: override.title, body: override.body, imageUrl: ann?.image_url ?? null })
       realtimeRef.current?.send({ type: 'broadcast', event: 'announcement', payload: { title: override.title, body: override.body } })
+      realtimeLiveRef.current?.send({ type: 'broadcast', event: 'announcement', payload: { title: override.title, body: override.body } })
     }
     setEditingAnnId(null)
   }
@@ -258,35 +261,57 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
     }
   }, [planId])
 
-  // Broadcast de l'état d'affichage courant vers l'overlay OBS
+  // Supabase Realtime — canal OBS fixe « obs-live » (autopilote ATEM)
   useEffect(() => {
-    const ch = realtimeRef.current
-    if (!ch) return
+    const supabase = createClient()
+    const ch = supabase.channel('obs-live')
+    realtimeLiveRef.current = ch
+    ch.subscribe((status) => {
+      if (status === 'SUBSCRIBED' && countdownStartedAtRef.current !== null) {
+        const elapsed   = Math.round((Date.now() - countdownStartedAtRef.current) / 1000)
+        const remaining = Math.max(1, 5 * 60 - elapsed)
+        ch.send({ type: 'broadcast', event: 'countdown_start', payload: { seconds: remaining } })
+      }
+    })
+    return () => { realtimeLiveRef.current = null; supabase.removeChannel(ch) }
+  }, [])
+
+  // Broadcast de l'état d'affichage courant vers l'overlay OBS (plan-spécifique + fixe)
+  useEffect(() => {
+    const ch   = realtimeRef.current
+    const live = realtimeLiveRef.current
+    if (!ch && !live) return
+
+    function obsend(event: string, payload: object) {
+      const msg = { type: 'broadcast' as const, event, payload }
+      ch?.send(msg)
+      live?.send(msg)
+    }
 
     // Le countdown est géré via toggleCountdown — on ne touche pas à l'état OBS ici
     if (countdownActive) return
 
     if (isShowingMessage && freeMessage.trim()) {
-      ch.send({ type: 'broadcast', event: 'message', payload: { text: freeMessage.trim() } })
+      obsend('message', { text: freeMessage.trim() })
     } else if (isShowingVerse && bibleResult) {
-      ch.send({ type: 'broadcast', event: 'verse', payload: { text: bibleResult.text, display: bibleResult.display, versionName: bibleResult.versionName } })
+      obsend('verse', { text: bibleResult.text, display: bibleResult.display, versionName: bibleResult.versionName })
     } else if (projectedAnnouncementId) {
       const ann = visibleAnnouncements.find(a => a.id === projectedAnnouncementId)
       if (ann) {
         const eff = annOverrides.get(ann.id) ?? { title: ann.title, body: ann.body }
-        ch.send({ type: 'broadcast', event: 'announcement', payload: { title: eff.title ?? null, body: eff.body } })
+        obsend('announcement', { title: eff.title ?? null, body: eff.body })
         // Note : imageUrl est géré via BroadcastChannel (même navigateur), pas OBS
       }
     } else if (!isShowingMessage && !isShowingVerse) {
       const slide = songSlides[current.songIdx]?.slides[current.slideIdx]
       if (slide && !slide.isBlank) {
         const lines = slideOverrides.get(slideKey(current.songIdx, current.slideIdx)) ?? slide.lines
-        ch.send({ type: 'broadcast', event: 'slide', payload: { lines, section: slide.section ?? null } })
+        obsend('slide', { lines, section: slide.section ?? null })
       } else {
-        ch.send({ type: 'broadcast', event: 'blank', payload: {} })
+        obsend('blank', {})
       }
     } else {
-      ch.send({ type: 'broadcast', event: 'blank', payload: {} })
+      obsend('blank', {})
     }
   }, [current, isShowingMessage, freeMessage, isShowingVerse, bibleResult, countdownActive, songSlides, slideOverrides, projectedAnnouncementId, announcements, annOverrides])
 
@@ -361,12 +386,14 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
     setIsShowingVerse(false)
     channelRef.current?.postMessage({ type: 'IMAGE', url })
     realtimeRef.current?.send({ type: 'broadcast', event: 'image', payload: { url } })
+    realtimeLiveRef.current?.send({ type: 'broadcast', event: 'image', payload: { url } })
   }
 
   function clearImage() {
     setProjectedImageUrl(null)
     channelRef.current?.postMessage({ type: 'CLEAR_IMAGE' })
     realtimeRef.current?.send({ type: 'broadcast', event: 'blank', payload: {} })
+    realtimeLiveRef.current?.send({ type: 'broadcast', event: 'blank', payload: {} })
   }
 
   function projectAnnouncement(ann: Announcement) {
@@ -378,12 +405,14 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
     setIsShowingVerse(false)
     channelRef.current?.postMessage({ type: 'ANNOUNCEMENT', title: eff.title ?? null, body: eff.body, imageUrl: ann.image_url ?? null })
     realtimeRef.current?.send({ type: 'broadcast', event: 'announcement', payload: { title: eff.title ?? null, body: eff.body } })
+    realtimeLiveRef.current?.send({ type: 'broadcast', event: 'announcement', payload: { title: eff.title ?? null, body: eff.body } })
   }
 
   function clearAnnouncement() {
     setProjectedAnnouncementId(null)
     channelRef.current?.postMessage({ type: 'CLEAR_ANNOUNCEMENT' })
     realtimeRef.current?.send({ type: 'broadcast', event: 'blank', payload: {} })
+    realtimeLiveRef.current?.send({ type: 'broadcast', event: 'blank', payload: {} })
   }
 
   function projectSermonPage(dataUrl: string, label: string) {
@@ -394,6 +423,7 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
     setIsShowingVerse(false)
     channelRef.current?.postMessage({ type: 'IMAGE', url: dataUrl })
     realtimeRef.current?.send({ type: 'broadcast', event: 'image', payload: { url: dataUrl } })
+    realtimeLiveRef.current?.send({ type: 'broadcast', event: 'image', payload: { url: dataUrl } })
   }
 
   function clearSermonPage() {
@@ -412,6 +442,7 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
     setIsShowingVerse(false)
     channelRef.current?.postMessage({ type: 'VIDEO', embedUrl, title: video.title ?? null })
     realtimeRef.current?.send({ type: 'broadcast', event: 'blank', payload: {} })
+    realtimeLiveRef.current?.send({ type: 'broadcast', event: 'blank', payload: {} })
   }
 
   function clearVideo() {
@@ -445,6 +476,7 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
   function sendCountdownStart() {
     const seconds = COUNTDOWN_SECONDS
     realtimeRef.current?.send({ type: 'broadcast', event: 'countdown_start', payload: { seconds } })
+    realtimeLiveRef.current?.send({ type: 'broadcast', event: 'countdown_start', payload: { seconds } })
   }
 
   function toggleCountdown() {
@@ -454,6 +486,7 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
       if (countdownTimerRef.current) clearTimeout(countdownTimerRef.current)
       channelRef.current?.postMessage({ type: 'COUNTDOWN_STOP' })
       realtimeRef.current?.send({ type: 'broadcast', event: 'countdown_stop', payload: {} })
+      realtimeLiveRef.current?.send({ type: 'broadcast', event: 'countdown_stop', payload: {} })
     } else {
       countdownStartedAtRef.current = Date.now()
       setCountdownActive(true)
@@ -465,6 +498,7 @@ export function ProjectionView({ planId, songs, announcements, sermons, videos, 
         countdownStartedAtRef.current = null
         setCountdownActive(false)
         realtimeRef.current?.send({ type: 'broadcast', event: 'countdown_stop', payload: {} })
+        realtimeLiveRef.current?.send({ type: 'broadcast', event: 'countdown_stop', payload: {} })
       }, COUNTDOWN_SECONDS * 1000)
     }
   }
