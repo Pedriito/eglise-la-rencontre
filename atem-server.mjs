@@ -1,7 +1,7 @@
 /**
  * Serveur local de contrôle ATEM
  * Usage: node atem-server.mjs [IP_ATEM]
- * Défaut USB: node atem-server.mjs 172.26.179.41
+ * Défaut Ethernet (atem-mini-pro-iso.home): node atem-server.mjs 10.0.0.107
  */
 
 import { createServer } from 'http'
@@ -15,7 +15,7 @@ import { createCanvas, loadImage } from 'canvas'
 
 const execAsync = promisify(exec)
 
-const ATEM_IP = process.argv[2] || '172.26.179.41'
+const ATEM_IP = process.argv[2] || '10.0.0.107'
 const PORT = 3001
 
 // Index du device de capture (0 = UGREEN par défaut)
