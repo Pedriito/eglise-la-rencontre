@@ -17,18 +17,18 @@
     <string>fr.egliselarencontre.atem-server</string>
 
     <key>UserName</key>
-    <string>nicolas</string>
+    <string>eglisehorizon</string>
 
     <key>ProgramArguments</key>
     <array>
         <string>/opt/homebrew/bin/node</string>
-        <string>/Users/nicolas/eglise-la-rencontre/atem-server.mjs</string>
+        <string>/Users/eglisehorizon/eglise-la-rencontre/atem-server.mjs</string>
         <string>172.26.179.41</string>
         <string>0</string>
     </array>
 
     <key>WorkingDirectory</key>
-    <string>/Users/nicolas/eglise-la-rencontre</string>
+    <string>/Users/eglisehorizon/eglise-la-rencontre</string>
 
     <key>RunAtLoad</key>
     <true/>
@@ -47,7 +47,7 @@
         <key>PATH</key>
         <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
         <key>HOME</key>
-        <string>/Users/nicolas</string>
+        <string>/Users/eglisehorizon</string>
     </dict>
 </dict>
 </plist>
