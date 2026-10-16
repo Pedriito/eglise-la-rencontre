@@ -12,6 +12,11 @@ import { Atem } from 'atem-connection'
 import * as faceapi from '@vladmandic/face-api'
 import * as tf from '@tensorflow/tfjs-node'
 import { createCanvas, loadImage } from 'canvas'
+import { existsSync } from 'fs'
+import { startLyrics } from './atem-lyrics.mjs'
+
+// Config locale (Supabase pour les paroles) — non versionnée
+if (existsSync(new URL('./.env.atem', import.meta.url))) process.loadEnvFile(new URL('./.env.atem', import.meta.url))
 
 const execAsync = promisify(exec)
 
@@ -53,6 +58,10 @@ atem.on('disconnected', () => { connected = false; console.log('⚠️  ATEM dé
 
 console.log(`Connexion à l'ATEM (${ATEM_IP})...`)
 atem.connect(ATEM_IP)
+
+// ── Paroles (canal Supabase obs-live → DSK) ──────────────────────────────────
+
+const lyrics = startLyrics(atem, { isConnected: () => connected })
 
 // ── Détection faciale ─────────────────────────────────────────────────────────
 
@@ -242,6 +251,7 @@ const server = createServer(async (req, res) => {
         enabled: faceDetectionEnabled,
         status: faceStatus,
       },
+      lyrics: lyrics.state,
     })
   }
 
@@ -294,6 +304,14 @@ const server = createServer(async (req, res) => {
   if (req.method === 'POST' && path === '/autopilote/stop') {
     stopAuto()
     return json(res, 200, { ok: true })
+  }
+
+  // POST /paroles/on | /paroles/off
+  const lyricsMatch = path.match(/^\/paroles\/(on|off)$/)
+  if (req.method === 'POST' && lyricsMatch) {
+    await lyrics.setEnabled(lyricsMatch[1] === 'on')
+    console.log(`🎤 Paroles ATEM ${lyricsMatch[1] === 'on' ? 'activées' : 'désactivées'}`)
+    return json(res, 200, { ok: true, lyrics: lyrics.state })
   }
 
   json(res, 404, { error: 'Not found' })
