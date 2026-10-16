@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>fr.egliselarencontre.atem-server</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/node</string>
+        <string>/Users/nicolas/eglise-la-rencontre/atem-server.mjs</string>
+        <string>172.26.179.41</string>
+        <string>0</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/nicolas/eglise-la-rencontre</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/nicolas/Library/Logs/atem-server.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/nicolas/Library/Logs/atem-server.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+    </dict>
+</dict>
+</plist>
