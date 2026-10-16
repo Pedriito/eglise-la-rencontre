@@ -1,13 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  LaunchDaemon — démarre au boot du Mac mini (avant login).
+  Installation :
+    sudo cp fr.egliselarencontre.atem-server.plist /Library/LaunchDaemons/
+    sudo launchctl load /Library/LaunchDaemons/fr.egliselarencontre.atem-server.plist
+
+  Vérifier que node est bien à /opt/homebrew/bin/node :
+    which node
+
+  Logs : /var/log/atem-server.log
+-->
 <plist version="1.0">
 <dict>
     <key>Label</key>
     <string>fr.egliselarencontre.atem-server</string>
 
+    <key>UserName</key>
+    <string>nicolas</string>
+
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/bin/node</string>
+        <string>/opt/homebrew/bin/node</string>
         <string>/Users/nicolas/eglise-la-rencontre/atem-server.mjs</string>
         <string>172.26.179.41</string>
         <string>0</string>
@@ -23,15 +37,17 @@
     <true/>
 
     <key>StandardOutPath</key>
-    <string>/Users/nicolas/Library/Logs/atem-server.log</string>
+    <string>/var/log/atem-server.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/Users/nicolas/Library/Logs/atem-server.log</string>
+    <string>/var/log/atem-server.log</string>
 
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>/Users/nicolas</string>
     </dict>
 </dict>
 </plist>
