@@ -1,72 +1,29 @@
 /**
  * Serveur local de contrôle ATEM
  * Usage: node atem-server.mjs [IP_ATEM]
- * Défaut USB: node atem-server.mjs 172.26.179.41
+ * Défaut Ethernet (atem-mini-pro-iso.home): node atem-server.mjs 10.0.0.107
  */
 
 import { createServer } from 'http'
 import { exec } from 'child_process'
 import { promisify } from 'util'
-import { unlinkSync, readFileSync, existsSync } from 'fs'
+import { unlinkSync, existsSync } from 'fs'
 import { Atem } from 'atem-connection'
 import * as faceapi from '@vladmandic/face-api'
 import * as tf from '@tensorflow/tfjs-node'
 import { createCanvas, loadImage } from 'canvas'
-import { createClient } from '@supabase/supabase-js'
+import { startLyrics } from './atem-lyrics.mjs'
+
+// Config locale (Supabase pour les paroles) — non versionnée
+if (existsSync(new URL('./.env.atem', import.meta.url))) process.loadEnvFile(new URL('./.env.atem', import.meta.url))
 
 const execAsync = promisify(exec)
 
-const ATEM_IP = process.argv[2] || '172.26.179.41'
+const ATEM_IP = process.argv[2] || '10.0.0.107'
 const PORT = 3001
 
 // Index du device de capture (0 = UGREEN par défaut)
 const CAPTURE_DEVICE = process.argv[3] || '0'
-
-// ── Supabase obs-live ──────────────────────────────────────────────────────────
-
-function loadEnvAtem() {
-  const envPath = new URL('.env.atem', import.meta.url).pathname
-  if (!existsSync(envPath)) return {}
-  const lines = readFileSync(envPath, 'utf8').split('\n')
-  const env = {}
-  for (const line of lines) {
-    const m = line.match(/^([^#=]+)=(.*)$/)
-    if (m) env[m[1].trim()] = m[2].trim()
-  }
-  return env
-}
-
-const envAtem = loadEnvAtem()
-const SUPABASE_URL = envAtem['NEXT_PUBLIC_SUPABASE_URL'] || process.env.NEXT_PUBLIC_SUPABASE_URL
-const SUPABASE_KEY = envAtem['NEXT_PUBLIC_SUPABASE_ANON_KEY'] || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-// État courant de la projection (mis à jour via obs-live)
-const obsState = {
-  connected: false,
-  event: null,   // dernier événement reçu
-  payload: null, // dernier payload reçu
-}
-
-function initObsLive() {
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
-    console.warn('⚠️  Supabase non configuré — obs-live désactivé (vérifier .env.atem)')
-    return
-  }
-  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
-  const ch = supabase.channel('obs-live')
-
-  ch.on('broadcast', { event: '*' }, ({ event, payload }) => {
-    obsState.event = event
-    obsState.payload = payload
-    console.log(`📡 obs-live [${event}]`, JSON.stringify(payload).slice(0, 120))
-  })
-
-  ch.subscribe((status) => {
-    obsState.connected = status === 'SUBSCRIBED'
-    if (status === 'SUBSCRIBED') console.log('✅ obs-live Supabase connecté')
-    else if (status === 'CHANNEL_ERROR') console.error('❌ obs-live erreur canal')
-  })
-}
 
 // Modèles face-api
 const MODELS_PATH = './node_modules/@vladmandic/face-api/model'
@@ -100,6 +57,10 @@ atem.on('disconnected', () => { connected = false; console.log('⚠️  ATEM dé
 
 console.log(`Connexion à l'ATEM (${ATEM_IP})...`)
 atem.connect(ATEM_IP)
+
+// ── Paroles (canal Supabase obs-live → DSK) ──────────────────────────────────
+
+const lyrics = startLyrics(atem, { isConnected: () => connected })
 
 // ── Détection faciale ─────────────────────────────────────────────────────────
 
@@ -289,7 +250,7 @@ const server = createServer(async (req, res) => {
         enabled: faceDetectionEnabled,
         status: faceStatus,
       },
-      obs: obsState,
+      lyrics: lyrics.state,
     })
   }
 
@@ -344,6 +305,14 @@ const server = createServer(async (req, res) => {
     return json(res, 200, { ok: true })
   }
 
+  // POST /paroles/on | /paroles/off
+  const lyricsMatch = path.match(/^\/paroles\/(on|off)$/)
+  if (req.method === 'POST' && lyricsMatch) {
+    await lyrics.setEnabled(lyricsMatch[1] === 'on')
+    console.log(`🎤 Paroles ATEM ${lyricsMatch[1] === 'on' ? 'activées' : 'désactivées'}`)
+    return json(res, 200, { ok: true, lyrics: lyrics.state })
+  }
+
   json(res, 404, { error: 'Not found' })
 })
 
@@ -353,5 +322,4 @@ server.listen(PORT, async () => {
   console.log(`\n🎬 Serveur ATEM démarré sur http://localhost:${PORT}`)
   console.log(`   Régie : http://localhost:3000/benevoles/admin/regie\n`)
   await initFaceDetection()
-  initObsLive()
 })
