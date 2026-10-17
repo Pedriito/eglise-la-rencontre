@@ -62,6 +62,23 @@ function formatGain(db: number): string {
   return `${db >= 0 ? '+' : ''}${db.toFixed(1)}`
 }
 
+function channelLabel(key: string): string {
+  const n = Number(key)
+  if (n === 1) return 'CAM 1'
+  if (n === 2) return 'CAM 2'
+  if (n === 3) return 'CAM 3'
+  if (n === 4) return 'CAM 4'
+  if (n === 1301 || n === 1401) return 'Micro 1'
+  if (n === 1302 || n === 1402) return 'Micro 2'
+  return `Audio ${n}`
+}
+
+function channelSort(key: string): number {
+  const n = Number(key)
+  if (n >= 1300) return n - 1300  // micros en premier (→ 1, 2)
+  return n + 100                  // caméras ensuite (→ 101–104)
+}
+
 export default function RegieClient() {
   // ── URL du serveur ──────────────────────────────────────────────────────────
   const [atemUrl, setAtemUrl] = useState(DEFAULT_ATEM_URL)
@@ -95,8 +112,9 @@ export default function RegieClient() {
   const [transition, setTransition] = useState<'auto' | 'cut'>('auto')
   const [useFaceDetection, setUseFaceDetection] = useState(false)
 
-  // ── Audio : gains locaux (pour les sliders) ──────────────────────────────────
-  const [localGains, setLocalGains] = useState<Record<string, number>>({ 1: 0, 2: 0, 3: 0, 4: 0 })
+  // ── Audio : état local (gains + mixOptions optimistes) ──────────────────────
+  const [localGains, setLocalGains] = useState<Record<string, number>>({})
+  const [localMixOptions, setLocalMixOptions] = useState<Record<string, number>>({})
   const [localMasterGain, setLocalMasterGain] = useState(0)
   const isDraggingRef = useRef<string | null>(null)
 
@@ -157,6 +175,20 @@ export default function RegieClient() {
       })
     } catch {}
     await fetchStatus()
+  }
+
+  async function sendMixOption(chKey: string, value: number) {
+    setLocalMixOptions(prev => ({ ...prev, [chKey]: value }))
+    try {
+      await fetch(`${atemUrl}/audio/input/${chKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mixOption: value }),
+        signal: AbortSignal.timeout(2000),
+      })
+    } catch {}
+    await fetchStatus()
+    setLocalMixOptions(prev => { const next = { ...prev }; delete next[chKey]; return next })
   }
 
   function toggleCam(id: number) {
@@ -480,67 +512,69 @@ export default function RegieClient() {
             </p>
           )}
 
-          {/* Canaux CAM 1–4 */}
-          {SOURCES.map(src => {
-            const ch = status.audio?.channels?.[src.id]
-            const mixOpt = ch?.mixOption ?? 1
-            const gainDb = localGains[src.id] ?? 0
-            const isOff = mixOpt === 0
+          {/* Tous les canaux (micros en premier, puis caméras) */}
+          {Object.entries(status.audio?.channels ?? {})
+            .sort(([a], [b]) => channelSort(a) - channelSort(b))
+            .map(([key, ch]) => {
+              const mixOpt = localMixOptions[key] ?? ch.mixOption ?? 1
+              const gainDb = localGains[key] ?? safeDb(ch.gain)
+              const isOff = mixOpt === 0
+              const label = channelLabel(key)
 
-            return (
-              <div
-                key={src.id}
-                className={`rounded-2xl border p-4 space-y-3 transition-colors ${
-                  isOff ? 'border-gray-800/50 bg-gray-900/20 opacity-50' : 'border-gray-800 bg-gray-900/50'
-                }`}
-              >
-                {/* Nom + boutons mix option + valeur dB */}
-                <div className="flex items-center gap-3">
-                  <span className="font-bold text-sm w-14 shrink-0">{src.label}</span>
-                  <div className="flex gap-1.5 flex-1">
-                    {MIX_OPTIONS.map(({ value, label, activeClass }) => (
-                      <button
-                        key={value}
-                        onClick={() => sendAudio(`/audio/input/${src.id}`, { mixOption: value })}
-                        disabled={disabled}
-                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-all disabled:opacity-40 ${
-                          mixOpt === value ? activeClass : 'bg-gray-800 text-gray-500 border-gray-700'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
+              return (
+                <div
+                  key={key}
+                  className={`rounded-2xl border p-4 space-y-3 transition-colors ${
+                    isOff ? 'border-gray-800/50 bg-gray-900/20 opacity-50' : 'border-gray-800 bg-gray-900/50'
+                  }`}
+                >
+                  {/* Nom + boutons mix option + valeur dB */}
+                  <div className="flex items-center gap-3">
+                    <span className="font-bold text-sm w-16 shrink-0">{label}</span>
+                    <div className="flex gap-1.5 flex-1">
+                      {MIX_OPTIONS.map(({ value, label: optLabel, activeClass }) => (
+                        <button
+                          key={value}
+                          onClick={() => sendMixOption(key, value)}
+                          disabled={disabled}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-all disabled:opacity-40 ${
+                            mixOpt === value ? activeClass : 'bg-gray-800 text-gray-500 border-gray-700'
+                          }`}
+                        >
+                          {optLabel}
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-xs font-mono tabular-nums text-gray-400 w-16 text-right shrink-0">
+                      {formatGain(gainDb)} dB
+                    </span>
                   </div>
-                  <span className="text-xs font-mono tabular-nums text-gray-400 w-16 text-right shrink-0">
-                    {formatGain(gainDb)} dB
-                  </span>
-                </div>
 
-                {/* Slider gain */}
-                <input
-                  type="range"
-                  min={-60} max={6} step={0.5}
-                  value={gainDb}
-                  onChange={e => {
-                    isDraggingRef.current = `ch-${src.id}`
-                    setLocalGains(prev => ({ ...prev, [src.id]: Number(e.target.value) }))
-                  }}
-                  onMouseUp={e => {
-                    const val = Number((e.target as HTMLInputElement).value)
-                    isDraggingRef.current = null
-                    sendAudio(`/audio/input/${src.id}`, { gain: val })
-                  }}
-                  onTouchEnd={e => {
-                    const val = Number((e.currentTarget as HTMLInputElement).value)
-                    isDraggingRef.current = null
-                    sendAudio(`/audio/input/${src.id}`, { gain: val })
-                  }}
-                  disabled={disabled || isOff}
-                  className="w-full accent-blue-400 disabled:opacity-30"
-                />
-              </div>
-            )
-          })}
+                  {/* Slider gain */}
+                  <input
+                    type="range"
+                    min={-60} max={6} step={0.5}
+                    value={gainDb}
+                    onChange={e => {
+                      isDraggingRef.current = `ch-${key}`
+                      setLocalGains(prev => ({ ...prev, [key]: Number(e.target.value) }))
+                    }}
+                    onMouseUp={e => {
+                      const val = Number((e.target as HTMLInputElement).value)
+                      isDraggingRef.current = null
+                      sendAudio(`/audio/input/${key}`, { gain: val })
+                    }}
+                    onTouchEnd={e => {
+                      const val = Number((e.currentTarget as HTMLInputElement).value)
+                      isDraggingRef.current = null
+                      sendAudio(`/audio/input/${key}`, { gain: val })
+                    }}
+                    disabled={disabled || isOff}
+                    className="w-full accent-blue-400 disabled:opacity-30"
+                  />
+                </div>
+              )
+            })}
 
           {/* Master */}
           <div className="rounded-2xl border border-gray-700 bg-gray-800/40 p-4 space-y-3 mt-2">
