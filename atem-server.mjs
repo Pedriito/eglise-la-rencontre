@@ -251,6 +251,19 @@ const server = createServer(async (req, res) => {
         status: faceStatus,
       },
       lyrics: lyrics.state,
+      audio: (() => {
+        const chs = {}
+        for (const [k, v] of Object.entries(atem.state?.audio?.channels ?? {})) {
+          if (!v) continue
+          const g = v.gain
+          chs[k] = { gain: isFinite(g) ? g : -60, mixOption: v.mixOption ?? 1, balance: v.balance ?? 0 }
+        }
+        const mg = atem.state?.audio?.master?.gain
+        return {
+          channels: chs,
+          master: { gain: isFinite(mg) ? mg : -60, balance: atem.state?.audio?.master?.balance ?? 0 },
+        }
+      })(),
     })
   }
 
@@ -311,6 +324,25 @@ const server = createServer(async (req, res) => {
     await lyrics.setEnabled(lyricsMatch[1] === 'on')
     console.log(`🎤 Paroles ATEM ${lyricsMatch[1] === 'on' ? 'activées' : 'désactivées'}`)
     return json(res, 200, { ok: true, lyrics: lyrics.state })
+  }
+
+  // POST /audio/input/:n  — gain (dB), mixOption (0=Off 1=On 2=AFV), balance (-50…+50)
+  const audioInputMatch = path.match(/^\/audio\/input\/(\d+)$/)
+  if (req.method === 'POST' && audioInputMatch) {
+    if (!connected) return json(res, 503, { error: 'ATEM non connecté' })
+    const body = await readBody(req)
+    await atem.setClassicAudioMixerInputProps(parseInt(audioInputMatch[1]), body)
+    console.log(`🔊 Audio input ${audioInputMatch[1]}:`, JSON.stringify(body))
+    return json(res, 200, { ok: true })
+  }
+
+  // POST /audio/master  — gain (dB), balance (-50…+50)
+  if (req.method === 'POST' && path === '/audio/master') {
+    if (!connected) return json(res, 503, { error: 'ATEM non connecté' })
+    const body = await readBody(req)
+    await atem.setClassicAudioMixerMasterProps(body)
+    console.log('🔊 Audio master:', JSON.stringify(body))
+    return json(res, 200, { ok: true })
   }
 
   json(res, 404, { error: 'Not found' })
