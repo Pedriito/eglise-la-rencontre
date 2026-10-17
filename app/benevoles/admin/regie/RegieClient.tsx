@@ -112,37 +112,36 @@ export default function RegieClient() {
       {/* Header */}
       <div className="w-full max-w-2xl mb-6">
         <h1 className="text-2xl font-bold tracking-tight mb-3">Régie ATEM</h1>
-        <div className="flex gap-3 items-center justify-between">
-          <div className="flex gap-3 items-center">
-            {/* Voyant serveur */}
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border ${
-              serverOnline
-                ? 'bg-green-500/10 border-green-500/30 text-green-400'
-                : 'bg-red-500/10 border-red-500/30 text-red-400'
-            }`}>
-              <span className={`w-2 h-2 rounded-full shrink-0 ${serverOnline ? 'bg-green-400' : 'bg-red-500'}`} />
-              Serveur
-            </div>
-            {/* Voyant ATEM */}
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border ${
-              status.connected
-                ? 'bg-green-500/10 border-green-500/30 text-green-400'
-                : 'bg-red-500/10 border-red-500/30 text-red-400'
-            }`}>
-              <span className={`w-2 h-2 rounded-full shrink-0 ${status.connected ? 'bg-green-400' : 'bg-red-500 animate-pulse'}`} />
-              ATEM
-            </div>
+        <div className="flex gap-3 items-center">
+          {/* Voyant serveur */}
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border ${
+            serverOnline
+              ? 'bg-green-500/10 border-green-500/30 text-green-400'
+              : 'bg-red-500/10 border-red-500/30 text-red-400'
+          }`}>
+            <span className={`w-2 h-2 rounded-full shrink-0 ${serverOnline ? 'bg-green-400' : 'bg-red-500'}`} />
+            Serveur
           </div>
-          {/* Bouton URL serveur */}
-          <button
-            onClick={() => { setShowUrlEdit(v => !v); setTimeout(() => urlInputRef.current?.select(), 50) }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-blue-500/50 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 hover:border-blue-400 transition-colors"
-            title="Adresse du serveur ATEM"
-          >
-            <span>⚙</span>
-            <span className="font-mono">{atemUrl.replace('http://', '')}</span>
-          </button>
+          {/* Voyant ATEM */}
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border ${
+            status.connected
+              ? 'bg-green-500/10 border-green-500/30 text-green-400'
+              : 'bg-red-500/10 border-red-500/30 text-red-400'
+          }`}>
+            <span className={`w-2 h-2 rounded-full shrink-0 ${status.connected ? 'bg-green-400' : 'bg-red-500 animate-pulse'}`} />
+            ATEM
+          </div>
         </div>
+
+        {/* Bouton URL serveur — ligne dédiée */}
+        <button
+          onClick={() => { setShowUrlEdit(v => !v); setTimeout(() => urlInputRef.current?.select(), 50) }}
+          className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold border border-blue-500/50 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 hover:border-blue-400 transition-colors w-full"
+        >
+          <span>⚙</span>
+          <span>Adresse du serveur :</span>
+          <span className="font-mono">{atemUrl.replace('http://', '')}</span>
+        </button>
 
         {/* Champ édition URL */}
         {showUrlEdit && (
