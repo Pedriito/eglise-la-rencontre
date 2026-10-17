@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
-const ATEM_URL = 'http://localhost:3001'
+const DEFAULT_ATEM_URL = 'http://localhost:3001'
 
 const SOURCES = [
   { id: 1, label: 'CAM 1' },
@@ -33,6 +33,17 @@ type Status = {
 }
 
 export default function RegieClient() {
+  const [atemUrl, setAtemUrl] = useState(DEFAULT_ATEM_URL)
+  const [urlInput, setUrlInput] = useState(DEFAULT_ATEM_URL)
+  const [showUrlEdit, setShowUrlEdit] = useState(false)
+  const urlInputRef = useRef<HTMLInputElement>(null)
+
+  // Chargement de l'URL sauvegardée
+  useEffect(() => {
+    const saved = localStorage.getItem('atemUrl')
+    if (saved) { setAtemUrl(saved); setUrlInput(saved) }
+  }, [])
+
   const [status, setStatus] = useState<Status>({
     connected: false,
     program: null,
@@ -52,13 +63,13 @@ export default function RegieClient() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch(`${ATEM_URL}/status`, { signal: AbortSignal.timeout(1500) })
+      const res = await fetch(`${atemUrl}/status`, { signal: AbortSignal.timeout(1500) })
       if (res.ok) { setStatus(await res.json()); setServerOnline(true) }
     } catch {
       setServerOnline(false)
       setStatus(s => ({ ...s, connected: false }))
     }
-  }, [])
+  }, [atemUrl])
 
   useEffect(() => {
     fetchStatus()
@@ -69,7 +80,7 @@ export default function RegieClient() {
   async function send(path: string, key: string, body?: object) {
     setLoading(key)
     try {
-      await fetch(`${ATEM_URL}${path}`, {
+      await fetch(`${atemUrl}${path}`, {
         method: 'POST',
         headers: body ? { 'Content-Type': 'application/json' } : {},
         body: body ? JSON.stringify(body) : undefined,
@@ -101,7 +112,7 @@ export default function RegieClient() {
       {/* Header */}
       <div className="w-full max-w-2xl mb-6">
         <h1 className="text-2xl font-bold tracking-tight mb-3">Régie ATEM</h1>
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center">
           {/* Voyant serveur */}
           <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border ${
             serverOnline
@@ -121,8 +132,46 @@ export default function RegieClient() {
             ATEM
           </div>
         </div>
+
+        {/* Bouton URL serveur — ligne dédiée */}
+        <button
+          onClick={() => { setShowUrlEdit(v => !v); setTimeout(() => urlInputRef.current?.select(), 50) }}
+          className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold border border-blue-500/50 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 hover:border-blue-400 transition-colors w-full"
+        >
+          <span>⚙</span>
+          <span>Adresse du serveur :</span>
+          <span className="font-mono">{atemUrl.replace('http://', '')}</span>
+        </button>
+
+        {/* Champ édition URL */}
+        {showUrlEdit && (
+          <form
+            className="mt-3 flex gap-2"
+            onSubmit={e => {
+              e.preventDefault()
+              const url = urlInput.trim().replace(/\/$/, '')
+              setAtemUrl(url)
+              localStorage.setItem('atemUrl', url)
+              setShowUrlEdit(false)
+            }}
+          >
+            <input
+              ref={urlInputRef}
+              type="text"
+              value={urlInput}
+              onChange={e => setUrlInput(e.target.value)}
+              placeholder="http://10.0.0.x:3001"
+              className="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-blue-500"
+            />
+            <button type="submit" className="px-4 py-2 bg-blue-500 hover:bg-blue-400 text-white rounded-lg text-sm font-semibold">OK</button>
+            <button type="button" onClick={() => setShowUrlEdit(false)} className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-sm">✕</button>
+          </form>
+        )}
+
         {!serverOnline && (
-          <p className="text-xs text-gray-500 mt-2">Lance le serveur : <code className="text-gray-400">node atem-server.mjs</code></p>
+          <p className="text-xs text-gray-500 mt-2">
+            Serveur introuvable sur <code className="text-gray-400">{atemUrl}</code> — vérifie l&apos;IP du Mac mini via ⚙
+          </p>
         )}
       </div>
 
