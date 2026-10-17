@@ -136,7 +136,7 @@ export default function RegieClient() {
           {/* Bouton URL serveur */}
           <button
             onClick={() => { setShowUrlEdit(v => !v); setTimeout(() => urlInputRef.current?.select(), 50) }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-700 bg-gray-800/60 text-gray-400 hover:text-gray-200 hover:border-gray-600 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-blue-500/50 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 hover:border-blue-400 transition-colors"
             title="Adresse du serveur ATEM"
           >
             <span>⚙</span>
