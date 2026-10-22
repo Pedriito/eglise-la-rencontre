@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '6mb', // photos jusqu'à ~5 Mo (la limite annoncée dans le formulaire)
+    },
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**.supabase.co' },

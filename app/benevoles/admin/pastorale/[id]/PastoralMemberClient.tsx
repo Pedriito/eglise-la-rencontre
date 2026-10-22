@@ -120,18 +120,18 @@ export function PastoralMemberClient({ profileId, profile, prayerRequests: initi
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-sans text-xs text-dark/50 mb-1 block">Type</label>
-                  <select name="type" className="w-full border border-teal/20 rounded-lg px-3 py-2 text-sm font-sans text-dark focus:outline-none">
+                  <select name="type" className="w-full border border-teal/20 rounded-lg px-3 py-2 text-sm font-sans text-dark focus:outline-none focus:ring-2 focus:ring-teal/30">
                     {TYPE_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="font-sans text-xs text-dark/50 mb-1 block">Date</label>
                   <input name="note_date" type="date" defaultValue={today}
-                    className="w-full border border-teal/20 rounded-lg px-3 py-2 text-sm font-sans text-dark focus:outline-none" />
+                    className="w-full border border-teal/20 rounded-lg px-3 py-2 text-sm font-sans text-dark focus:outline-none focus:ring-2 focus:ring-teal/30" />
                 </div>
               </div>
               <textarea name="notes" required rows={3} placeholder="Notes de la visite, appel ou rencontre…"
-                className="w-full border border-teal/20 rounded-lg px-3 py-2 text-sm font-sans text-dark placeholder:text-dark/30 focus:outline-none resize-none" />
+                className="w-full border border-teal/20 rounded-lg px-3 py-2 text-sm font-sans text-dark placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-teal/30 resize-none" />
               {noteError && <p className="font-sans text-xs text-red-500">{noteError}</p>}
               <button type="submit" disabled={isPending}
                 className="w-full py-2 rounded-lg bg-teal text-white font-sans text-xs font-medium hover:bg-teal/90 disabled:opacity-40">
@@ -176,9 +176,9 @@ export function PastoralMemberClient({ profileId, profile, prayerRequests: initi
           {addingPrayer && (
             <form onSubmit={handleAddPrayer} className="bg-white rounded-xl border border-teal/30 p-4 space-y-3">
               <input name="subject" required placeholder="Sujet de prière *"
-                className="w-full border border-teal/20 rounded-lg px-3 py-2 text-sm font-sans text-dark placeholder:text-dark/30 focus:outline-none" />
+                className="w-full border border-teal/20 rounded-lg px-3 py-2 text-sm font-sans text-dark placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-teal/30" />
               <textarea name="notes" rows={2} placeholder="Détails (optionnel)"
-                className="w-full border border-teal/20 rounded-lg px-3 py-2 text-sm font-sans text-dark placeholder:text-dark/30 focus:outline-none resize-none" />
+                className="w-full border border-teal/20 rounded-lg px-3 py-2 text-sm font-sans text-dark placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-teal/30 resize-none" />
               {prayerError && <p className="font-sans text-xs text-red-500">{prayerError}</p>}
               <button type="submit" disabled={isPending}
                 className="w-full py-2 rounded-lg bg-teal text-white font-sans text-xs font-medium hover:bg-teal/90 disabled:opacity-40">

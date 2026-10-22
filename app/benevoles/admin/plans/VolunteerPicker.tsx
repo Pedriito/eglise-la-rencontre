@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { addAssignmentAsync } from './actions'
 import { AssignVolunteerButton } from './AssignVolunteerButton'
 import { INVITE_EXT_ID, type PlanDetail, type Profile, type TeamDetail } from './getPlanDetail'
+import { frequencyLabels } from '@/lib/labels'
 
 type Props = {
   planId: string
@@ -55,19 +56,35 @@ function CandidateRow({
         <p className="font-sans text-sm font-medium text-dark truncate">{p.first_name} {p.last_name}</p>
         {warn === 'unavailable' && <p className="font-sans text-xs text-red-400">Indisponible ce jour-là</p>}
         {warn === 'busy' && <p className="font-sans text-xs text-amber-600">⚡ déjà {p.recentCount} services (60j)</p>}
+        {p.desired_frequency && (
+          <p className="font-sans text-[11px] text-dark/35">
+            {frequencyLabels[p.desired_frequency] ?? p.desired_frequency} · {p.servedThisMonth} ce mois-ci
+          </p>
+        )}
       </div>
-      <AssignVolunteerButton
-        planId={planId}
-        teamId={team.id}
-        userId={p.id}
-        positionId={positionId}
-        onAssigned={onAssigned}
-        className={`font-sans text-xs font-semibold px-3 py-1.5 rounded-full transition-colors shrink-0 disabled:opacity-60 ${
-          warn ? 'border border-amber-300 text-amber-700 hover:bg-amber-50' : 'bg-teal text-white hover:bg-teal-dark'
-        }`}
-      >
-        Assigner
-      </AssignVolunteerButton>
+      {warn === 'unavailable' ? (
+        // Une indisponibilité déclarée interdit l'affectation : pas de bouton (le serveur la refuse
+        // de toute façon — voir `refusalIfUnavailable`).
+        <span
+          className="font-sans text-xs font-semibold px-3 py-1.5 rounded-full border border-dark/10 text-dark/35 shrink-0 cursor-not-allowed"
+          aria-label={`${p.first_name} ${p.last_name} est indisponible ce jour-là : affectation impossible`}
+        >
+          Indisponible
+        </span>
+      ) : (
+        <AssignVolunteerButton
+          planId={planId}
+          teamId={team.id}
+          userId={p.id}
+          positionId={positionId}
+          onAssigned={onAssigned}
+          className={`font-sans text-xs font-semibold px-3 py-1.5 rounded-full transition-colors shrink-0 disabled:opacity-60 ${
+            warn ? 'border border-amber-300 text-amber-700 hover:bg-amber-50' : 'bg-teal text-white hover:bg-teal-dark'
+          }`}
+        >
+          Assigner
+        </AssignVolunteerButton>
+      )}
     </div>
   )
 }

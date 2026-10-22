@@ -98,36 +98,78 @@ export function isSectionHeader(line: string): boolean {
   return false
 }
 
+// Capture : (note_racine)(qualité)[/(note_basse)]
+// Le lookahead négatif (?![a-zA-Z]) évite les faux positifs dans les mots
+const TRANSPOSE_RE = new RegExp(
+  `\\b(${NOTE})((?:maj|Maj|min|Min|sus|add|aug|dim|[mM])?[0-9]*)` +
+  `(?:\\/(${NOTE}))?(?![a-zA-Z])`,
+  'g'
+)
+
 /**
- * Transpose toute une grille d'accords.
+ * Transpose une ligne d'accords en préservant la position (colonne) de chaque
+ * accord par rapport à la ligne de paroles en dessous.
  *
- * Pour chaque ligne d'accords, on remplace chaque accord (racine + qualité + basse)
- * en un seul passage regex, ce qui gère correctement les accords slash :
- *   C/E  →  D/F#   (les deux notes sont transposées)
+ * Un accord transposé peut changer de longueur (ex: "F#" → "G", "C" → "C#") ;
+ * un simple remplacement texte décalerait alors tous les accords suivants sur
+ * la même ligne par rapport aux paroles. On compense donc le delta de longueur
+ * en ajoutant/retirant des espaces dans le blanc qui suit immédiatement
+ * l'accord (jamais dans la ligne de paroles elle-même), pour que le prochain
+ * accord démarre toujours à la même colonne qu'avant transposition.
+ */
+function transposeChordLine(line: string, delta: number, useFlats: boolean): string {
+  const matches = [...line.matchAll(TRANSPOSE_RE)]
+  if (matches.length === 0) return line
+
+  let result = ''
+  let cursor = 0
+
+  matches.forEach((m, i) => {
+    const start = m.index ?? 0
+    const end = start + m[0].length
+    const [, root, quality, bass] = m
+
+    result += line.slice(cursor, start)
+
+    const newRoot = transposeNote(root, delta, useFlats)
+    const newBass = bass !== undefined ? '/' + transposeNote(bass, delta, useFlats) : ''
+    const replacement = newRoot + quality + newBass
+    result += replacement
+
+    const nextStart = i + 1 < matches.length ? (matches[i + 1].index ?? line.length) : line.length
+    let gap = line.slice(end, nextStart)
+    const lengthDelta = replacement.length - m[0].length
+
+    if (lengthDelta > 0) {
+      // Accord plus long : on retire des espaces du blanc qui suit pour garder
+      // le prochain accord à sa colonne d'origine (au mieux, si assez d'espace).
+      let removed = 0
+      while (removed < lengthDelta && gap.length > 0 && gap[0] === ' ') {
+        gap = gap.slice(1)
+        removed++
+      }
+    } else if (lengthDelta < 0) {
+      // Accord plus court : on ajoute des espaces pour combler.
+      gap = ' '.repeat(-lengthDelta) + gap
+    }
+
+    result += gap
+    cursor = nextStart
+  })
+
+  return result
+}
+
+/**
+ * Transpose toute une grille d'accords, ligne d'accords par ligne d'accords.
  */
 export function transposeChart(chart: string, fromKey: string, toKey: string): string {
   if (fromKey === toKey) return chart
   const delta = getSemitones(fromKey, toKey)
   const useFlats = !SHARP_KEYS.has(toKey)
 
-  // Capture : (note_racine)(qualité)[/(note_basse)]
-  // Le lookahead négatif (?![a-zA-Z]) évite les faux positifs dans les mots
-  const TRANSPOSE_RE = new RegExp(
-    `\\b(${NOTE})((?:maj|Maj|min|Min|sus|add|aug|dim|[mM])?[0-9]*)` +
-    `(?:\\/(${NOTE}))?(?![a-zA-Z])`,
-    'g'
-  )
-
   return chart
     .split('\n')
-    .map(line => {
-      if (!isChordLine(line)) return line
-
-      return line.replace(TRANSPOSE_RE, (_, root, quality, bass) => {
-        const newRoot = transposeNote(root, delta, useFlats)
-        const newBass = bass !== undefined ? '/' + transposeNote(bass, delta, useFlats) : ''
-        return newRoot + quality + newBass
-      })
-    })
+    .map(line => isChordLine(line) ? transposeChordLine(line, delta, useFlats) : line)
     .join('\n')
 }

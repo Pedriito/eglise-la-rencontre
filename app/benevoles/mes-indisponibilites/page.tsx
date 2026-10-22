@@ -35,7 +35,7 @@ export default async function IndisponibilitesPage({
     <>
       {/* ══ MOBILE ══ */}
       <div className="lg:hidden min-h-screen bg-teal-50">
-        <div className="px-5 pb-4" style={{ paddingTop: 'max(env(safe-area-inset-top) + 16px, 52px)' }}>
+        <div className="px-5 pb-4" style={{ paddingTop: 'max(env(safe-area-inset-top, 0px) + 16px, 52px)' }}>
           <p className="font-sans text-[10px] uppercase tracking-widest text-teal font-semibold">Disponibilité</p>
           <h1 className="font-display text-[2.4rem] text-dark font-light leading-tight mt-0.5">Mes indispos</h1>
           <p className="font-sans text-sm text-dark/50 mt-2 leading-snug">
@@ -63,7 +63,7 @@ export default async function IndisponibilitesPage({
                     min={today}
                     defaultValue={today}
                     className="w-full py-2 rounded-xl border border-dark/10 bg-teal-50 text-teal-dark font-sans focus:outline-none focus:ring-2 focus:ring-teal/30"
-                    style={{ fontSize: '13px', paddingLeft: '10px', paddingRight: '4px', WebkitAppearance: 'none' }}
+                    style={{ fontSize: '16px', paddingLeft: '10px', paddingRight: '4px', WebkitAppearance: 'none' }}
                   />
                 </div>
                 <span className="text-dark/25 font-sans text-sm shrink-0 mt-5">→</span>
@@ -75,7 +75,7 @@ export default async function IndisponibilitesPage({
                     min={today}
                     defaultValue={today}
                     className="w-full py-2 rounded-xl border border-dark/10 bg-teal-50 text-teal-dark font-sans focus:outline-none focus:ring-2 focus:ring-teal/30"
-                    style={{ fontSize: '13px', paddingLeft: '10px', paddingRight: '4px', WebkitAppearance: 'none' }}
+                    style={{ fontSize: '16px', paddingLeft: '10px', paddingRight: '4px', WebkitAppearance: 'none' }}
                   />
                 </div>
               </div>

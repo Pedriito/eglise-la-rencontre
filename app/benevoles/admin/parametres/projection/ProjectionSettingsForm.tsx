@@ -51,7 +51,7 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
       role="switch"
       aria-checked={value}
       onClick={() => onChange(!value)}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${value ? 'bg-teal-600' : 'bg-gray-200'}`}
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal/50 focus-visible:ring-offset-2 ${value ? 'bg-teal-600' : 'bg-gray-200'}`}
     >
       <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${value ? 'translate-x-6' : 'translate-x-1'}`} />
     </button>
@@ -349,7 +349,7 @@ export default function ProjectionSettingsForm({ initial, mediaFiles }: Props) {
     <div className="space-y-6">
 
       {/* ── Aperçu chants ── */}
-      <div className="bg-white rounded-2xl border border-teal-200 p-6 space-y-4">
+      <div className="bg-white rounded-2xl border border-teal/20 p-6 space-y-4">
         <p className="font-sans text-xs text-gray-400 uppercase tracking-widest">Aperçu — Chants</p>
         <div className="relative w-full rounded-xl overflow-hidden" style={{ aspectRatio: '16/9', ...songBgStyle }}>
           {s.bg_type === 'image' && s.bg_image_url && (
@@ -367,7 +367,7 @@ export default function ProjectionSettingsForm({ initial, mediaFiles }: Props) {
       </div>
 
       {/* ── Fond chants ── */}
-      <div className="bg-white rounded-2xl border border-teal-200 p-6 space-y-4">
+      <div className="bg-white rounded-2xl border border-teal/20 p-6 space-y-4">
         <p className="font-sans text-xs text-gray-400 uppercase tracking-widest">Fond — Chants</p>
         <BackgroundPicker
           bgType={s.bg_type} bgColor={s.bg_color} bgGradient={s.bg_gradient}
@@ -380,7 +380,7 @@ export default function ProjectionSettingsForm({ initial, mediaFiles }: Props) {
       </div>
 
       {/* ── Texte chants ── */}
-      <div className="bg-white rounded-2xl border border-teal-200 p-6 space-y-5">
+      <div className="bg-white rounded-2xl border border-teal/20 p-6 space-y-5">
         <p className="font-sans text-xs text-gray-400 uppercase tracking-widest">Texte — Chants</p>
         {HR}
         <TextSettingsPicker
@@ -394,7 +394,7 @@ export default function ProjectionSettingsForm({ initial, mediaFiles }: Props) {
       </div>
 
       {/* ── Aperçu annonces ── */}
-      <div className="bg-white rounded-2xl border border-teal-200 p-6 space-y-4">
+      <div className="bg-white rounded-2xl border border-teal/20 p-6 space-y-4">
         <p className="font-sans text-xs text-gray-400 uppercase tracking-widest">Aperçu — Annonces</p>
         <div className="relative w-full rounded-xl overflow-hidden" style={{ aspectRatio: '16/9', ...annBgStyle }}>
           {s.ann_bg_type === 'image' && s.ann_bg_image_url && (
@@ -413,7 +413,7 @@ export default function ProjectionSettingsForm({ initial, mediaFiles }: Props) {
       </div>
 
       {/* ── Fond annonces ── */}
-      <div className="bg-white rounded-2xl border border-teal-200 p-6 space-y-4">
+      <div className="bg-white rounded-2xl border border-teal/20 p-6 space-y-4">
         <div>
           <p className="font-sans text-xs text-gray-400 uppercase tracking-widest">Fond — Annonces</p>
           <p className="font-sans text-xs text-gray-300 mt-0.5">Fond indépendant affiché pendant les diapos d'annonces</p>
@@ -429,7 +429,7 @@ export default function ProjectionSettingsForm({ initial, mediaFiles }: Props) {
       </div>
 
       {/* ── Texte annonces ── */}
-      <div className="bg-white rounded-2xl border border-teal-200 p-6 space-y-5">
+      <div className="bg-white rounded-2xl border border-teal/20 p-6 space-y-5">
         <p className="font-sans text-xs text-gray-400 uppercase tracking-widest">Texte — Annonces</p>
         {HR}
         {/* Taille titre */}

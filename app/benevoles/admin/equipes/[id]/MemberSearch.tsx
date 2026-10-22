@@ -10,28 +10,30 @@ function AddMemberRow({ teamId, profile }: { teamId: string; profile: Profile })
   const [state, formAction, pending] = useActionState(addTeamMember, null)
 
   return (
-    <form action={formAction} className="px-4 py-2.5 hover:bg-teal-50/40">
-      <div className="flex items-center gap-3">
+    <form action={formAction} className="px-4 py-3 hover:bg-teal-50/40">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
         <input type="hidden" name="team_id" value={teamId} />
         <input type="hidden" name="user_id" value={profile.id} />
 
-        <span className="flex-1 font-sans text-sm text-dark">
+        <span className="sm:flex-1 min-w-0 truncate font-sans text-sm text-dark">
           {profile.first_name} {profile.last_name}
         </span>
 
-        <select name="role" className="px-2 py-1.5 rounded-lg border border-teal/30 bg-white text-dark font-sans text-xs focus:outline-none focus:ring-2 focus:ring-teal/40">
-          <option value="member">Membre</option>
-          <option value="leader">Responsable</option>
-        </select>
+        <div className="flex items-center gap-2">
+          <select name="role" className="flex-1 sm:flex-none px-2 py-2 sm:py-1.5 rounded-lg border border-teal/30 bg-white text-dark font-sans text-sm sm:text-xs focus:outline-none focus:ring-2 focus:ring-teal/40">
+            <option value="member">Membre</option>
+            <option value="leader">Responsable</option>
+          </select>
 
-        <select name="frequency" className="px-2 py-1.5 rounded-lg border border-teal/30 bg-white text-dark font-sans text-xs focus:outline-none focus:ring-2 focus:ring-teal/40">
-          <option value="">—</option>
-          {Object.entries(frequencyLabels).map(([value, label]) => (
-            <option key={value} value={value}>{label}</option>
-          ))}
-        </select>
+          <select name="frequency" className="flex-1 sm:flex-none px-2 py-2 sm:py-1.5 rounded-lg border border-teal/30 bg-white text-dark font-sans text-sm sm:text-xs focus:outline-none focus:ring-2 focus:ring-teal/40">
+            <option value="">—</option>
+            {Object.entries(frequencyLabels).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </div>
 
-        <button type="submit" disabled={pending} className="px-3 py-1.5 bg-teal text-white rounded-lg font-sans text-xs font-medium hover:bg-teal-dark transition-colors whitespace-nowrap disabled:opacity-50">
+        <button type="submit" disabled={pending} className="w-full sm:w-auto px-3 py-2 sm:py-1.5 bg-teal text-white rounded-lg font-sans text-sm sm:text-xs font-medium hover:bg-teal-dark transition-colors whitespace-nowrap disabled:opacity-50">
           {pending ? '…' : 'Ajouter'}
         </button>
       </div>

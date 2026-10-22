@@ -220,7 +220,7 @@ export function NouveauPlanForm({ teams, error }: { teams: Team[]; error?: strin
                       type="datetime-local"
                       value={recurStart}
                       onChange={e => setRecurStart(e.target.value)}
-                      className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-dark/10 bg-sand text-dark font-sans text-sm focus:outline-none"
+                      className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-dark/10 bg-sand text-dark font-sans text-sm focus:outline-none focus:ring-2 focus:ring-teal/20"
                     />
                     <div className="flex items-center gap-1 shrink-0">
                       <input
@@ -229,7 +229,7 @@ export function NouveauPlanForm({ teams, error }: { teams: Team[]; error?: strin
                         max={52}
                         value={recurCount}
                         onChange={e => setRecurCount(Math.max(1, Number(e.target.value)))}
-                        className="w-14 px-2 py-2 rounded-xl border border-dark/10 bg-sand text-dark font-sans text-sm focus:outline-none text-center"
+                        className="w-14 px-2 py-2 rounded-xl border border-dark/10 bg-sand text-dark font-sans text-sm focus:outline-none focus:ring-2 focus:ring-teal/20 text-center"
                       />
                       <span className="font-sans text-xs text-dark/40 whitespace-nowrap">sem.</span>
                     </div>

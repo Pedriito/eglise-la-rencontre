@@ -90,7 +90,7 @@ export default function ShareButton({ planId }: Props) {
                   <input
                     readOnly
                     value={shareUrl(token)}
-                    className="flex-1 min-w-0 border border-teal/20 rounded-lg px-3 py-2 font-mono text-xs text-dark/60 bg-teal/5 focus:outline-none"
+                    className="flex-1 min-w-0 border border-teal/20 rounded-lg px-3 py-2 font-mono text-xs text-dark/60 bg-teal/5 focus:outline-none focus:ring-2 focus:ring-teal/30"
                   />
                   <button
                     onClick={copyLink}

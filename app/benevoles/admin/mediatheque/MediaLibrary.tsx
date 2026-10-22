@@ -208,7 +208,7 @@ export default function MediaLibrary({ initial }: Props) {
                   <button
                     type="button"
                     onClick={() => handleCopy(file)}
-                    className="relative block w-full aspect-square focus:outline-none"
+                    className="relative block w-full aspect-square focus:outline-none focus-visible:ring-2 focus-visible:ring-teal/50 focus-visible:ring-offset-2"
                     title="Cliquer pour copier l'URL"
                   >
                     <Image src={file.url} alt={file.name} fill sizes="(max-width:640px) 33vw, 25vw" className="object-cover" />

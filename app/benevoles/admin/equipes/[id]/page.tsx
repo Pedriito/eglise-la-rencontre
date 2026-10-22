@@ -72,7 +72,7 @@ export default async function TeamPage({
 
   return (
     <div className="min-h-screen bg-teal-50">
-      <header className="bg-white border-b border-teal/20 px-6 py-4 flex items-center gap-4">
+      <header className="bg-white border-b border-teal/20 px-6 pb-4 flex items-center gap-4" style={{ paddingTop: 'max(env(safe-area-inset-top, 0px) + 16px, 16px)' }}>
         <Link
           href={canEdit ? '/benevoles/admin/equipes' : '/benevoles/dashboard'}
           className="text-dark/40 hover:text-dark transition-colors font-sans text-sm"

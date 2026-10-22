@@ -1,20 +1,11 @@
 @import "tailwindcss";
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-teal: #5A9EA6;
-  --color-teal-dark: #3D7D85;
-  --color-teal-light: #EBF5F6;
-  --color-teal-50: #F0F7F8;
-  --color-dark: #1C2B2D;
-  --color-sand: #EFECE3;
-  --color-ink: #16241F;
-  --color-ink-light: #1F362E;
-  --color-coral: #E2693C;
-  --font-sans: var(--font-inter);
-  --font-display: var(--font-cormorant);
-}
+/* Jetons de design : définis dans le paquet @eglise/ui, qui en est propriétaire. */
+@import "../packages/ui/src/styles/tokens.css";
+
+/* Les composants du design system vivent hors de `app/` : sans cette directive,
+   Tailwind n'analyserait pas leurs fichiers et n'émettrait aucune de leurs classes. */
+@source "../packages/ui/src";
 
 :root {
   --background: #ffffff;

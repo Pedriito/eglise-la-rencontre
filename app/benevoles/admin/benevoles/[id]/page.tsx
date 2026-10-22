@@ -76,7 +76,7 @@ export default async function BenevoleProfilePage({
 
   return (
     <div className="min-h-screen bg-teal-50">
-      <header className="bg-white border-b border-teal/20 px-4 md:px-6 py-4">
+      <header className="bg-white border-b border-teal/20 px-4 md:px-6 pb-4" style={{ paddingTop: 'max(env(safe-area-inset-top, 0px) + 16px, 16px)' }}>
         {/* Ligne 1 : retour + nom + badge */}
         <div className="flex items-center gap-3 min-w-0">
           <Link

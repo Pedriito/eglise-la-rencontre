@@ -102,8 +102,12 @@ export function ChordChart({ chart, originalKey, initialKey, songId, arrangement
       </div>
 
       {/* Grille d'accords */}
-      <div className="bg-white rounded-2xl border border-teal/20 p-5 w-full">
-        <pre className="font-mono text-sm leading-relaxed whitespace-pre-wrap break-words">
+      {/* L'alignement accord/parole repose sur un padding en espaces (police monospace) :
+          on interdit le retour à la ligne (whitespace-pre) et on scrolle horizontalement
+          plutôt que de laisser le navigateur wrapper les deux lignes indépendamment, ce qui
+          désynchroniserait l'accord de la syllabe qu'il surplombe dès qu'une ligne wrap. */}
+      <div className="bg-white rounded-2xl border border-teal/20 p-5 w-full overflow-x-auto">
+        <pre className="font-mono text-sm leading-relaxed whitespace-pre">
           {transposed.split('\n').map((line, i) => {
             if (!line.trim()) return <span key={i}>{'\n'}</span>
 

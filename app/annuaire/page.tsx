@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { LINK_TYPES, TARGET_LABELS, GEO_LABELS, STATUS_LABELS, STATUS_COLORS, type Entrepreneur } from './constants'
+import { LINK_TYPES, TARGET_LABELS, GEO_LABELS, STATUS_LABELS, STATUS_COLORS, parseSectors, type Entrepreneur } from './constants'
 
 export const metadata: Metadata = {
   title: 'Annuaire des entrepreneurs — Église La Rencontre',
@@ -65,11 +65,11 @@ function EntrepreneurCard({ e }: { e: Entrepreneur }) {
                 {STATUS_LABELS[e.status]}
               </span>
             )}
-            {e.sector && (
-              <span className="px-2 py-0.5 rounded-full bg-teal/10 text-teal font-sans text-[10px] font-semibold uppercase tracking-wide">
-                {e.sector}
+            {e.sector && parseSectors(e.sector).map(s => (
+              <span key={s} className="px-2 py-0.5 rounded-full bg-teal/10 text-teal font-sans text-[10px] font-semibold uppercase tracking-wide">
+                {s}
               </span>
-            )}
+            ))}
           </div>
         </div>
       </div>
@@ -144,7 +144,9 @@ export default async function AnnuairePage({
     .from('entrepreneurs')
     .select('sector, target')
     .eq('visible', true)
-  const sectors = [...new Set((allForFilters ?? []).map(e => e.sector).filter(Boolean))].sort() as string[]
+  const sectors = [...new Set(
+    (allForFilters ?? []).flatMap(e => parseSectors(e.sector ?? null))
+  )].sort() as string[]
 
   return (
     <div className="min-h-screen bg-sand">

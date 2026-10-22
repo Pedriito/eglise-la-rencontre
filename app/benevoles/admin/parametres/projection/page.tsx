@@ -21,7 +21,7 @@ export default async function ProjectionSettingsPage() {
 
   return (
     <div className="min-h-screen bg-teal-50">
-      <header className="bg-white border-b border-teal/20 px-4 md:px-6 py-4 flex items-center gap-3">
+      <header className="bg-white border-b border-teal/20 px-4 md:px-6 pb-4 flex items-center gap-3" style={{ paddingTop: 'max(env(safe-area-inset-top, 0px) + 16px, 16px)' }}>
         <Link href="/benevoles/admin/parametres" className="text-dark/40 hover:text-dark transition-colors font-sans text-sm shrink-0">←</Link>
         <h1 className="font-display text-xl md:text-2xl text-dark font-light">Apparence de la projection</h1>
       </header>

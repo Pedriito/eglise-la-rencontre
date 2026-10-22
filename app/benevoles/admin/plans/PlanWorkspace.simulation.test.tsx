@@ -26,7 +26,7 @@ const { addAssignmentAsyncMock, removeAssignmentAsyncMock, stableRouter } = vi.h
 vi.mock('./actions', () => ({
   deletePlan: vi.fn(),
   sendSingleInvitation: vi.fn(),
-  excludePlanPosition: vi.fn(),
+  excludePlanPositionAsync: vi.fn(async () => ({ ok: true })),
   addAssignmentAsync: addAssignmentAsyncMock,
   removeAssignmentAsync: removeAssignmentAsyncMock,
 }))
@@ -136,13 +136,21 @@ describe('Planification — fluidité du flux « affecter / retirer un bénévol
 
     render(
       <Profiler id="planning" onRender={onRender}>
-        <PlanWorkspace planId="plan-1" detail={detail} isAdmin returnTo="/benevoles/admin/plans" />
+        <PlanWorkspace planId="plan-1" detail={detail} userId="viewer-1" isAdmin returnTo="/benevoles/admin/plans" />
       </Profiler>
     )
 
     // Le montage initial calcule une fois `visibleTeams`/`totalPositions`/`filledPositions`.
     expect(counts.filter).toBe(1)
     const mountDuration = commits[0].actualDuration
+
+    // Le viewer n'étant membre d'aucune équipe, elles sont toutes repliées par défaut —
+    // les déplier avant d'interagir avec leurs postes (aucun de ces replis/dépliages ne
+    // doit refaire tourner l'agrégation sur 180 postes non plus).
+    for (let t = 0; t < 8; t++) {
+      fireEvent.click(screen.getByText(`Équipe ${t}`))
+    }
+    expect(counts.filter).toBe(1)
 
     // Ouvre 8 postes différents à la suite (simulateur d'un admin qui parcourt le planning) —
     // aucune de ces ouvertures ne doit refaire tourner l'agrégation sur 180 postes.
@@ -190,9 +198,10 @@ describe('Planification — fluidité du flux « affecter / retirer un bénévol
     const { proxy: teamsProxy, counts } = makeCountingArray(rawTeams)
     const detail = buildDetail(teamsProxy)
 
-    render(<PlanWorkspace planId="plan-1" detail={detail} isAdmin returnTo="/benevoles/admin/plans" />)
+    render(<PlanWorkspace planId="plan-1" detail={detail} userId="viewer-1" isAdmin returnTo="/benevoles/admin/plans" />)
 
     expect(counts.filter).toBe(1)
+    fireEvent.click(screen.getByText('Équipe 5'))
     fireEvent.click(screen.getByText('T5P1'))
     expect(screen.getByText('Choisir un bénévole')).toBeInTheDocument()
     expect(counts.filter).toBe(1)

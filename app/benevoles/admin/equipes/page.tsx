@@ -83,7 +83,7 @@ export default async function EquipesPage({
 
   return (
     <div className="min-h-screen bg-teal-50">
-      <header className="bg-white border-b border-teal/20 px-4 md:px-6 py-4 flex items-center gap-4">
+      <header className="bg-white border-b border-teal/20 px-4 md:px-6 pb-4 flex items-center gap-4" style={{ paddingTop: 'max(env(safe-area-inset-top, 0px) + 16px, 16px)' }}>
         <div className="flex-1 min-w-0">
           <p className="font-sans text-xs text-dark/40 uppercase tracking-widest font-medium">Communauté</p>
           <div className="flex items-center gap-2 mt-0.5">

@@ -6,7 +6,10 @@ import { logout } from '../login/actions'
 import { FlashMessage } from '../_components/FlashMessage'
 import { PasswordInput } from '../_components/PasswordInput'
 import { PushManager } from '../_components/PushManager'
-import { permissionLabels } from '@/lib/labels'
+import { permissionLabels, frequencyLabels } from '@/lib/labels'
+
+// Du plus au moins fréquent, pour un choix plus lisible que l'ordre du dictionnaire de libellés.
+const FREQUENCY_ORDER = ['weekly', 'twice_month', 'monthly', 'every_6_weeks', 'as_needed']
 
 const errors: Record<string, string> = {
   failed: 'Une erreur est survenue. Réessaie.',
@@ -30,7 +33,7 @@ export default async function ProfilPage({
   if (!user) redirect('/benevoles/login')
 
   const [{ data: profile }, { data: teamMemberships }] = await Promise.all([
-    supabase.from('profiles').select('first_name, last_name, phone, birthdate, city, profile_complete, permission').eq('id', user.id).single(),
+    supabase.from('profiles').select('first_name, last_name, phone, birthdate, city, desired_frequency, profile_complete, permission').eq('id', user.id).single(),
     supabase.from('team_members').select('role, teams(name)').eq('user_id', user.id),
   ])
 
@@ -53,7 +56,7 @@ export default async function ProfilPage({
       <div className="lg:hidden min-h-screen bg-teal-50">
         <div
           className="flex flex-col items-center px-5 pb-6"
-          style={{ paddingTop: 'max(env(safe-area-inset-top) + 24px, 60px)' }}
+          style={{ paddingTop: 'max(env(safe-area-inset-top, 0px) + 24px, 60px)' }}
         >
           {/* Avatar */}
           <div className="w-20 h-20 rounded-full border-2 border-teal/20 bg-teal-50 flex items-center justify-center mb-4">
@@ -150,6 +153,16 @@ export default async function ProfilPage({
               <div>
                 <label htmlFor="m_city" className="block font-sans text-[10px] uppercase tracking-widest text-dark/40 font-semibold mb-1.5">Ville</label>
                 <input id="m_city" name="city" type="text" defaultValue={profile?.city ?? ''} placeholder="Lieusaint" className="w-full px-3 py-2.5 rounded-xl border border-dark/10 bg-teal-50 text-dark placeholder:text-dark/30 font-sans text-[13px] focus:outline-none focus:ring-2 focus:ring-teal/30" />
+              </div>
+              <div>
+                <label htmlFor="m_desired_frequency" className="block font-sans text-[10px] uppercase tracking-widest text-dark/40 font-semibold mb-1.5">Rythme de service souhaité</label>
+                <select id="m_desired_frequency" name="desired_frequency" defaultValue={profile?.desired_frequency ?? ''} className="w-full px-3 py-2.5 rounded-xl border border-dark/10 bg-teal-50 text-dark font-sans text-[13px] focus:outline-none focus:ring-2 focus:ring-teal/30">
+                  <option value="">Non précisé</option>
+                  {FREQUENCY_ORDER.map(key => (
+                    <option key={key} value={key}>{frequencyLabels[key]}</option>
+                  ))}
+                </select>
+                <p className="font-sans text-[11px] text-dark/35 mt-1">Utilisé pour respecter ton rythme lors de la planification.</p>
               </div>
               {errorMsg && <p className="font-sans text-xs text-red-500">{errorMsg}</p>}
               <button
@@ -260,6 +273,16 @@ export default async function ProfilPage({
               <div>
                 <label htmlFor="city" className="block text-sm font-sans text-dark/70 mb-1.5">Ville {isFirstTime && <span className="text-red-500">*</span>}</label>
                 <input id="city" name="city" type="text" defaultValue={profile?.city ?? ''} required={isFirstTime} placeholder="Lieusaint" className="w-full px-4 py-2.5 rounded-lg border border-teal/30 bg-teal-50 text-dark placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-teal/40 font-sans text-sm" />
+              </div>
+              <div>
+                <label htmlFor="desired_frequency" className="block text-sm font-sans text-dark/70 mb-1.5">Rythme de service souhaité</label>
+                <select id="desired_frequency" name="desired_frequency" defaultValue={profile?.desired_frequency ?? ''} className="w-full px-4 py-2.5 rounded-lg border border-teal/30 bg-teal-50 text-dark focus:outline-none focus:ring-2 focus:ring-teal/40 font-sans text-sm">
+                  <option value="">Non précisé</option>
+                  {FREQUENCY_ORDER.map(key => (
+                    <option key={key} value={key}>{frequencyLabels[key]}</option>
+                  ))}
+                </select>
+                <p className="text-xs font-sans text-dark/40 mt-1.5">Utilisé pour respecter ton rythme lors de la planification.</p>
               </div>
               {errorMsg && <p className="text-sm text-red-500 font-sans">{errorMsg}</p>}
               <div className="flex gap-3 pt-1">

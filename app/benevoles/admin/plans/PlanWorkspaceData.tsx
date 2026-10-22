@@ -24,7 +24,8 @@ export async function PlanWorkspaceData({
   selectedPlanId, userId, isAdmin, plans, pastPlans, countByPlan, fillKey, flashError, flashSent,
 }: Props) {
   const supabase = await createClient()
-  const detail = await getPlanDetail(supabase, selectedPlanId, userId, isAdmin)
+  // Ce workspace n'est rendu que pour un gestionnaire (admin ou éditeur) → canManage = true.
+  const detail = await getPlanDetail(supabase, selectedPlanId, userId, isAdmin, true)
 
   if (!detail) {
     return (
@@ -54,6 +55,7 @@ export async function PlanWorkspaceData({
       <PlanWorkspace
         planId={selectedPlanId}
         detail={detail}
+        userId={userId}
         isAdmin={isAdmin}
         flashError={flashError}
         flashSent={flashSent}

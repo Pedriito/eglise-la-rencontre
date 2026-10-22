@@ -25,6 +25,19 @@ export const SECTORS = [
   'Autre',
 ]
 
+export function parseSectors(sector: string | null): string[] {
+  if (!sector) return []
+  try {
+    const arr = JSON.parse(sector)
+    if (Array.isArray(arr)) return arr
+  } catch {}
+  return [sector]
+}
+
+export function displaySectors(sector: string | null): string {
+  return parseSectors(sector).join(', ')
+}
+
 export const TARGET_LABELS: Record<string, string> = {
   b2b:  'B2B',
   b2c:  'B2C',

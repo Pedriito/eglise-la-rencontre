@@ -1,0 +1,27 @@
+Vocabulaire de marque garanti par la feuille de style du design system.
+
+Tailwind ne génère que les classes qu'il rencontre dans les sources analysées. Sans ce
+fichier, une couleur de la charte employée par aucun composant — `bg-teal-dark`,
+`text-coral` — serait absente du CSS livré : la classe existerait dans le code mais ne
+produirait aucun style. Les noms ci-dessous sont donc énumérés pour être compilés, afin
+que la palette entière soit réellement disponible à qui compose avec ce design system.
+
+Fonds
+bg-teal bg-teal-dark bg-teal-light bg-teal-50 bg-sand bg-ink bg-ink-light bg-coral bg-white
+bg-teal/5 bg-teal/10 bg-coral/10 bg-dark/5 bg-white/10 bg-white/20
+
+Texte
+text-teal text-teal-dark text-dark text-ink text-coral text-white
+text-dark/25 text-dark/30 text-dark/40 text-dark/50 text-dark/60 text-dark/70
+text-white/30 text-white/55 text-white/65 text-teal/60
+
+Bordures
+border-teal border-teal-dark border-coral border-dark
+border-teal/10 border-teal/20 border-teal/30 border-dark/8 border-dark/10
+divide-teal/10 divide-dark/10
+
+Typographie
+font-sans font-display
+
+Rayons employés par la charte
+rounded-lg rounded-xl rounded-2xl rounded-3xl rounded-full

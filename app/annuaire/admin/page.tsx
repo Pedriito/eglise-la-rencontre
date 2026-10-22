@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
 import { approveEntrepreneur, hideEntrepreneur } from '../actions'
 import { DeleteButton } from './DeleteButton'
+import { ResendButton } from './ResendButton'
 import { LINK_TYPES, TARGET_LABELS, GEO_LABELS, STATUS_LABELS, STATUS_COLORS, type Entrepreneur } from '../constants'
 
 export const metadata: Metadata = {
@@ -87,7 +88,7 @@ function EntrepreneurRow({ e, pending }: { e: Entrepreneur; pending: boolean }) 
       </div>
 
       {/* Actions */}
-      <div className="flex gap-2 pt-1 border-t border-dark/6">
+      <div className="flex flex-wrap gap-2 pt-1 border-t border-dark/6">
         {pending ? (
           <form action={approveEntrepreneur}>
             <input type="hidden" name="id" value={e.id} />
@@ -103,6 +104,13 @@ function EntrepreneurRow({ e, pending }: { e: Entrepreneur; pending: boolean }) 
             </button>
           </form>
         )}
+        <Link
+          href={`/annuaire/admin/${e.id}`}
+          className="px-3 py-2 rounded-xl border border-dark/15 text-dark/50 font-sans text-xs font-medium hover:text-dark hover:border-dark/30 transition-colors"
+        >
+          ✏️ Modifier
+        </Link>
+        {!pending && <ResendButton id={e.id} />}
         <DeleteButton id={e.id} />
       </div>
     </div>

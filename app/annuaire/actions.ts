@@ -4,7 +4,21 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { sendEntrepreneurSubmissionNotification, sendEntrepreneurApprovalEmail } from '@/lib/email'
+import { parseSectors } from './constants'
 import type { EntrepreneurLink } from './constants'
+
+function normalizeSector(raw: string | null): string | null {
+  if (!raw) return null
+  try {
+    const arr = JSON.parse(raw)
+    if (Array.isArray(arr)) {
+      if (arr.length === 0) return null
+      if (arr.length === 1) return arr[0]
+      return raw // stocker le JSON pour multi-secteurs
+    }
+  } catch {}
+  return raw
+}
 
 /* ── Soumission publique ─────────────────────────────────── */
 
@@ -65,7 +79,7 @@ export async function submitEntrepreneur(
     photo_url:     photoUrl,
     company_name:  companyName,
     description:   (formData.get('description')   as string)?.trim() || null,
-    sector:        (formData.get('sector')        as string)         || null,
+    sector:        normalizeSector(formData.get('sector') as string | null),
     target:        (formData.get('target')        as string)         || null,
     geo:           (formData.get('geo')           as string)         || null,
     languages,
@@ -112,12 +126,23 @@ export async function approveEntrepreneur(formData: FormData) {
   if (!admin) return
   const id = formData.get('id') as string
 
-  // Récupérer les infos avant de valider (pour l'email de confirmation)
+  // Récupérer les infos de base (toujours disponibles)
   const { data: entrepreneur } = await admin
     .from('entrepreneurs')
-    .select('id, first_name, last_name, company_name, contact_email, edit_token')
+    .select('id, first_name, last_name, company_name, contact_email')
     .eq('id', id)
     .single()
+
+  // edit_token : colonne ajoutée en migration 018, on tente séparément
+  let editToken: string | null = null
+  try {
+    const { data: tokenRow } = await admin
+      .from('entrepreneurs')
+      .select('edit_token')
+      .eq('id', id)
+      .single()
+    editToken = (tokenRow as any)?.edit_token ?? null
+  } catch { /* migration 018 pas encore appliquée */ }
 
   await admin.from('entrepreneurs').update({ visible: true }).eq('id', id)
   revalidatePath('/annuaire')
@@ -131,7 +156,7 @@ export async function approveEntrepreneur(formData: FormData) {
       last_name:     entrepreneur.last_name,
       company_name:  entrepreneur.company_name,
       contact_email: entrepreneur.contact_email,
-      edit_token:    entrepreneur.edit_token ?? null,
+      edit_token:    editToken,
     }).catch(err => console.error('[annuaire] approval email failed:', err))
   }
 }
@@ -209,7 +234,7 @@ export async function updateEntrepreneurByToken(
       photo_url:     photoUrl,
       company_name:  (formData.get('company_name')  as string)?.trim(),
       description:   (formData.get('description')   as string)?.trim() || null,
-      sector:        (formData.get('sector')        as string)         || null,
+      sector:        normalizeSector(formData.get('sector') as string | null),
       target:        (formData.get('target')        as string)         || null,
       geo:           (formData.get('geo')           as string)         || null,
       languages,
@@ -225,6 +250,100 @@ export async function updateEntrepreneurByToken(
 
   revalidatePath('/annuaire')
   return { success: true }
+}
+
+export async function adminUpdateEntrepreneur(
+  _prev: { error?: string } | null,
+  formData: FormData,
+): Promise<{ success: boolean; error?: string }> {
+  const admin = await requireAdminPermission()
+  if (!admin) return { success: false, error: 'Non autorisé.' }
+
+  const id = formData.get('id') as string
+  if (!id) return { success: false, error: 'ID manquant.' }
+
+  const { data: existing } = await admin
+    .from('entrepreneurs')
+    .select('id, photo_url')
+    .eq('id', id)
+    .single()
+  if (!existing) return { success: false, error: 'Fiche introuvable.' }
+
+  // Photo upload (optionnel)
+  const photo = formData.get('photo') as File | null
+  let photoUrl: string | null = existing.photo_url ?? null
+  if (photo && photo.size > 0) {
+    await admin.storage.createBucket('entrepreneurs', { public: true }).catch(() => {})
+    const ext      = photo.name.split('.').pop()?.toLowerCase().replace(/[^a-z]/g, '') || 'jpg'
+    const filename = `${crypto.randomUUID()}.${ext}`
+    const buffer   = Buffer.from(await photo.arrayBuffer())
+    const { error: uploadError } = await admin.storage
+      .from('entrepreneurs')
+      .upload(filename, buffer, { contentType: photo.type, upsert: false })
+    if (!uploadError) {
+      photoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/entrepreneurs/${filename}`
+    }
+  }
+
+  let links: EntrepreneurLink[] = []
+  try {
+    const raw = formData.get('links') as string
+    if (raw) links = JSON.parse(raw)
+  } catch { /* ignore */ }
+  links = links.filter(l => l.url?.trim())
+
+  const languages = (formData.getAll('languages') as string[]).filter(Boolean)
+
+  const { error } = await admin
+    .from('entrepreneurs')
+    .update({
+      first_name:    (formData.get('first_name')    as string)?.trim(),
+      last_name:     (formData.get('last_name')     as string)?.trim(),
+      contact_email: (formData.get('contact_email') as string)?.trim() || null,
+      contact_phone: (formData.get('contact_phone') as string)?.trim() || null,
+      photo_url:     photoUrl,
+      company_name:  (formData.get('company_name')  as string)?.trim(),
+      description:   (formData.get('description')   as string)?.trim() || null,
+      sector:        normalizeSector(formData.get('sector') as string | null),
+      target:        (formData.get('target')        as string)         || null,
+      geo:           (formData.get('geo')           as string)         || null,
+      languages,
+      links,
+      status:        (formData.get('status')        as string)         || null,
+    })
+    .eq('id', id)
+
+  if (error) {
+    console.error('adminUpdateEntrepreneur:', error)
+    return { success: false, error: 'Une erreur est survenue.' }
+  }
+
+  revalidatePath('/annuaire')
+  revalidatePath('/annuaire/admin')
+  return { success: true }
+}
+
+export async function resendApprovalEmail(formData: FormData) {
+  const admin = await requireAdminPermission()
+  if (!admin) return
+
+  const id = formData.get('id') as string
+  const { data } = await admin
+    .from('entrepreneurs')
+    .select('id, first_name, last_name, company_name, contact_email, edit_token')
+    .eq('id', id)
+    .single()
+
+  if (data?.contact_email) {
+    await sendEntrepreneurApprovalEmail({
+      id:            data.id,
+      first_name:    data.first_name,
+      last_name:     data.last_name,
+      company_name:  data.company_name,
+      contact_email: data.contact_email,
+      edit_token:    data.edit_token ?? null,
+    })
+  }
 }
 
 export async function deleteEntrepreneurByToken(formData: FormData) {

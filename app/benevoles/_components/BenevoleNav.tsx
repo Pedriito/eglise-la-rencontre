@@ -3,12 +3,14 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { logout } from '../login/actions'
 import { permissionLabels } from '@/lib/labels'
 import {
   IconHome, IconCalendar, IconClock, IconClipboard,
   IconUsers, IconMusicalNote, IconHeart, IconUser,
   IconGlobe, IconBuilding, IconProjector, IconLogout, IconBan,
+  IconGrid, IconClose,
 } from './Icons'
 
 type Props = {
@@ -93,6 +95,34 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
     })
   }
 
+  // Sections admin déjà dans la sidebar desktop mais absentes des 5 onglets mobiles —
+  // réutilisées telles quelles dans le sheet mobile pour ne pas dupliquer la logique de permission.
+  // "Chants" est retiré ici : déjà présent en tant qu'onglet dans la bottom nav mobile.
+  const extraAdminGroups = groups
+    .filter(g => g.section === 'Administration' || g.section === 'Réglages')
+    .map(g => g.section === 'Administration' ? { ...g, items: g.items.filter(item => item.href !== '/benevoles/admin/chants') } : g)
+    .filter(g => g.items.length > 0)
+  const hasExtraAdmin = extraAdminGroups.length > 0
+  const extraAdminActive = extraAdminGroups.some(g => g.items.some(item => item.match(pathname)))
+
+  const [adminMenuOpen, setAdminMenuOpen] = useState(false)
+
+  useEffect(() => {
+    setAdminMenuOpen(false)
+  }, [pathname])
+
+  useEffect(() => {
+    if (!adminMenuOpen) return
+    const original = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setAdminMenuOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = original
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [adminMenuOpen])
+
   const initials = `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`.toUpperCase() || 'B'
 
   return (
@@ -165,7 +195,7 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
       <nav
         className="lg:hidden fixed z-30"
         style={{
-          bottom: 'calc(12px + env(safe-area-inset-bottom))',
+          bottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
           left: '12px',
           right: '12px',
           background: 'rgba(255,255,255,0.38)',
@@ -180,46 +210,142 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
           const BOTTOM_TABS = isAdmin || isEditor ? BOTTOM_TABS_ADMIN : BOTTOM_TABS_DEFAULT
           const activeIndex = BOTTOM_TABS.findIndex(tab => tab.match(pathname))
           return (
-            <div className="relative flex items-center px-2 py-2">
-              {/* Sliding pill indicator */}
-              <div
-                aria-hidden="true"
-                style={{
-                  position: 'absolute',
-                  top: '8px',
-                  bottom: '8px',
-                  left: '8px',
-                  width: 'calc((100% - 16px) / 5)',
-                  borderRadius: '18px',
-                  background: 'rgba(90,158,166,0.13)',
-                  transform: `translateX(calc(${Math.max(0, activeIndex)} * 100%))`,
-                  transition: 'transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                }}
-              />
-              {BOTTOM_TABS.map(tab => {
-                const active = tab.match(pathname)
-                const Icon = tab.icon
-                return (
-                  <Link
-                    key={tab.href}
-                    href={tab.href}
-                    className="relative flex-1 flex flex-col items-center gap-0.5 py-1.5"
-                  >
-                    <span style={{ transform: active ? 'scale(1.08)' : 'scale(1)', transition: 'transform 0.25s cubic-bezier(0.34,1.56,0.64,1)', display: 'flex' }}>
-                      <Icon className={`w-6 h-6 transition-colors duration-200 ${active ? 'text-teal' : 'text-dark/35'}`} />
-                    </span>
-                    <span
-                      className={`font-sans text-[10px] font-medium transition-colors duration-200 ${active ? 'text-teal' : 'text-dark/35'}`}
+            <div className="relative flex items-center gap-0.5 px-2 py-2">
+              <div className="relative flex-1 flex items-center min-w-0">
+                {/* Sliding pill indicator */}
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position: 'absolute',
+                    // Géométrie calée exactement sur un onglet : ils sont `flex-1` sans
+                    // espacement dans CE conteneur, donc chacun mesure 100% / n. Le rembourrage
+                    // de 8px appartient au conteneur parent — le compenser ici rendait la
+                    // pastille trop étroite et décalée, d'autant plus visible que `translateX`
+                    // se calcule sur sa propre largeur : l'erreur se déplaçait avec l'onglet.
+                    // Épouse exactement l'onglet, verticalement comme horizontalement. La
+                    // respiration vis-à-vis du bord de la barre vient du `py-2` du parent :
+                    // l'ajouter ici aussi rabotait la pastille deux fois.
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    width: `calc(100% / ${BOTTOM_TABS.length})`,
+                    borderRadius: '18px',
+                    background: 'rgba(90,158,166,0.13)',
+                    transform: `translateX(calc(${Math.max(0, activeIndex)} * 100%))`,
+                    // Aucun des 5 onglets n'est actif quand on est sur une page admin accessible
+                    // uniquement via le bouton "Admin" (Équipes, Pastorale...) — on masque alors
+                    // la pastille plutôt que de la laisser se rabattre à tort sur "Accueil"
+                    // (index -1 → Math.max(0, -1) = 0), ce qui la faisait apparaître au mauvais
+                    // endroit avec la mauvaise taille perçue.
+                    opacity: activeIndex === -1 ? 0 : 1,
+                    transition: 'transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease',
+                  }}
+                />
+                {BOTTOM_TABS.map(tab => {
+                  const active = tab.match(pathname)
+                  const Icon = tab.icon
+                  return (
+                    <Link
+                      key={tab.href}
+                      href={tab.href}
+                      className="relative flex-1 flex flex-col items-center gap-0.5 py-1.5"
                     >
-                      {tab.label}
-                    </span>
-                  </Link>
-                )
-              })}
+                      <span style={{ transform: active ? 'scale(1.08)' : 'scale(1)', transition: 'transform 0.25s cubic-bezier(0.34,1.56,0.64,1)', display: 'flex' }}>
+                        <Icon className={`w-6 h-6 transition-colors duration-200 ${active ? 'text-teal' : 'text-dark/35'}`} />
+                      </span>
+                      <span
+                        className={`font-sans text-[10px] font-medium transition-colors duration-200 ${active ? 'text-teal' : 'text-dark/35'}`}
+                      >
+                        {tab.label}
+                      </span>
+                    </Link>
+                  )
+                })}
+              </div>
+
+              {hasExtraAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setAdminMenuOpen(true)}
+                  aria-haspopup="dialog"
+                  aria-expanded={adminMenuOpen}
+                  aria-label="Menu d'administration"
+                  className="relative shrink-0 flex flex-col items-center gap-0.5 py-1.5 px-3 rounded-2xl"
+                >
+                  <span style={{ transform: extraAdminActive ? 'scale(1.08)' : 'scale(1)', transition: 'transform 0.25s cubic-bezier(0.34,1.56,0.64,1)', display: 'flex' }}>
+                    <IconGrid className={`w-6 h-6 transition-colors duration-200 ${extraAdminActive ? 'text-teal' : 'text-dark/35'}`} />
+                  </span>
+                  <span className={`font-sans text-[10px] font-medium transition-colors duration-200 ${extraAdminActive ? 'text-teal' : 'text-dark/35'}`}>
+                    Admin
+                  </span>
+                </button>
+              )}
             </div>
           )
         })()}
       </nav>
+
+      {/* ── Sheet admin mobile — sections desktop non exposées dans les 5 onglets ── */}
+      {hasExtraAdmin && adminMenuOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-40 flex items-end justify-center bg-black/40 backdrop-blur-sm"
+          role="presentation"
+          onClick={() => setAdminMenuOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu d'administration"
+            className="w-full max-h-[75vh] overflow-y-auto bg-white rounded-t-3xl shadow-2xl"
+            style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-center pt-2.5 pb-1">
+              <div className="w-9 h-1 rounded-full bg-dark/15" />
+            </div>
+            <div className="px-5 pb-2 pt-1 flex items-center justify-between">
+              <p className="font-display text-lg text-dark font-medium">Administration</p>
+              <button
+                type="button"
+                onClick={() => setAdminMenuOpen(false)}
+                aria-label="Fermer"
+                className="p-1.5 -mr-1.5 text-dark/40 hover:text-dark transition-colors"
+              >
+                <IconClose className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="px-3 pb-2">
+              {extraAdminGroups.map((group, gi) => (
+                <div key={gi} className={gi > 0 ? 'mt-4' : 'mt-1'}>
+                  {group.section && (
+                    <p className="px-3 pb-1.5 font-sans text-[10px] uppercase tracking-[0.16em] text-dark/35 font-semibold">
+                      {group.section}
+                    </p>
+                  )}
+                  <div className="space-y-0.5">
+                    {group.items.map(item => {
+                      const active = item.match(pathname)
+                      const Icon = item.icon
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={`flex items-center gap-3 px-3 py-3 rounded-2xl font-sans text-[15px] transition-colors ${
+                            active ? 'bg-teal/10 text-teal font-medium' : 'text-dark/70 active:bg-dark/5'
+                          }`}
+                        >
+                          <Icon className="w-5 h-5 shrink-0" />
+                          <span className="truncate">{item.label}</span>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

@@ -11,6 +11,7 @@ import { LinkPendingSpinner } from '@/app/benevoles/_components/LinkPendingSpinn
 import { PlanWorkspaceData } from './PlanWorkspaceData'
 import { WorkspaceSkeleton } from './WorkspaceSkeleton'
 import { MyAssignmentQuickActions } from './RespondAssignmentButtons'
+import { AutoFillButton } from './AutoFillButton'
 
 export type PlanItem = {
   id: string
@@ -284,6 +285,7 @@ export default async function PlansPage({
                 Calendrier
               </Link>
             </div>
+            {canManage && <AutoFillButton />}
             {canManage && (
               <Link
                 href="/benevoles/admin/plans/nouveau"

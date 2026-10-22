@@ -1,0 +1,15 @@
+{
+  "projectId": "cffa71b5-64bc-44fb-848e-a9135158f27d",
+  "shape": "package",
+  "pkg": "@eglise/ui",
+  "globalName": "EgliseUI",
+  "buildCmd": "npm run build -w @eglise/ui",
+  "cssEntry": "dist/styles.css",
+  "tokensGlob": "src/styles/tokens.css",
+  "overrides": {
+    "ErrorText": {
+      "cardMode": "column"
+    }
+  },
+  "readmeHeader": ".design-sync/conventions.md"
+}
