@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { sendPushToUser } from '@/lib/pushNotifications'
 import { parisDay, findBlockedEntries, describeBlocked } from '@/lib/availability'
+import { resolveAutoFillScope } from './scope'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -13,7 +14,7 @@ async function requireAdmin() {
   if (!user) redirect('/benevoles/login')
   const { data: profile } = await supabase.from('profiles').select('permission, church_id').eq('id', user.id).single()
   if (!profile || !['admin', 'editor', 'super_admin'].includes(profile.permission)) redirect('/benevoles/dashboard')
-  return { admin: createAdminClient(), church_id: profile.church_id as string }
+  return { admin: createAdminClient(), church_id: profile.church_id as string, userId: user.id, permission: profile.permission as string }
 }
 
 export type CommitRow = {
@@ -34,9 +35,38 @@ type Result =
  *  Re-vérifie que chaque poste (non `allow_multiple`) ciblé est toujours libre avant d'insérer,
  *  au cas où il aurait été rempli manuellement pendant que la modale était ouverte. */
 export async function commitAutoFillProposal(rows: CommitRow[]): Promise<Result> {
-  const { admin } = await requireAdmin()
+  const { admin, userId, permission } = await requireAdmin()
 
   if (rows.length === 0) return { ok: true, inserted: 0, skipped: 0 }
+
+  // Un éditeur ne peut valider que des postes d'équipes dont il est responsable. Le client est
+  // modifiable (ligne éditée, requête forgée) : l'équipe réelle de chaque poste est relue en base
+  // et la validation est refusée en bloc au moindre poste hors périmètre.
+  const scope = await resolveAutoFillScope(admin, userId, permission)
+  if (!scope.ok) return { ok: false, error: scope.error }
+  if (scope.teamIds !== null) {
+    const allowed = new Set(scope.teamIds)
+    const { data: positions, error: positionsError } = await admin
+      .from('positions')
+      .select('id, team_id, teams(name)')
+      .in('id', [...new Set(rows.map(r => r.positionId))])
+    if (positionsError) return { ok: false, error: `Vérification des postes impossible (${positionsError.message}) : validation refusée par précaution.` }
+    const teamOfPosition = new Map((positions ?? []).map(p => [p.id as string, p]))
+    const outOfScope = rows.filter(r => {
+      const pos = teamOfPosition.get(r.positionId)
+      return !pos || !allowed.has(pos.team_id as string) || r.teamId !== pos.team_id
+    })
+    if (outOfScope.length > 0) {
+      const names = [...new Set(outOfScope.map(r => {
+        const teams = teamOfPosition.get(r.positionId)?.teams as { name: string } | { name: string }[] | null | undefined
+        return (Array.isArray(teams) ? teams[0]?.name : teams?.name) ?? 'inconnue'
+      }))]
+      return {
+        ok: false,
+        error: `Vous n'êtes pas responsable de l'équipe ${names.map(n => `« ${n} »`).join(', ')} : validation refusée. Retirez ces lignes (« Ne pas assigner ») puis validez à nouveau.`,
+      }
+    }
+  }
 
   const planIds = [...new Set(rows.map(r => r.planId))]
 
@@ -82,7 +112,7 @@ export async function commitAutoFillProposal(rows: CommitRow[]): Promise<Result>
   // Notifications push — bonus non-bloquant, envoyées en parallèle.
   await Promise.allSettled(
     toInsert.map(r => {
-      const date = new Date(r.serviceDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+      const date = new Date(r.serviceDate).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long' })
       return sendPushToUser(r.userId, {
         title: '📋 Tu as été planifié·e',
         body: `${r.positionName} · ${date} — confirme ta présence !`,

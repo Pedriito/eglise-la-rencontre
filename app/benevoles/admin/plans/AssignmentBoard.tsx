@@ -158,7 +158,7 @@ export function AssignmentBoard({ planId, detail, userId, fillKey, isAdmin, flas
     ))
   }
 
-  const date = new Date(plan.service_date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+  const date = new Date(plan.service_date).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long' })
 
   return (
     <div className="flex-1 min-w-0 space-y-5">

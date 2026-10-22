@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { movePlan } from './actions'
+import { parisDay } from '@/lib/availability'
 
 type Props = {
   planId: string
@@ -22,11 +23,14 @@ export function PlanTimeEditor({ planId, serviceDate, className, inputClassName,
   const inputRef = useRef<HTMLInputElement>(null)
 
   const d = new Date(serviceDate)
-  const currentTime = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-  const currentTimeInput = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  // Heure et jour lus EN HEURE DE PARIS, jamais dans le fuseau de la machine : le serveur (UTC) et le
+  // navigateur doivent produire le même texte, sinon l'hydratation échoue (erreur React #418) et les
+  // rafraîchissements de la page deviennent peu fiables.
+  const currentTime = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })
+  const currentTimeInput = currentTime
 
-  // Date locale en YYYY-MM-DD (évite un décalage UTC si le service est tôt le matin)
-  const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  // Jour calendaire de Paris en YYYY-MM-DD (évite un décalage UTC si le service est tôt le matin)
+  const localDate = parisDay(serviceDate)
 
   function save() {
     const val = inputRef.current?.value

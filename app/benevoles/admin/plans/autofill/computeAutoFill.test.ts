@@ -91,7 +91,7 @@ describe('computeAutoFillProposal — chemin heureux', () => {
   it("renvoie un résultat vide (proposals ET skipped) si aucun plan n'existe sur la plage — sans planter", async () => {
     setupAdminClient({ plans: [ok([]), ok([])] })
     const result = await computeAutoFillProposal('2026-12-01', '2026-12-31')
-    expect(result).toEqual({ ok: true, proposals: [], skipped: [] })
+    expect(result).toEqual({ ok: true, proposals: [], skipped: [], scopeTeamNames: null })
   })
 })
 
@@ -148,5 +148,89 @@ describe('computeAutoFillProposal — indisponibilités déclarées', () => {
     const result = await computeAutoFillProposal('2026-12-01', '2026-12-31')
 
     expect(result).toEqual({ ok: false, error: 'Erreur base de données (blockout_dates) : connection reset' })
+  })
+})
+
+describe('computeAutoFillProposal — seules les équipes dont on est responsable sont planifiées', () => {
+  const TWO_TEAMS = [
+    { id: 'team-1', name: 'Louange', positions: [{ id: 'pos-1', name: 'Guitare', team_id: 'team-1' }] },
+    { id: 'team-2', name: 'Accueil', positions: [{ id: 'pos-2', name: 'Hôte', team_id: 'team-2' }] },
+  ]
+  const BOTH_QUALIFIED = [
+    { user_id: 'user-1', position_id: 'pos-1' },
+    { user_id: 'user-2', position_id: 'pos-2' },
+  ]
+  const TWO_PROFILES = [
+    { id: 'user-1', first_name: 'Alice', last_name: 'A', desired_frequency: null },
+    { id: 'user-2', first_name: 'Bob', last_name: 'B', desired_frequency: null },
+  ]
+  const setupTwoTeams = (team_members: FakeResponse[]) =>
+    setupAdminClient({ teams: [ok(TWO_TEAMS)], member_positions: [ok(BOTH_QUALIFIED)], profiles: [ok(TWO_PROFILES)], team_members })
+
+  it('un administrateur voit toutes les équipes (comportement inchangé)', async () => {
+    setupTwoTeams([])
+    const result = await computeAutoFillProposal('2026-12-01', '2026-12-31')
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.proposals.map(p => p.teamName).sort()).toEqual(['Accueil', 'Louange'])
+    expect(result.scopeTeamNames).toBeNull()
+  })
+
+  it('un éditeur responsable de Louange ne reçoit des propositions QUE pour Louange', async () => {
+    createClientMock.mockResolvedValue(fakeSessionClient('editor'))
+    setupTwoTeams([ok([{ team_id: 'team-1' }])])
+    const result = await computeAutoFillProposal('2026-12-01', '2026-12-31')
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.proposals.map(p => [p.teamName, p.positionName])).toEqual([['Louange', 'Guitare']])
+    // Accueil n'est ni proposé ni listé comme « non pourvu » : il est hors périmètre.
+    expect(result.skipped.map(s => s.teamName)).not.toContain('Accueil')
+    expect(result.scopeTeamNames).toEqual(['Louange'])
+  })
+
+  it('un éditeur responsable de plusieurs équipes les reçoit toutes, et elles seules', async () => {
+    createClientMock.mockResolvedValue(fakeSessionClient('editor'))
+    setupTwoTeams([ok([{ team_id: 'team-1' }, { team_id: 'team-2' }])])
+    const result = await computeAutoFillProposal('2026-12-01', '2026-12-31')
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.proposals.map(p => p.teamName).sort()).toEqual(['Accueil', 'Louange'])
+    expect(result.scopeTeamNames).toEqual(['Accueil', 'Louange'])
+  })
+
+  it("un éditeur qui n'est responsable d'aucune équipe est refusé (aucune proposition)", async () => {
+    createClientMock.mockResolvedValue(fakeSessionClient('editor'))
+    setupTwoTeams([ok([])])
+    const result = await computeAutoFillProposal('2026-12-01', '2026-12-31')
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toMatch(/responsable d'aucune équipe/)
+  })
+
+  it('un éditeur dont la lecture des responsabilités échoue est refusé par précaution (jamais « toutes les équipes »)', async () => {
+    createClientMock.mockResolvedValue(fakeSessionClient('editor'))
+    setupTwoTeams([{ data: null, error: { message: 'db down' } }])
+    const result = await computeAutoFillProposal('2026-12-01', '2026-12-31')
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toMatch(/refusé par précaution/)
+  })
+
+  it("être simple membre d'une équipe (sans en être responsable) ne suffit pas", async () => {
+    createClientMock.mockResolvedValue(fakeSessionClient('editor'))
+    // La requête filtre role = 'leader' : un simple membre ne renvoie aucune ligne.
+    setupTwoTeams([ok([])])
+    const result = await computeAutoFillProposal('2026-12-01', '2026-12-31')
+    expect(result.ok).toBe(false)
+  })
+
+  it('le périmètre reste appliqué quand aucun service n’existe sur la plage (résultat vide mais borné)', async () => {
+    createClientMock.mockResolvedValue(fakeSessionClient('editor'))
+    setupAdminClient({ teams: [ok(TWO_TEAMS)], plans: [ok([]), ok([])], team_members: [ok([{ team_id: 'team-2' }])] })
+    const result = await computeAutoFillProposal('2026-12-01', '2026-12-31')
+    expect(result).toEqual({ ok: true, proposals: [], skipped: [], scopeTeamNames: ['Accueil'] })
   })
 })

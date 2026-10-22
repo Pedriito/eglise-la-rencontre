@@ -105,9 +105,10 @@ export default async function PlansPage({
   function PlanRow({ plan }: { plan: PlanItem }) {
     const team = plan.teams as unknown as { name: string } | null
     const date = new Date(plan.service_date).toLocaleDateString('fr-FR', {
+      timeZone: 'Europe/Paris',
       weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
     })
-    const time = new Date(plan.service_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    const time = new Date(plan.service_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })
     const n    = countByPlan[plan.id] ?? 0
     const past = plan.service_date < now
     return (
@@ -150,9 +151,10 @@ export default async function PlansPage({
   function PlanCard({ plan, myAssignment }: { plan: PlanItem; myAssignment: { id: string; status: string } | null }) {
     const team = plan.teams as unknown as { name: string } | null
     const date = new Date(plan.service_date).toLocaleDateString('fr-FR', {
+      timeZone: 'Europe/Paris',
       weekday: 'short', day: 'numeric', month: 'short',
     })
-    const time = new Date(plan.service_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    const time = new Date(plan.service_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })
     const n         = countByPlan[plan.id] ?? 0
     const past      = plan.service_date < now
     return (
@@ -285,7 +287,7 @@ export default async function PlansPage({
                 Calendrier
               </Link>
             </div>
-            {canManage && <AutoFillButton />}
+            {canManage && <AutoFillButton ledTeamsOnly={!isAdmin} />}
             {canManage && (
               <Link
                 href="/benevoles/admin/plans/nouveau"

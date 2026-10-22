@@ -392,3 +392,88 @@ describe('commitAutoFillProposal — cas limite', () => {
     expect(revalidatePathMock).not.toHaveBeenCalled()
   })
 })
+
+describe('commitAutoFillProposal — un éditeur ne valide que les équipes dont il est responsable', () => {
+  const POSITIONS = [
+    { id: 'pos-1', team_id: 'team-1', teams: { name: 'Louange' } },
+    { id: 'pos-2', team_id: 'team-2', teams: { name: 'Accueil' } },
+  ]
+  const asEditor = (leaderOf: string[], extra: Record<string, FakeResponse[]> = {}) => {
+    createClientMock.mockResolvedValue(fakeSessionClient('editor'))
+    const supabase = makeRecordingSupabase(assignmentQueues([], ok(null), {
+      team_members: [ok(leaderOf.map(team_id => ({ team_id })))],
+      positions: [ok(POSITIONS)],
+      ...extra,
+    }))
+    createAdminClientMock.mockReturnValue(supabase)
+    return supabase
+  }
+  const inserted = (s: ReturnType<typeof makeRecordingSupabase>) => s.inserts.filter(i => i.table === 'plan_assignments')
+
+  it('insère les lignes de ses équipes', async () => {
+    const supabase = asEditor(['team-1'])
+    const result = await commitAutoFillProposal([row()])
+
+    expect(result).toEqual({ ok: true, inserted: 1, skipped: 0 })
+    expect(inserted(supabase)).toHaveLength(1)
+  })
+
+  it('refuse EN BLOC dès qu’une ligne vise une équipe dont il n’est pas responsable — rien n’est inséré', async () => {
+    const supabase = asEditor(['team-1'])
+    const result = await commitAutoFillProposal([
+      row(),
+      row({ teamId: 'team-2', positionId: 'pos-2', positionName: 'Hôte', userId: 'user-2' }),
+    ])
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error).toContain('« Accueil »')
+      expect(result.error).toMatch(/pas responsable/)
+    }
+    expect(inserted(supabase)).toHaveLength(0)
+    expect(sendPushToUserMock).not.toHaveBeenCalled()
+  })
+
+  it('requête forgée : un teamId « autorisé » collé sur un poste d’une autre équipe est refusé', async () => {
+    const supabase = asEditor(['team-1'])
+    const result = await commitAutoFillProposal([row({ teamId: 'team-1', positionId: 'pos-2', positionName: 'Hôte', userId: 'user-2' })])
+
+    expect(result.ok).toBe(false)
+    expect(inserted(supabase)).toHaveLength(0)
+  })
+
+  it('requête forgée : un poste inconnu est refusé', async () => {
+    const supabase = asEditor(['team-1'])
+    const result = await commitAutoFillProposal([row({ positionId: 'pos-fantome' })])
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toContain('« inconnue »')
+    expect(inserted(supabase)).toHaveLength(0)
+  })
+
+  it('un éditeur sans aucune équipe dirigée est refusé, même avec une ligne « valide »', async () => {
+    const supabase = asEditor([])
+    const result = await commitAutoFillProposal([row()])
+
+    expect(result.ok).toBe(false)
+    expect(inserted(supabase)).toHaveLength(0)
+  })
+
+  it('lecture des responsabilités en échec : refus par précaution', async () => {
+    const supabase = asEditor([], { team_members: [{ data: null, error: { message: 'timeout' } }] })
+    const result = await commitAutoFillProposal([row()])
+
+    expect(result.ok).toBe(false)
+    expect(inserted(supabase)).toHaveLength(0)
+  })
+
+  it('un administrateur n’est pas restreint : aucune lecture de team_members ni de positions', async () => {
+    const supabase = makeRecordingSupabase(assignmentQueues([]))
+    createAdminClientMock.mockReturnValue(supabase)
+    const result = await commitAutoFillProposal([row(), row({ teamId: 'team-2', positionId: 'pos-2', userId: 'user-2' })])
+
+    expect(result).toEqual({ ok: true, inserted: 2, skipped: 0 })
+    expect(supabase.calls).not.toContain('team_members')
+    expect(supabase.calls).not.toContain('positions')
+  })
+})
