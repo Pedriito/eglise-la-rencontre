@@ -66,9 +66,9 @@ export default async function PlanDetailPage({
   const myAssignment = allAssignments.find(a => a.user_id === user.id) ?? null
 
   const dateObj  = new Date(plan.service_date)
-  const dateLong = dateObj.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-  const dateMed  = dateObj.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
-  const time     = dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  const dateLong = dateObj.toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  const dateMed  = dateObj.toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long' })
+  const time     = dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })
   const typeLabel = PLAN_TYPE_LABELS[plan.plan_type ?? ''] ?? 'Événement'
 
   const visibleTeams = teams.filter(t => t.visible)

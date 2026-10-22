@@ -73,9 +73,10 @@ function DescriptionModal({ plan, onClose }: { plan: PlanItem; onClose: () => vo
   const c = getColor(plan.plan_type)
   const d = new Date(plan.service_date)
   const dateLabel = d.toLocaleDateString('fr-FR', {
+    timeZone: 'Europe/Paris',
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
-  const timeLabel = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  const timeLabel = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })
 
   return (
     <div
@@ -294,11 +295,11 @@ export function PlanCalendar({ plans, icalUrl, canManage, countByPlan = {} }: Pr
 
   function fmtDate(p: PlanItem, long = false) {
     return new Date(p.service_date).toLocaleDateString('fr-FR',
-      long ? { weekday: 'short', day: 'numeric', month: 'short' }
-           : { weekday: 'short', day: 'numeric' })
+      long ? { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/Paris' }
+           : { weekday: 'short', day: 'numeric', timeZone: 'Europe/Paris' })
   }
   function fmtTime(p: PlanItem) {
-    return new Date(p.service_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    return new Date(p.service_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })
   }
 
   return (

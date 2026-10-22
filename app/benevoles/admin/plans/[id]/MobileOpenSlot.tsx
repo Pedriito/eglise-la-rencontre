@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { addAssignment } from '../actions'
 import { IconWarning } from '@/app/benevoles/_components/Icons'
 import { frequencyLabels } from '@/lib/labels'
@@ -46,6 +46,13 @@ export function MobileOpenSlot({
   const [userId, setUserId]     = useState('')
   const isExternal = userId === INVITE_EXT_ID
   const isOpen = variant === 'open'
+
+  // Poste multi-bénévoles (Chorale, Choriste) : le formulaire reste ouvert après un ajout pour
+  // enchaîner. La personne qui vient d'être affectée n'est plus candidate → on remet la sélection à
+  // zéro, sinon un 2e appui sur ✓ tenterait de l'affecter une seconde fois (doublon).
+  useEffect(() => {
+    if (userId && userId !== INVITE_EXT_ID && !candidates.some(p => p.id === userId)) setUserId('')
+  }, [candidates, userId])
 
   const available   = candidates.filter(p => !p.unavailable)
   const unavailable = candidates.filter(p => p.unavailable)

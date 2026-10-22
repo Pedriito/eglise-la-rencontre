@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { addAssignmentAsync } from './actions'
 import { AssignVolunteerButton } from './AssignVolunteerButton'
@@ -23,11 +23,11 @@ function resolveFillTarget(detail: PlanDetail, fillKey: string | null) {
   for (const team of detail.teams) {
     if (!team.visible) continue
     if (kind === 'team' && team.id === id) {
-      return { team, positionId: null as string | null, positionName: null as string | null }
+      return { team, positionId: null as string | null, positionName: null as string | null, allowMultiple: false }
     }
     if (kind === 'pos') {
       const pos = team.positions.find(p => p.id === id)
-      if (pos) return { team, positionId: pos.id, positionName: pos.name }
+      if (pos) return { team, positionId: pos.id, positionName: pos.name, allowMultiple: !!pos.allow_multiple }
     }
   }
   return null
@@ -156,6 +156,13 @@ function ExternalGuestForm({
 export function VolunteerPicker({ planId, detail, fillKey, onClose }: Props) {
   const target = resolveFillTarget(detail, fillKey)
 
+  // Personnes qu'on vient d'affecter sur un poste multi-bénévoles (Chorale, Choriste) : masquées
+  // tout de suite, sans attendre que le rafraîchissement serveur les retire de la liste (même
+  // principe que les postes masqués de AssignmentBoard). Remis à zéro dès que de nouvelles données
+  // serveur arrivent ou qu'on change de poste.
+  const [justAssigned, setJustAssigned] = useState<string[]>([])
+  useEffect(() => { setJustAssigned(prev => (prev.length ? [] : prev)) }, [detail, fillKey])
+
   if (!target) {
     return (
       <aside className="w-75 shrink-0 sticky top-6">
@@ -166,10 +173,18 @@ export function VolunteerPicker({ planId, detail, fillKey, onClose }: Props) {
     )
   }
 
-  const { team, positionId, positionName } = target
+  const { team, positionId, positionName, allowMultiple } = target
+  // Un poste ouvert à plusieurs bénévoles (Chorale, Choriste) reste sélectionné après une
+  // affectation : on enchaîne les ajouts sans rouvrir le panneau à chaque personne. La personne
+  // qui vient d'être affectée disparaît de la liste au rafraîchissement (déjà sur ce poste).
+  const afterAssign = (userId: string) => {
+    if (allowMultiple) setJustAssigned(prev => [...prev, userId])
+    else onClose()
+  }
   // Pour un poste nommé, on ne propose que les bénévoles cochés pour ce poste précis
   // (page Équipe) — sinon (équipe sans postes), tout le pool de l'équipe.
-  const pool = positionId ? (team.candidatesByPosition[positionId] ?? []) : team.candidateProfiles
+  const pool = (positionId ? (team.candidatesByPosition[positionId] ?? []) : team.candidateProfiles)
+    .filter(p => !justAssigned.includes(p.id))
   const available = pool.filter(p => !p.unavailable && p.recentCount < 3)
   const busy = pool.filter(p => !p.unavailable && p.recentCount >= 3)
   const unavailable = pool.filter(p => p.unavailable)
@@ -195,7 +210,7 @@ export function VolunteerPicker({ planId, detail, fillKey, onClose }: Props) {
         </div>
 
         {team.allowsGuests && (
-          <ExternalGuestForm planId={planId} team={team} positionId={positionId} positionName={positionName} onAssigned={onClose} />
+          <ExternalGuestForm planId={planId} team={team} positionId={positionId} positionName={positionName} onAssigned={() => afterAssign(INVITE_EXT_ID)} />
         )}
 
         {available.length === 0 && busy.length === 0 && unavailable.length === 0 && (
@@ -211,7 +226,7 @@ export function VolunteerPicker({ planId, detail, fillKey, onClose }: Props) {
             <p className="font-sans text-[10px] uppercase tracking-wide font-semibold text-green-600 mb-1">Disponibles · {available.length}</p>
             <div className="divide-y divide-teal/10">
               {available.map(p => (
-                <CandidateRow key={p.id} p={p} team={team} planId={planId} positionId={positionId} onAssigned={onClose} />
+                <CandidateRow key={p.id} p={p} team={team} planId={planId} positionId={positionId} onAssigned={() => afterAssign(p.id)} />
               ))}
             </div>
           </div>
@@ -222,7 +237,7 @@ export function VolunteerPicker({ planId, detail, fillKey, onClose }: Props) {
             <p className="font-sans text-[10px] uppercase tracking-wide font-semibold text-amber-600 mb-1">Charge élevée · {busy.length}</p>
             <div className="divide-y divide-teal/10">
               {busy.map(p => (
-                <CandidateRow key={p.id} p={p} team={team} planId={planId} positionId={positionId} onAssigned={onClose} warn="busy" />
+                <CandidateRow key={p.id} p={p} team={team} planId={planId} positionId={positionId} onAssigned={() => afterAssign(p.id)} warn="busy" />
               ))}
             </div>
           </div>
@@ -233,7 +248,7 @@ export function VolunteerPicker({ planId, detail, fillKey, onClose }: Props) {
             <p className="font-sans text-[10px] uppercase tracking-wide font-semibold text-dark/30 mb-1">Indisponibles ce jour · {unavailable.length}</p>
             <div className="divide-y divide-teal/10 opacity-60">
               {unavailable.map(p => (
-                <CandidateRow key={p.id} p={p} team={team} planId={planId} positionId={positionId} onAssigned={onClose} warn="unavailable" />
+                <CandidateRow key={p.id} p={p} team={team} planId={planId} positionId={positionId} onAssigned={() => afterAssign(p.id)} warn="unavailable" />
               ))}
             </div>
           </div>

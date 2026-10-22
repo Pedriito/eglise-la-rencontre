@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { exclusiveEndDate } from './frequency'
 import { fetchBlockouts, parisDay } from '@/lib/availability'
+import { resolveAutoFillScope } from './scope'
 import {
   buildAutoFillProposal,
   type AutoFillProposal,
@@ -32,11 +33,17 @@ async function requireAdmin() {
   if (!user) redirect('/benevoles/login')
   const { data: profile } = await supabase.from('profiles').select('permission').eq('id', user.id).single()
   if (!profile || !['admin', 'editor', 'super_admin'].includes(profile.permission)) redirect('/benevoles/dashboard')
-  return { admin: createAdminClient() }
+  return { admin: createAdminClient(), userId: user.id, permission: profile.permission as string }
 }
 
 type Result =
-  | { ok: true; proposals: AutoFillProposal[]; skipped: AutoFillSkipped[] }
+  | {
+      ok: true
+      proposals: AutoFillProposal[]
+      skipped: AutoFillSkipped[]
+      /** Équipes planifiées quand le périmètre est restreint (éditeur : ses équipes), `null` = toutes. */
+      scopeTeamNames: string[] | null
+    }
   | { ok: false; error: string }
 
 /** Récupère les données nécessaires (plans, équipes/postes, qualifications, profils,
@@ -50,11 +57,15 @@ type Result =
  *  `admin/plans` (`getStableCatalog()` dans getPlanDetail.ts, et la page liste des plans) qui ne
  *  filtre pas non plus par église — cohérent tant que l'app reste utilisée par une seule église. */
 export async function computeAutoFillProposal(startDate: string, endDate: string): Promise<Result> {
-  const { admin } = await requireAdmin()
+  const { admin, userId, permission } = await requireAdmin()
 
   if (!startDate || !endDate || startDate > endDate) {
     return { ok: false, error: 'Plage de dates invalide.' }
   }
+
+  // Un éditeur ne planifie que les équipes dont il est responsable (un admin, toutes).
+  const scope = await resolveAutoFillScope(admin, userId, permission)
+  if (!scope.ok) return { ok: false, error: scope.error }
 
   // `service_date` est un timestamptz : la borne de fin doit être EXCLUSIVE (lendemain à 00:00)
   // pour inclure tous les services du dernier jour quelle que soit leur heure.
@@ -118,8 +129,13 @@ export async function computeAutoFillProposal(startDate: string, endDate: string
   const { data: blockouts } = blockoutsRes
   const { data: historicalPlans } = historicalPlansRes
 
+  const scopedTeams = scope.teamIds === null
+    ? (teams ?? [])
+    : (teams ?? []).filter(t => scope.teamIds!.includes(t.id))
+  const scopeTeamNames = scope.teamIds === null ? null : scopedTeams.map(t => t.name as string).sort((a, b) => a.localeCompare(b, 'fr'))
+
   if (!plans || plans.length === 0) {
-    return { ok: true, proposals: [], skipped: [] }
+    return { ok: true, proposals: [], skipped: [], scopeTeamNames }
   }
 
   const planIds = plans.map(p => p.id)
@@ -165,7 +181,7 @@ export async function computeAutoFillProposal(startDate: string, endDate: string
       team_ids: (p.team_ids ?? null) as string[] | null,
       excluded_position_ids: (p.excluded_position_ids ?? null) as string[] | null,
     })),
-    teams: (teams ?? []).map(t => ({
+    teams: scopedTeams.map(t => ({
       id: t.id,
       name: t.name,
       // `allow_multiple` non sélectionné (cf. commentaire plus haut) : toutes les positions sont
@@ -181,5 +197,5 @@ export async function computeAutoFillProposal(startDate: string, endDate: string
     existingAssignments,
   })
 
-  return { ok: true, proposals, skipped }
+  return { ok: true, proposals, skipped, scopeTeamNames }
 }

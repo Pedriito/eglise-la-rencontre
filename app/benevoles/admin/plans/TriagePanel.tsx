@@ -17,10 +17,10 @@ type Props = {
 function ServiceRow({ plan, n, active }: { plan: PlanItem; n: number; active: boolean }) {
   const colors = TYPE_COLORS[plan.plan_type ?? 'sunday_service'] ?? TYPE_COLORS.sunday_service
   const d = new Date(plan.service_date)
-  const day = d.toLocaleDateString('fr-FR', { day: 'numeric' })
-  const month = d.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '')
-  const weekday = d.toLocaleDateString('fr-FR', { weekday: 'short' })
-  const time = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  const day = d.toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric' })
+  const month = d.toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', month: 'short' }).replace('.', '')
+  const weekday = d.toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short' })
+  const time = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })
 
   return (
     <Link
