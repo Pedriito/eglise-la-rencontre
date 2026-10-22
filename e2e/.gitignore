@@ -1,0 +1,8 @@
+node_modules/
+.auth/
+.app/
+test-results/
+report/
+results*.json
+shots/
+*.log

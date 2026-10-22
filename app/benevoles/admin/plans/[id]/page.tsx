@@ -53,7 +53,7 @@ export default async function PlanDetailPage({
   const isEditor  = me?.permission === 'editor'
   const canManage = isAdmin || isEditor
 
-  const detail = await getPlanDetail(supabase, id, user.id, isAdmin)
+  const detail = await getPlanDetail(supabase, id, user.id, isAdmin, canManage)
   if (!detail) redirect('/benevoles/admin/plans')
 
   const {

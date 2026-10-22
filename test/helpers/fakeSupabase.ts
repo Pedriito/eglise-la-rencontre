@@ -31,6 +31,8 @@ export function makeFakeSupabase(queues: Record<string, FakeResponse[]>) {
       neq: () => builder,
       gte: () => builder,
       lt: () => builder,
+      lte: () => builder,
+      range: () => builder,
       in: () => builder,
       order: () => builder,
       limit: () => builder,

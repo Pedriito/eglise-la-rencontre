@@ -30,7 +30,7 @@ const { getPlanDetail, INVITE_EXT_ID } = await import('./getPlanDetail')
 // on enveloppe son builder pour mémoriser les appels chaînés, requête par requête.
 type RecordedQuery = { table: string; calls: { method: string; args: unknown[] }[] }
 
-const CHAINABLE = ['select', 'eq', 'neq', 'gte', 'lt', 'in', 'order', 'limit'] as const
+const CHAINABLE = ['select', 'eq', 'neq', 'gte', 'lt', 'lte', 'in', 'order', 'limit', 'range'] as const
 
 function makeRecordingSupabase(queues: Parameters<typeof makeFakeSupabase>[0]) {
   const inner = makeFakeSupabase(queues)
@@ -154,6 +154,8 @@ type Scenario = {
   monthAssignments?: Rows
   userId?: string
   isAdmin?: boolean
+  /** Admin OU éditeur ; par défaut = `isAdmin` (comme la signature de `getPlanDetail`). */
+  canManage?: boolean
 }
 
 /** Joue `getPlanDetail` sur un scénario complet et renvoie le résultat + les requêtes observées.
@@ -178,21 +180,22 @@ async function runPlanDetail(scenario: Scenario = {}) {
     ...scenario,
   }
 
-  createAdminClientMock.mockReturnValue(
-    makeFakeSupabase({
-      teams: [ok(s.teams)],
-      profiles: [ok(s.profiles)],
-      team_members: [ok(s.teamMembers)],
-      member_positions: [ok(s.memberPositions)],
-      songs: [ok([])],
-      recurring_announcements: [ok([])],
-    })
-  )
+  // Client service : catalogue stable + indisponibilités (lues ici, avec le client service, pour
+  // contourner la RLS et le plafond de 1000 lignes — voir lib/availability.ts).
+  const admin = makeRecordingSupabase({
+    teams: [ok(s.teams)],
+    profiles: [ok(s.profiles)],
+    team_members: [ok(s.teamMembers)],
+    member_positions: [ok(s.memberPositions)],
+    songs: [ok([])],
+    recurring_announcements: [ok([])],
+    blockout_dates: [ok(s.blockouts)],
+  })
+  createAdminClientMock.mockReturnValue(admin)
 
   const supabase = makeRecordingSupabase({
     plans: [ok(s.plan), ok(s.recentPlans), ok(s.monthPlans)],
     plan_assignments: [ok(s.assignments), ok(s.recentAssignments), ok(s.monthAssignments)],
-    blockout_dates: [ok(s.blockouts)],
     plan_songs: [ok([])],
     plan_announcements: [ok([])],
     plan_sermons: [ok([])],
@@ -200,8 +203,8 @@ async function runPlanDetail(scenario: Scenario = {}) {
   })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result = await getPlanDetail(supabase as any, 'plan-1', s.userId, s.isAdmin)
-  return { result: result!, queries: supabase.queries }
+  const result = await getPlanDetail(supabase as any, 'plan-1', s.userId, s.isAdmin, scenario.canManage)
+  return { result: result!, queries: supabase.queries, adminQueries: admin.queries }
 }
 
 beforeEach(() => {
@@ -408,5 +411,88 @@ describe('filtrage des équipes du service', () => {
     })
 
     expect(result.teams.map(t => t.id)).toEqual(['team-priere'])
+  })
+})
+
+// ---------------------------------------------------------------------------
+describe('indisponibilités déclarées', () => {
+  const blockout = (user_id: string, start_date: string, end_date = start_date) => ({ user_id, start_date, end_date })
+  const BLOCKOUT_ARGS = (adminQueries: RecordedQuery[]) => queryAt(adminQueries, 'blockout_dates', 0).calls
+
+  it('marque indisponibles (candidats ET affectés) les bénévoles dont une indispo couvre le jour du service', async () => {
+    const { result } = await runPlanDetail({
+      canManage: true,
+      blockouts: [blockout('user-alice', '2026-06-07'), blockout('user-bob', '2026-06-08', '2026-06-10')],
+      assignments: [assignment({
+        position_id: 'pos-chant',
+        positions: { id: 'pos-chant', name: 'Chant lead', team_id: 'team-louange' },
+      })],
+    })
+
+    const louange = result.teams.find(t => t.id === 'team-louange')!
+    expect(louange.assignments[0].unavailable).toBe(true)
+    const prod = result.teams.find(t => t.id === 'team-prod')!
+    const alice = prod.candidateProfiles.find(p => p.id === 'user-alice')!
+    const bob = prod.candidateProfiles.find(p => p.id === 'user-bob')!
+    expect(alice.unavailable).toBe(true)
+    expect(bob.unavailable).toBe(false) // indispo qui commence le lendemain du service
+  })
+
+  it('interroge le jour du service EN HEURE DE PARIS : un culte à 00h30 est rattaché au bon jour', async () => {
+    // 2026-06-06T22:30Z = dimanche 7 juin 00h30 à Paris (CEST). Lu en UTC, ce serait le 6.
+    const { adminQueries, result } = await runPlanDetail({
+      canManage: true,
+      plan: { ...PLAN, service_date: '2026-06-06T22:30:00.000Z' },
+      blockouts: [blockout('user-alice', '2026-06-07')],
+    })
+
+    const args = BLOCKOUT_ARGS(adminQueries)
+    expect(args).toContainEqual({ method: 'lte', args: ['start_date', '2026-06-07'] })
+    expect(args).toContainEqual({ method: 'gte', args: ['end_date', '2026-06-07'] })
+    expect(result.teams.find(t => t.id === 'team-prod')!.candidateProfiles.find(p => p.id === 'user-alice')!.unavailable).toBe(true)
+  })
+
+  it('un gestionnaire lit les indispos de TOUS les bénévoles (aucun filtre user_id)', async () => {
+    const { adminQueries } = await runPlanDetail({ canManage: true, blockouts: [] })
+
+    expect(BLOCKOUT_ARGS(adminQueries).some(c => c.method === 'in')).toBe(false)
+  })
+
+  it('un simple bénévole ne lit QUE ses propres indispos (confidentialité préservée)', async () => {
+    const { adminQueries } = await runPlanDetail({ userId: 'user-alice', isAdmin: false, canManage: false, blockouts: [] })
+
+    expect(BLOCKOUT_ARGS(adminQueries)).toContainEqual({ method: 'in', args: ['user_id', ['user-alice']] })
+  })
+
+  it('un éditeur (canManage sans être admin) voit toutes les indispos', async () => {
+    const { adminQueries } = await runPlanDetail({ isAdmin: false, canManage: true })
+
+    expect(BLOCKOUT_ARGS(adminQueries).some(c => c.method === 'in')).toBe(false)
+  })
+
+  it("ne lit jamais les indispos avec le client « cookie » (RLS : invisibles pour un bénévole sans église)", async () => {
+    const { queries } = await runPlanDetail({ canManage: true })
+
+    expect(queries.some(q => q.table === 'blockout_dates')).toBe(false)
+  })
+
+  it("si la lecture des indispos échoue, la page s'affiche quand même (la garde serveur reste fermée)", async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    createAdminClientMock.mockReturnValue(makeFakeSupabase({
+      teams: [ok([TEAM_PROD])], profiles: [ok([ALICE])], team_members: [ok([])], member_positions: [ok([])],
+      songs: [ok([])], recurring_announcements: [ok([])],
+      blockout_dates: [{ data: null, error: { message: 'connection reset' } }],
+    }))
+    const supabase = makeFakeSupabase({
+      plans: [ok(PLAN), ok([]), ok([])], plan_assignments: [ok([]), ok([]), ok([])],
+      plan_songs: [ok([])], plan_announcements: [ok([])], plan_sermons: [ok([])], plan_videos: [ok([])],
+    })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await getPlanDetail(supabase as any, 'plan-1', 'user-alice', true)
+
+    expect(result).not.toBeNull()
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('indisponibilités'), 'connection reset')
+    errorSpy.mockRestore()
   })
 })

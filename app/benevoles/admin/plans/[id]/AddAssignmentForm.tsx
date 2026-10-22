@@ -115,12 +115,12 @@ export function AddAssignmentForm({
           {unavailable.length > 0 && available.length > 0 && (
             <optgroup label="Indisponibles ce jour">
               {unavailable.map(p => (
-                <option key={p.id} value={p.id}>{label(p)}</option>
+                <option key={p.id} value={p.id} disabled>{label(p)}</option>
               ))}
             </optgroup>
           )}
           {unavailable.length > 0 && available.length === 0 && unavailable.map(p => (
-            <option key={p.id} value={p.id}>{label(p)}</option>
+            <option key={p.id} value={p.id} disabled>{label(p)}</option>
           ))}
         </select>
 

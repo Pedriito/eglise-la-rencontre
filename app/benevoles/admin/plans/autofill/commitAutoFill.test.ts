@@ -78,12 +78,25 @@ function row(overrides: Partial<CommitRow> = {}): CommitRow {
   }
 }
 
-/** Fixtures : 1er appel `plan_assignments` = relecture des postes déjà pourvus, 2e = insertion. */
+/** Jours des services connus de la base de test (relus par `commitAutoFillProposal`, jamais pris du client). */
+const PLANS_IN_DB = [
+  { id: 'plan-1', service_date: '2026-12-06T10:00:00.000Z' },
+  { id: 'plan-2', service_date: '2026-12-13T10:00:00.000Z' },
+]
+
+/** Fixtures : 1er appel `plan_assignments` = relecture des postes déjà pourvus, 2e = insertion.
+ *  `plans` (jour des services) et `blockout_dates` (indispos) alimentent la garde d'indisponibilité. */
 function assignmentQueues(
   existing: { plan_id: string; position_id: string }[],
   insertResponse: FakeResponse = ok(null),
+  extra: Record<string, FakeResponse[]> = {},
 ): Record<string, FakeResponse[]> {
-  return { plan_assignments: [ok(existing), insertResponse] }
+  return {
+    plan_assignments: [ok(existing), insertResponse],
+    plans: [ok(PLANS_IN_DB)],
+    blockout_dates: [ok([])],
+    ...extra,
+  }
 }
 
 beforeEach(() => {
@@ -209,6 +222,86 @@ describe('commitAutoFillProposal — garde anti-doublon', () => {
     expect(result).toEqual({ ok: true, inserted: 0, skipped: 2 })
     expect(supabase.inserts).toEqual([])
     expect(sendPushToUserMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('commitAutoFillProposal — indisponibilités déclarées', () => {
+  const profiles = (rows: { id: string; first_name: string; last_name: string }[]) => ({ profiles: [ok(rows)] })
+
+  it("refuse tout le lot — sans rien écrire — si un affecté est indisponible le jour du service", async () => {
+    const supabase = makeRecordingSupabase(assignmentQueues([], ok(null), {
+      blockout_dates: [ok([{ user_id: 'user-2', start_date: '2026-12-06', end_date: '2026-12-06' }])],
+      ...profiles([{ id: 'user-2', first_name: 'Paul', last_name: 'Piano' }]),
+    }))
+    createAdminClientMock.mockReturnValue(supabase)
+
+    const result = await commitAutoFillProposal([row(), row({ positionId: 'pos-2', userId: 'user-2' })])
+
+    expect(result).toEqual({ ok: false, error: expect.stringContaining('Paul Piano a déclaré une indisponibilité le dimanche 6 décembre') })
+    expect(supabase.inserts).toEqual([])
+    expect(sendPushToUserMock).not.toHaveBeenCalled()
+    expect(revalidatePathMock).not.toHaveBeenCalled()
+  })
+
+  it("applique l'indisponibilité au jour du BON service (deux plans, un seul jour concerné)", async () => {
+    const supabase = makeRecordingSupabase(assignmentQueues([], ok(null), {
+      blockout_dates: [ok([{ user_id: 'user-1', start_date: '2026-12-13', end_date: '2026-12-13' }])],
+    }))
+    createAdminClientMock.mockReturnValue(supabase)
+
+    // user-1 est indisponible le 13/12 (plan-2) mais libre le 06/12 (plan-1)
+    const free = await commitAutoFillProposal([row({ planId: 'plan-1', userId: 'user-1' })])
+    expect(free.ok).toBe(true)
+  })
+
+  it("ne fait pas confiance à `serviceDate` envoyé par le client : le jour est relu en base", async () => {
+    const supabase = makeRecordingSupabase(assignmentQueues([], ok(null), {
+      blockout_dates: [ok([{ user_id: 'user-1', start_date: '2026-12-06', end_date: '2026-12-06' }])],
+      profiles: [ok([{ id: 'user-1', first_name: 'Alice', last_name: 'A' }])],
+    }))
+    createAdminClientMock.mockReturnValue(supabase)
+
+    // Le client prétend que le service a lieu le 20/12 (pas d'indispo) alors que plan-1 est le 06/12.
+    const result = await commitAutoFillProposal([row({ serviceDate: '2026-12-20T10:00:00.000Z' })])
+
+    expect(result.ok).toBe(false)
+    expect(supabase.inserts).toEqual([])
+  })
+
+  it("refuse si un service de la proposition n'existe plus en base", async () => {
+    const supabase = makeRecordingSupabase(assignmentQueues([]))
+    createAdminClientMock.mockReturnValue(supabase)
+
+    const result = await commitAutoFillProposal([row({ planId: 'plan-fantome' })])
+
+    expect(result).toEqual({ ok: false, error: expect.stringContaining('introuvable') })
+    expect(supabase.inserts).toEqual([])
+  })
+
+  it("échoue FERMÉ : si la lecture des indisponibilités échoue, rien n'est planifié", async () => {
+    const supabase = makeRecordingSupabase(assignmentQueues([], ok(null), {
+      blockout_dates: [{ data: null, error: { message: 'connection reset' } }],
+    }))
+    createAdminClientMock.mockReturnValue(supabase)
+
+    const result = await commitAutoFillProposal([row()])
+
+    expect(result).toEqual({ ok: false, error: expect.stringContaining('connection reset') })
+    expect(supabase.inserts).toEqual([])
+  })
+
+  it("jour calculé en heure de Paris : un culte à 00h30 (stocké 23h30 UTC la veille) vise le bon jour", async () => {
+    const supabase = makeRecordingSupabase(assignmentQueues([], ok(null), {
+      plans: [ok([{ id: 'plan-1', service_date: '2026-12-05T23:30:00.000Z' }])], // = dimanche 6 déc. 00h30 à Paris
+      blockout_dates: [ok([{ user_id: 'user-1', start_date: '2026-12-06', end_date: '2026-12-06' }])],
+      profiles: [ok([{ id: 'user-1', first_name: 'Alice', last_name: 'A' }])],
+    }))
+    createAdminClientMock.mockReturnValue(supabase)
+
+    const result = await commitAutoFillProposal([row()])
+
+    expect(result.ok).toBe(false)
+    expect(supabase.inserts).toEqual([])
   })
 })
 

@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { sendPushToUser } from '@/lib/pushNotifications'
+import { parisDay, findBlockedEntries, describeBlocked } from '@/lib/availability'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -38,6 +39,22 @@ export async function commitAutoFillProposal(rows: CommitRow[]): Promise<Result>
   if (rows.length === 0) return { ok: true, inserted: 0, skipped: 0 }
 
   const planIds = [...new Set(rows.map(r => r.planId))]
+
+  // Dernier rempart contre une indisponibilité déclarée entre « Générer » et « Valider » (ou une
+  // ligne éditée à la main dans la modale) : les jours sont relus en base — `serviceDate` envoyé
+  // par le client n'est pas digne de confiance — et la validation est refusée en bloc plutôt que
+  // de laisser passer un seul indisponible.
+  const { data: plans, error: plansError } = await admin.from('plans').select('id, service_date').in('id', planIds)
+  if (plansError) return { ok: false, error: plansError.message }
+  const dayByPlan = new Map((plans ?? []).map(p => [p.id as string, parisDay(p.service_date as string)]))
+  const unknownPlan = rows.find(r => !dayByPlan.has(r.planId))
+  if (unknownPlan) return { ok: false, error: 'Un service de la proposition est introuvable : validation refusée.' }
+  const check = await findBlockedEntries(admin, rows.map(r => ({ userId: r.userId, day: dayByPlan.get(r.planId)! })))
+  if (!check.ok) return { ok: false, error: check.error }
+  if (check.blocked.length > 0) {
+    return { ok: false, error: `${await describeBlocked(admin, check.blocked)} Retirez ces lignes (« Ne pas assigner ») puis validez à nouveau.` }
+  }
+
   const { data: existing } = await admin
     .from('plan_assignments')
     .select('plan_id, position_id')
