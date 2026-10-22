@@ -36,9 +36,10 @@ const MEMBER_POSITIONS = [{ user_id: 'user-1', position_id: 'pos-1' }]
 const SONGS_CATALOG = [{ id: 1, title: 'Amazing Grace', arrangements: [] }]
 const RECURRING_ANNOUNCEMENTS = [{ id: 'ra-1', title: 'Bienvenue', body: 'Merci de venir tôt', order_index: 0, image_url: null, video_url: null, active: true }]
 
-function setupAdminCatalog() {
+function setupAdminCatalog(blockouts: unknown[] = []) {
   createAdminClientMock.mockReturnValue(
     makeFakeSupabase({
+      blockout_dates: [ok(blockouts)], // lues avec le client service (RLS + plafond de 1000 lignes)
       teams: [ok(TEAMS_CATALOG)],
       profiles: [ok(PROFILES_CATALOG)],
       team_members: [ok(TEAM_MEMBERSHIPS)],
@@ -102,7 +103,6 @@ describe('getPlanDetail', () => {
     return makeFakeSupabase({
       plans: [ok(PLAN), ok([{ id: 'plan-0' }])], // 1er appel = plan courant, 2e = recentPlans
       plan_assignments: [ok(MAIN_ASSIGNMENTS), ok([{ user_id: 'user-2' }, { user_id: 'user-2' }, { user_id: 'user-2' }])],
-      blockout_dates: [ok(BLOCKOUTS)],
       plan_songs: [ok([])],
       plan_announcements: [ok([])],
       plan_sermons: [ok([])],
@@ -114,7 +114,6 @@ describe('getPlanDetail', () => {
     const supabase = makeFakeSupabase({
       plans: [ok(null), ok([])],
       plan_assignments: [ok([]), ok([])],
-      blockout_dates: [ok([])],
       plan_songs: [ok([])],
       plan_announcements: [ok([])],
       plan_sermons: [ok([])],
@@ -125,8 +124,9 @@ describe('getPlanDetail', () => {
   })
 
   it('assemble correctement le catalogue stable (cache) et les données volatiles du plan', async () => {
+    setupAdminCatalog(BLOCKOUTS)
     const supabase = fakeCookieClient()
-    const result = await getPlanDetail(supabase as any, 'plan-1', 'user-1', false)
+    const result = await getPlanDetail(supabase as any, 'plan-1', 'user-1', false, true)
 
     expect(result).not.toBeNull()
     expect(result!.plan.id).toBe('plan-1')

@@ -7,6 +7,7 @@ import { revalidatePath, refresh } from 'next/cache'
 import { sendPlanAssignmentEmail, sendCancellationNotificationEmail, sendExternalGuestInvitationEmail } from '@/lib/email'
 import { sendPushToUser, sendPushToUsers } from '@/lib/pushNotifications'
 import { parisLocalToUtcIso } from '@/lib/timezone'
+import { parisDay, refusalIfUnavailable, findBlockedEntries, describeBlocked } from '@/lib/availability'
 
 const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
 
@@ -235,7 +236,31 @@ export async function movePlan(
   newServiceDate: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const { admin } = await requireAdmin()
-  const { error } = await admin.from('plans').update({ service_date: parisLocalToUtcIso(newServiceDate) }).eq('id', planId)
+  const newInstant = parisLocalToUtcIso(newServiceDate)
+
+  // Déplacer un service vers un autre jour revient à y planifier tous ses affectés : on refuse si
+  // l'un d'eux a déclaré une indisponibilité ce jour-là. Un simple changement d'heure le même jour
+  // n'est pas concerné (sinon un conflit déjà signalé bloquerait toute retouche d'horaire).
+  const { data: current, error: currentError } = await admin.from('plans').select('service_date').eq('id', planId).single()
+  if (currentError || !current) return { ok: false, error: currentError?.message ?? 'Service introuvable.' }
+  const newDay = parisDay(newInstant)
+  if (parisDay(current.service_date) !== newDay) {
+    const { data: assigned, error: assignedError } = await admin
+      .from('plan_assignments')
+      .select('user_id')
+      .eq('plan_id', planId)
+      .neq('status', 'declined')
+      .neq('user_id', INVITE_EXT_ID)
+    if (assignedError) return { ok: false, error: assignedError.message }
+    const userIds = [...new Set((assigned ?? []).map(a => a.user_id as string))]
+    const check = await findBlockedEntries(admin, userIds.map(userId => ({ userId, day: newDay })))
+    if (!check.ok) return { ok: false, error: check.error }
+    if (check.blocked.length > 0) {
+      return { ok: false, error: (await describeBlocked(admin, check.blocked)).replace('affectation refusée', 'déplacement refusé') }
+    }
+  }
+
+  const { error } = await admin.from('plans').update({ service_date: newInstant }).eq('id', planId)
   if (error) return { ok: false, error: error.message }
   revalidatePath('/benevoles/admin/plans')
   return { ok: true }
@@ -289,13 +314,19 @@ export async function addAssignment(formData: FormData) {
       external_email: externalEmail,
     })
   } else {
-    await admin.from('plan_assignments').insert({
+    // Garde-fou serveur : ni l'option grisée ni l'avertissement du formulaire ne suffisent (page
+    // périmée, requête forgée) — une indisponibilité déclarée interdit toujours l'affectation.
+    const refusal = await refusalIfUnavailable(admin, planId, [userId])
+    if (refusal) redirect(withParam(returnTo, 'error', encodeURIComponent(refusal)))
+
+    const { error: insertError } = await admin.from('plan_assignments').insert({
       plan_id: planId,
       user_id: userId,
       position_id: positionId,
       team_id: teamId,
       status: 'pending',
     })
+    if (insertError) redirect(withParam(returnTo, 'error', encodeURIComponent(insertError.message)))
 
     // Notification push si l'utilisateur a activé les notifs
     const [{ data: plan }, { data: position }] = await Promise.all([
@@ -358,6 +389,26 @@ export async function setDmHolder(
 ): Promise<{ ok: boolean; error?: string }> {
   const { admin } = await requireAdmin()
 
+  // On lit et on contrôle le titulaire de l'instrument AVANT de toucher à l'affectation DM en
+  // cours : un refus (indisponibilité) doit laisser l'état précédent intact.
+  let holderId: string | null = null
+  if (sourcePositionId) {
+    const { data: sourceAssignment, error: fetchError } = await admin
+      .from('plan_assignments')
+      .select('user_id')
+      .eq('plan_id', planId)
+      .eq('position_id', sourcePositionId)
+      .neq('user_id', INVITE_EXT_ID)
+      .maybeSingle()
+
+    if (fetchError) return { ok: false, error: fetchError.message }
+    if (!sourceAssignment) return { ok: false, error: "Ce poste n'a personne d'affecté pour ce service." }
+    holderId = sourceAssignment.user_id
+
+    const refusal = await refusalIfUnavailable(admin, planId, [holderId!])
+    if (refusal) return { ok: false, error: refusal }
+  }
+
   const { error: deleteError } = await admin
     .from('plan_assignments')
     .delete()
@@ -365,31 +416,16 @@ export async function setDmHolder(
     .eq('position_id', dmPositionId)
   if (deleteError) return { ok: false, error: deleteError.message }
 
-  if (!sourcePositionId) {
-    revalidatePath(`/benevoles/admin/plans/${planId}`)
-    revalidatePath('/benevoles/admin/plans')
-    return { ok: true }
+  if (holderId) {
+    const { error: insertError } = await admin.from('plan_assignments').insert({
+      plan_id: planId,
+      user_id: holderId,
+      position_id: dmPositionId,
+      team_id: teamId,
+      status: 'pending',
+    })
+    if (insertError) return { ok: false, error: insertError.message }
   }
-
-  const { data: sourceAssignment, error: fetchError } = await admin
-    .from('plan_assignments')
-    .select('user_id')
-    .eq('plan_id', planId)
-    .eq('position_id', sourcePositionId)
-    .neq('user_id', INVITE_EXT_ID)
-    .maybeSingle()
-
-  if (fetchError) return { ok: false, error: fetchError.message }
-  if (!sourceAssignment) return { ok: false, error: "Ce poste n'a personne d'affecté pour ce service." }
-
-  const { error: insertError } = await admin.from('plan_assignments').insert({
-    plan_id: planId,
-    user_id: sourceAssignment.user_id,
-    position_id: dmPositionId,
-    team_id: teamId,
-    status: 'pending',
-  })
-  if (insertError) return { ok: false, error: insertError.message }
 
   revalidatePath(`/benevoles/admin/plans/${planId}`)
   revalidatePath('/benevoles/admin/plans')
@@ -420,6 +456,9 @@ export async function addAssignmentAsync(input: {
     })
     if (error) return { ok: false, error: error.message }
   } else {
+    const refusal = await refusalIfUnavailable(admin, planId, [userId])
+    if (refusal) return { ok: false, error: refusal }
+
     const { error } = await admin.from('plan_assignments').insert({
       plan_id: planId,
       user_id: userId,

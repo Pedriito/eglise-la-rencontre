@@ -190,3 +190,77 @@ describe('buildAutoFillProposal', () => {
     expect(proposals[1].userId).not.toBe(proposals[0].userId)
   })
 })
+
+describe('buildAutoFillProposal — indisponibilités déclarées (aucun contournement possible)', () => {
+  const GUITARE = [team('t1', 'Louange', [{ id: 'pos1', name: 'Guitare', allow_multiple: false }])]
+  const run = (serviceDate: string, blockouts: BuildAutoFillInput['blockouts'], users = ['u1']) =>
+    buildAutoFillProposal(baseInput({
+      plans: [plan('p1', serviceDate)],
+      teams: GUITARE,
+      qualifiedUserIdsByPosition: { pos1: users },
+      profiles: users.map(u => profile(u)),
+      blockouts,
+    }))
+
+  it.each([
+    ['indispo la veille seulement', '2026-12-04', '2026-12-05', true],
+    ['indispo qui se termine le jour du service', '2026-12-01', '2026-12-06', false],
+    ['indispo qui commence le jour du service', '2026-12-06', '2026-12-20', false],
+    ['indispo d’un seul jour = jour du service', '2026-12-06', '2026-12-06', false],
+    ['indispo qui commence le lendemain', '2026-12-07', '2026-12-09', true],
+  ])('%s', (_label, start, end, proposed) => {
+    const { proposals } = run('2026-12-06T10:00:00Z', [{ userId: 'u1', startDate: start, endDate: end }])
+    expect(proposals.length).toBe(proposed ? 1 : 0)
+  })
+
+  it('un culte à 00h30 heure de Paris (stocké 23h30 UTC la veille) est rattaché au jour de Paris', () => {
+    // 2026-12-05T23:30Z = dimanche 6 décembre 00h30 à Paris
+    const { proposals } = run('2026-12-05T23:30:00Z', [{ userId: 'u1', startDate: '2026-12-06', endDate: '2026-12-06' }])
+    expect(proposals).toEqual([])
+  })
+
+  it('…et ne l’est pas à la veille : une indispo du 5 ne bloque pas un culte du 6 à 00h30', () => {
+    const { proposals } = run('2026-12-05T23:30:00Z', [{ userId: 'u1', startDate: '2026-12-05', endDate: '2026-12-05' }])
+    expect(proposals).toHaveLength(1)
+  })
+
+  it('un culte à 23h30 heure de Paris reste sur SON jour (pas décalé au lendemain)', () => {
+    // 2026-12-05T22:30Z = samedi 5 décembre 23h30 à Paris
+    const { proposals } = run('2026-12-05T22:30:00Z', [{ userId: 'u1', startDate: '2026-12-06', endDate: '2026-12-06' }])
+    expect(proposals).toHaveLength(1)
+  })
+
+  it("l'indisponible n'apparaît NI en titulaire NI dans les alternatives proposées", () => {
+    const { proposals } = run('2026-12-06T10:00:00Z', [{ userId: 'u2', startDate: '2026-12-06', endDate: '2026-12-06' }], ['u1', 'u2', 'u3'])
+    expect(proposals).toHaveLength(1)
+    const everyone = [proposals[0].userId, ...proposals[0].alternatives.map(a => a.id)]
+    expect(everyone).not.toContain('u2')
+    expect(everyone.sort()).toEqual(['u1', 'u3'])
+  })
+
+  it("seule l'indispo du bon bénévole compte : celle d'un autre ne l'exclut pas", () => {
+    const { proposals } = run('2026-12-06T10:00:00Z', [{ userId: 'autre', startDate: '2026-12-06', endDate: '2026-12-06' }])
+    expect(proposals).toHaveLength(1)
+  })
+
+  it('une indispo couvrant UN seul des deux services n’exclut que celui-là', () => {
+    const { proposals } = buildAutoFillProposal(baseInput({
+      plans: [plan('p1', '2026-12-06T10:00:00Z'), plan('p2', '2026-12-13T10:00:00Z')],
+      teams: GUITARE,
+      qualifiedUserIdsByPosition: { pos1: ['u1'] },
+      profiles: [profile('u1')],
+      blockouts: [{ userId: 'u1', startDate: '2026-12-13', endDate: '2026-12-13' }],
+    }))
+    expect(proposals.map(p => p.planId)).toEqual(['p1'])
+  })
+
+  it('un poste dont TOUS les qualifiés sont indisponibles reste vide (listé comme non pourvu, pas forcé)', () => {
+    const { proposals, skipped } = run(
+      '2026-12-06T10:00:00Z',
+      [{ userId: 'u1', startDate: '2026-12-06', endDate: '2026-12-06' }, { userId: 'u2', startDate: '2026-12-01', endDate: '2026-12-31' }],
+      ['u1', 'u2'],
+    )
+    expect(proposals).toEqual([])
+    expect(skipped).toHaveLength(1)
+  })
+})

@@ -1,0 +1,9 @@
+{
+  "name": "eglise-indispo-e2e",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@playwright/test": "^1.64.0",
+    "@supabase/supabase-js": "^2.105.4"
+  }
+}

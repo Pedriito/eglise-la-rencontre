@@ -1,4 +1,5 @@
 import { minGapDays, daysBetween } from './frequency'
+import { parisDay } from '@/lib/availability'
 
 export type BuildPlan = {
   id: string
@@ -99,7 +100,8 @@ export function buildAutoFillProposal(input: BuildAutoFillInput): { proposals: A
   const proposedCountByPosition = new Map<string, number>()
 
   for (const plan of plans) {
-    const date = plan.service_date.split('T')[0]
+    // Jour en heure de Paris (pas UTC) : c'est lui que les indisponibilités déclarées désignent.
+    const date = parisDay(plan.service_date)
     const excludedIds = new Set(plan.excluded_position_ids ?? [])
     const planTeamIds = plan.team_ids
     const relevantTeams = teams.filter(t => !planTeamIds || planTeamIds.length === 0 || planTeamIds.includes(t.id))

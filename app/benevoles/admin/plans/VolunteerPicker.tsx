@@ -62,18 +62,29 @@ function CandidateRow({
           </p>
         )}
       </div>
-      <AssignVolunteerButton
-        planId={planId}
-        teamId={team.id}
-        userId={p.id}
-        positionId={positionId}
-        onAssigned={onAssigned}
-        className={`font-sans text-xs font-semibold px-3 py-1.5 rounded-full transition-colors shrink-0 disabled:opacity-60 ${
-          warn ? 'border border-amber-300 text-amber-700 hover:bg-amber-50' : 'bg-teal text-white hover:bg-teal-dark'
-        }`}
-      >
-        Assigner
-      </AssignVolunteerButton>
+      {warn === 'unavailable' ? (
+        // Une indisponibilité déclarée interdit l'affectation : pas de bouton (le serveur la refuse
+        // de toute façon — voir `refusalIfUnavailable`).
+        <span
+          className="font-sans text-xs font-semibold px-3 py-1.5 rounded-full border border-dark/10 text-dark/35 shrink-0 cursor-not-allowed"
+          aria-label={`${p.first_name} ${p.last_name} est indisponible ce jour-là : affectation impossible`}
+        >
+          Indisponible
+        </span>
+      ) : (
+        <AssignVolunteerButton
+          planId={planId}
+          teamId={team.id}
+          userId={p.id}
+          positionId={positionId}
+          onAssigned={onAssigned}
+          className={`font-sans text-xs font-semibold px-3 py-1.5 rounded-full transition-colors shrink-0 disabled:opacity-60 ${
+            warn ? 'border border-amber-300 text-amber-700 hover:bg-amber-50' : 'bg-teal text-white hover:bg-teal-dark'
+          }`}
+        >
+          Assigner
+        </AssignVolunteerButton>
+      )}
     </div>
   )
 }

@@ -122,11 +122,11 @@ export function MobileOpenSlot({
             {unavailable.length > 0 && available.length > 0 ? (
               <optgroup label="Indisponibles">
                 {unavailable.map(p => (
-                  <option key={p.id} value={p.id}>✗ {p.first_name} {p.last_name}</option>
+                  <option key={p.id} value={p.id} disabled>✗ {p.first_name} {p.last_name} — indisponible</option>
                 ))}
               </optgroup>
             ) : unavailable.map(p => (
-              <option key={p.id} value={p.id}>✗ {p.first_name} {p.last_name}</option>
+              <option key={p.id} value={p.id} disabled>✗ {p.first_name} {p.last_name} — indisponible</option>
             ))}
           </select>
           <button

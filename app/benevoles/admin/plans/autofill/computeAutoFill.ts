@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { exclusiveEndDate } from './frequency'
+import { fetchBlockouts, parisDay } from '@/lib/availability'
 import {
   buildAutoFillProposal,
   type AutoFillProposal,
@@ -17,6 +18,13 @@ import {
 // ces types directement depuis `./buildAutoFillProposal` (module pur, sans `'use server'`).
 
 const INVITE_EXT_ID = '00000000-0000-0000-0000-000000000001'
+
+/** Décale un jour "YYYY-MM-DD" de `n` jours (calendrier, sans fuseau). */
+function shiftDay(day: string, n: number): string {
+  const d = new Date(`${day}T12:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + n)
+  return d.toISOString().split('T')[0]
+}
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -79,7 +87,10 @@ export async function computeAutoFillProposal(startDate: string, endDate: string
       .select('id, name, positions(id, name, team_id, archived)'),
     admin.from('member_positions').select('user_id, position_id'),
     admin.from('profiles').select('id, first_name, last_name, desired_frequency'),
-    admin.from('blockout_dates').select('user_id, start_date, end_date'),
+    // Jour Paris d'un service ∈ [startDate - 1, endDate + 1] (un culte à 00h30 est stocké la veille
+    // en UTC) ; lecture paginée pour ne pas subir le plafond de 1000 lignes de l'API.
+    fetchBlockouts(admin, { from: shiftDay(startDate, -1), to: shiftDay(endDate, 1) })
+      .then(r => ({ data: r.data, error: r.error === null ? null : { message: r.error } })),
     admin
       .from('plans')
       .select('id, service_date')
@@ -113,8 +124,8 @@ export async function computeAutoFillProposal(startDate: string, endDate: string
 
   const planIds = plans.map(p => p.id)
   const historicalPlanIds = (historicalPlans ?? []).map(p => p.id)
-  const historicalDateById = new Map((historicalPlans ?? []).map(p => [p.id, p.service_date.split('T')[0]]))
-  const planDateById = new Map(plans.map(p => [p.id, p.service_date.split('T')[0]]))
+  const historicalDateById = new Map((historicalPlans ?? []).map(p => [p.id, parisDay(p.service_date)]))
+  const planDateById = new Map(plans.map(p => [p.id, parisDay(p.service_date)]))
 
   const allRelevantPlanIds = [...historicalPlanIds, ...planIds]
   const assignmentsRes = allRelevantPlanIds.length > 0

@@ -121,3 +121,32 @@ describe('computeAutoFillProposal — erreurs Supabase non avalées', () => {
     expect(result).toEqual({ ok: false, error: 'Erreur base de données (plan_assignments) : timeout' })
   })
 })
+
+describe('computeAutoFillProposal — indisponibilités déclarées', () => {
+  it("n'enrôle pas un bénévole indisponible le jour du service (le poste reste non pourvu)", async () => {
+    setupAdminClient({ blockout_dates: [ok([{ user_id: 'user-1', start_date: '2026-12-06', end_date: '2026-12-06' }])] })
+    const result = await computeAutoFillProposal('2026-12-01', '2026-12-31')
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.proposals).toEqual([])
+    expect(result.skipped).toHaveLength(1)
+  })
+
+  it("rattache un culte à 00h30 (Paris, stocké 23h30 UTC la veille) au jour de l'indispo", async () => {
+    setupAdminClient({
+      plans: [ok([{ ...TARGET_PLAN, service_date: '2026-12-05T23:30:00.000Z' }]), ok([])],
+      blockout_dates: [ok([{ user_id: 'user-1', start_date: '2026-12-06', end_date: '2026-12-06' }])],
+    })
+    const result = await computeAutoFillProposal('2026-12-01', '2026-12-31')
+
+    expect(result.ok && result.proposals).toEqual([])
+  })
+
+  it('remonte une erreur explicite si la lecture des indisponibilités échoue (jamais « personne n’est indisponible »)', async () => {
+    setupAdminClient({ blockout_dates: [{ data: null, error: { message: 'connection reset' } }] })
+    const result = await computeAutoFillProposal('2026-12-01', '2026-12-31')
+
+    expect(result).toEqual({ ok: false, error: 'Erreur base de données (blockout_dates) : connection reset' })
+  })
+})

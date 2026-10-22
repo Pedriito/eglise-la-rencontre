@@ -1,6 +1,7 @@
 import { unstable_cache } from 'next/cache'
 import type { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { fetchBlockouts, parisDay } from '@/lib/availability'
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
 
@@ -118,12 +119,17 @@ export type PlanDetail = {
 }
 
 /** Charge toutes les données d'un plan (équipes, affectations, candidats, contenus)
- *  — utilisé à la fois par la page de détail mobile et le workspace desktop. */
+ *  — utilisé à la fois par la page de détail mobile et le workspace desktop.
+ *
+ *  `canManage` (admin OU éditeur, par défaut = `isAdmin`) décide de la visibilité des
+ *  indisponibilités : un gestionnaire voit celles de tous les bénévoles, un simple bénévole
+ *  uniquement les siennes (même confidentialité qu'avant, quand la RLS la garantissait). */
 export async function getPlanDetail(
   supabase: SupabaseServerClient,
   planId: string,
   userId: string,
   isAdmin: boolean,
+  canManage: boolean = isAdmin,
 ): Promise<PlanDetail | null> {
   // Fréquence récente : nb de services les 60 derniers jours par bénévole (calculé avant le
   // Promise.all pour permettre de paralléliser `recentPlans` avec les autres requêtes ci-dessous).
@@ -144,7 +150,6 @@ export async function getPlanDetail(
     { data: plan },
     { data: rawAssignments },
     catalog,
-    { data: blockouts },
     { data: planSongs },
     { data: announcements },
     { data: sermons },
@@ -158,7 +163,6 @@ export async function getPlanDetail(
       .select('id, status, user_id, position_id, team_id, external_name, external_email, invitation_sent_at, profiles(first_name, last_name), positions(id, name, team_id)')
       .eq('plan_id', planId),
     getStableCatalog(),
-    supabase.from('blockout_dates').select('user_id, start_date, end_date'),
     supabase
       .from('plan_songs')
       .select('id, order_index, key_selected, songs(id, title), arrangements(id, name, chord_chart, chord_chart_key)')
@@ -198,14 +202,29 @@ export async function getPlanDetail(
   const recentPlanIds = (recentPlans ?? []).map(p => p.id)
   const monthPlanIds = (monthPlans ?? []).map(p => p.id)
 
-  const [{ data: recentAssignments }, { data: monthAssignments }] = await Promise.all([
+  // Indisponibilités du jour du service (jour calendaire en heure de Paris). Lues avec le client
+  // service et paginées : le client « cookie » ne voit pas les indispos d'un bénévole sans
+  // `church_id` (RLS) et l'API tronque à 1000 lignes — dans les deux cas un indisponible
+  // apparaissait « disponible ». Voir lib/availability.ts.
+  const planDate = parisDay(plan.service_date)
+  const blockoutsPromise = fetchBlockouts(createAdminClient(), {
+    from: planDate,
+    to: planDate,
+    ...(canManage ? {} : { userIds: [userId] }),
+  })
+
+  const [{ data: recentAssignments }, { data: monthAssignments }, blockoutsRes] = await Promise.all([
     recentPlanIds.length > 0
       ? supabase.from('plan_assignments').select('user_id').in('plan_id', recentPlanIds).neq('user_id', INVITE_EXT_ID)
       : Promise.resolve({ data: [] as { user_id: string }[] }),
     monthPlanIds.length > 0
       ? supabase.from('plan_assignments').select('user_id').in('plan_id', monthPlanIds).neq('user_id', INVITE_EXT_ID).neq('status', 'declined')
       : Promise.resolve({ data: [] as { user_id: string }[] }),
+    blockoutsPromise,
   ])
+  if (blockoutsRes.error !== null) {
+    console.error('[getPlanDetail] échec lecture des indisponibilités:', blockoutsRes.error)
+  }
 
   const recentCountMap: Record<string, number> = {}
   for (const a of recentAssignments ?? []) {
@@ -217,9 +236,8 @@ export async function getPlanDetail(
     monthCountMap[a.user_id] = (monthCountMap[a.user_id] ?? 0) + 1
   }
 
-  const planDate = plan.service_date.split('T')[0]
   const unavailableIds = new Set(
-    blockouts?.filter(b => b.start_date <= planDate && b.end_date >= planDate).map(b => b.user_id) ?? []
+    (blockoutsRes.data ?? []).filter(b => b.start_date <= planDate && b.end_date >= planDate).map(b => b.user_id)
   )
 
   const assignments = (rawAssignments ?? []).map(a => ({
