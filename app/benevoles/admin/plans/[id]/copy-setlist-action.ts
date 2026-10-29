@@ -76,6 +76,6 @@ export async function getOtherPlans(currentPlanId: string) {
   return (data ?? []).map(p => ({
     id: p.id,
     title: p.title,
-    date: new Date(p.service_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+    date: new Date(p.service_date).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'short', year: 'numeric' }),
   }))
 }

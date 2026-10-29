@@ -20,6 +20,9 @@ npx playwright show-report report
 
 Comparer avant/après un correctif : `./scripts/start-app.sh <commit>` lance le code d'un commit.
 `./scripts/setup.sh --sans-022` retire le trigger pour vérifier que la spec `db-garde-fou` le détecte.
+`./scripts/setup.sh --comme-la-prod` reproduit le schéma réellement en production (sans `positions.allow_multiple`
+ni les index uniques partiels des migrations 012/013, avec l'ancien index `(plan_id, user_id, team_id)` et la 022) :
+c'est le mode à utiliser pour `choristes-autofill.spec.ts`. Les scénarios DM supposent la 013 → mode normal.
 
 ## Ce qui est couvert
 
@@ -32,6 +35,21 @@ Comparer avant/après un correctif : `./scripts/start-app.sh <commit>` lance le 
 | 5 | Auto-remplissage : jamais proposé (titulaire ni alternatives) ; indispo posée entre « Générer » et « Valider » |
 | 6 | Rôle DM, glisser-déposer d'un service, « Planifier une autre date », alerte sur un affecté devenu indisponible |
 | 7–8 | Garde-fou base de données (migration 022) : insertion, UPDATE, lot atomique, bornes, minuit, déplacement de service |
+
+### Plusieurs choristes + auto-remplissage limité aux responsables (`choristes-autofill.spec.ts`)
+
+| Bloc | Contenu |
+|---|---|
+| A | Plusieurs choristes sur un même service, desktop **et** mobile : enchaîner 3 ajouts, jamais de doublon proposé, indisponible non assignable, poste à occupant unique inchangé |
+| B | Auto-remplissage : un éditeur ne planifie que les équipes dont il est responsable (aperçu, validation, **requête forgée** visant une autre équipe, éditeur sans équipe) ; l'admin garde toutes les équipes |
+
+Points d'attention :
+- le poste `Choriste` (multi-bénévoles) est semé par `seed.mjs` : le catalogue des équipes est mis en cache 5 min
+  côté application, créer/supprimer des postes pendant un test désynchroniserait app et base → le bloc B
+  utilise une équipe annexe « Régie test » créée avant le démarrage de l'app plutôt que des postes éphémères ;
+- WebKit headless n'applique pas toujours le rafraîchissement qui suit une action serveur d'un formulaire mobile
+  (constaté à l'identique sur le code d'avant correctif) : le test vérifie l'enregistrement en base puis recharge la page ;
+- B.3 observe la requête avec `page.on('request')` (et non `page.route`, que WebKit n'applique pas aux fetch d'une PWA).
 
 Les comptes de test (`seed.mjs`) partagent un mot de passe de démonstration ; la base est réinitialisée
 (plans, affectations, indispos) avant chaque test.

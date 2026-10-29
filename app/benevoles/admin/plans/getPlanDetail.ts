@@ -2,8 +2,32 @@ import { unstable_cache } from 'next/cache'
 import type { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { fetchBlockouts, parisDay } from '@/lib/availability'
+import { withAllowMultiple } from '@/lib/positions'
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
+
+const TEAM_COLUMNS = 'id, name, allows_guests, is_coordination, hide_positions, is_prayer_meeting'
+
+/** Équipes et postes. `allow_multiple` (migration 012) n'existe pas forcément en base : la
+ *  sélectionner quand la colonne manque ferait échouer TOUTE la requête (équipes vides pendant
+ *  5 min de cache). On tente donc avec, et on retombe sur la sélection sans elle si la base la
+ *  refuse — `withAllowMultiple` reconstitue alors le drapeau par nom de poste (Chorale/Choriste),
+ *  exactement comme la migration le ferait. */
+async function fetchTeamsWithPositions(admin: ReturnType<typeof createAdminClient>) {
+  const withFlag = await admin
+    .from('teams')
+    .select(`${TEAM_COLUMNS}, positions(id, name, allow_multiple, archived)`)
+    .order('name')
+  const missingColumn = withFlag.error && (withFlag.error.code === '42703' || /allow_multiple/i.test(withFlag.error.message))
+  const res = missingColumn
+    ? await admin.from('teams').select(`${TEAM_COLUMNS}, positions(id, name, archived)`).order('name')
+    : withFlag
+  return {
+    ...res,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data: res.data?.map((t: any) => ({ ...t, positions: withAllowMultiple(t.positions ?? []) })) ?? res.data,
+  }
+}
 
 /** Catalogue quasi-statique partagé par tous les plans/utilisateurs (équipes, postes, profils,
  *  affectations aux équipes/postes, chants, annonces récurrentes) — mis en cache 5 min pour éviter
@@ -21,8 +45,7 @@ const getStableCatalog = unstable_cache(
       songsRes,
       recurringAnnouncementsRes,
     ] = await Promise.all([
-      // TODO: ajouter `allow_multiple` à la sélection une fois la migration 012 appliquée en base.
-      admin.from('teams').select('id, name, allows_guests, is_coordination, hide_positions, is_prayer_meeting, positions(id, name, archived)').order('name'),
+      fetchTeamsWithPositions(admin),
       admin.from('profiles').select('id, first_name, last_name, desired_frequency').order('first_name'),
       admin.from('team_members').select('user_id, team_id'),
       admin.from('member_positions').select('user_id, position_id'),
@@ -65,8 +88,8 @@ export type Profile = {
   servedThisMonth: number           // nb de services sur le mois calendaire courant
 }
 
-// `allow_multiple` : ajouté par la migration 012, pas encore appliquée en base — optionnel
-// pour l'instant, sélectionné dès qu'elle l'est (voir la requête `teams` ci-dessous).
+// `allow_multiple` : migration 012 (poste ouvert à plusieurs bénévoles, ex : Chorale, Choriste).
+// Toujours renseigné par `fetchTeamsWithPositions`, même si la colonne n'existe pas en base.
 export type Position = { id: string; name: string; allow_multiple?: boolean; archived?: boolean }
 
 export type AssignmentRow = {

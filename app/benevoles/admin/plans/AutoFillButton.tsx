@@ -52,7 +52,7 @@ function Modal({ children, onClose }: { children: React.ReactNode; onClose: () =
  *  une proposition côté serveur (`computeAutoFillProposal`, rien n'est écrit en base), l'affiche
  *  dans une modale éditable groupée par date, puis persiste via `commitAutoFillProposal` une
  *  fois validée. */
-export function AutoFillButton() {
+export function AutoFillButton({ ledTeamsOnly = false }: { /** Éditeur : seules les équipes dont il est responsable sont planifiées (règle appliquée côté serveur). */ ledTeamsOnly?: boolean }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState<Step>('config')
@@ -60,6 +60,7 @@ export function AutoFillButton() {
   const [endDate, setEndDate] = useState(todayISO(30))
   const [proposals, setProposals] = useState<AutoFillProposal[]>([])
   const [skipped, setSkipped] = useState<AutoFillSkipped[]>([])
+  const [scopeTeamNames, setScopeTeamNames] = useState<string[] | null>(null)
   const [showSkipped, setShowSkipped] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -80,6 +81,7 @@ export function AutoFillButton() {
     }
     setProposals(res.proposals)
     setSkipped(res.skipped)
+    setScopeTeamNames(res.scopeTeamNames)
     setStep('preview')
   }
 
@@ -144,6 +146,11 @@ export function AutoFillButton() {
               <p className="font-sans text-sm text-dark/50">
                 Propose des affectations sur les postes nommés, en respectant le rythme de service souhaité par chaque bénévole. Vous pourrez tout modifier avant de valider.
               </p>
+              {ledTeamsOnly && (
+                <p className="font-sans text-xs text-dark/50 bg-teal-50/70 rounded-lg px-3 py-2">
+                  Seules les équipes dont vous êtes responsable sont planifiées.
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div className="min-w-0">
                   <label className="block font-sans text-xs text-dark/50 mb-1">Du</label>
@@ -187,6 +194,9 @@ export function AutoFillButton() {
                   <p className="font-sans text-xs text-dark/40 mt-0.5">
                     {proposals.length} poste{proposals.length > 1 ? 's' : ''} proposé{proposals.length > 1 ? 's' : ''} · {skipped.length} non pourvu{skipped.length > 1 ? 's' : ''}
                   </p>
+                  {scopeTeamNames && (
+                    <p className="font-sans text-xs text-dark/40 mt-0.5">Équipes planifiées : {scopeTeamNames.join(', ')}</p>
+                  )}
                 </div>
                 <button onClick={close} className="text-dark/30 hover:text-dark transition-colors text-xl leading-none">×</button>
               </div>

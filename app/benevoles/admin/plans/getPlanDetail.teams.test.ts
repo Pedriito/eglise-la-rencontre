@@ -144,6 +144,8 @@ type Scenario = {
   plan?: Record<string, unknown>
   assignments?: Rows
   teams?: Rows
+  /** Réponses successives de la table `teams` (remplace `teams`) — pour simuler un échec puis un repli. */
+  teamsResponses?: Parameters<typeof makeFakeSupabase>[0][string]
   profiles?: Rows
   teamMembers?: Rows
   memberPositions?: Rows
@@ -183,7 +185,7 @@ async function runPlanDetail(scenario: Scenario = {}) {
   // Client service : catalogue stable + indisponibilités (lues ici, avec le client service, pour
   // contourner la RLS et le plafond de 1000 lignes — voir lib/availability.ts).
   const admin = makeRecordingSupabase({
-    teams: [ok(s.teams)],
+    teams: s.teamsResponses ?? [ok(s.teams)],
     profiles: [ok(s.profiles)],
     team_members: [ok(s.teamMembers)],
     member_positions: [ok(s.memberPositions)],
@@ -494,5 +496,89 @@ describe('indisponibilités déclarées', () => {
     expect(result).not.toBeNull()
     expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('indisponibilités'), 'connection reset')
     errorSpy.mockRestore()
+  })
+})
+
+// ---------------------------------------------------------------------------
+describe('postes ouverts à plusieurs bénévoles (allow_multiple)', () => {
+  const choriste = (extra: Record<string, unknown> = {}) => ({ id: 'pos-choriste', name: 'Choriste', archived: false, ...extra })
+  const piano = (extra: Record<string, unknown> = {}) => ({ id: 'pos-piano', name: 'Piano', archived: false, ...extra })
+  const teamWith = (positions: Rows) => ({ ...TEAM_LOUANGE, positions })
+
+  /** Réponse PostgREST quand la colonne n'existe pas (migration 012 non appliquée). */
+  const missingColumn = { data: null, error: { message: 'column positions_1.allow_multiple does not exist', code: '42703' } }
+
+  function louangePositions(result: Awaited<ReturnType<typeof runPlanDetail>>['result']) {
+    return Object.fromEntries(result.teams.find(t => t.id === 'team-louange')!.positions.map(p => [p.name, p.allow_multiple]))
+  }
+
+  it('sélectionne allow_multiple et reprend la valeur de la base telle quelle', async () => {
+    const { result, adminQueries } = await runPlanDetail({
+      teams: [teamWith([choriste({ allow_multiple: true }), piano({ allow_multiple: false })])],
+    })
+
+    expect(louangePositions(result)).toEqual({ Choriste: true, Piano: false })
+    const teamsQueries = adminQueries.filter(q => q.table === 'teams')
+    expect(teamsQueries).toHaveLength(1)
+    expect(JSON.stringify(teamsQueries[0].calls)).toContain('allow_multiple')
+  })
+
+  it('la base fait foi : un poste « Choriste » explicitement à false reste à occupant unique', async () => {
+    const { result } = await runPlanDetail({ teams: [teamWith([choriste({ allow_multiple: false })])] })
+    expect(louangePositions(result)).toEqual({ Choriste: false })
+  })
+
+  it('colonne absente en base : retombe sur une sélection sans elle ET garde Chorale/Choriste multi-bénévoles', async () => {
+    // Situation réelle de la prod : migration 012 jamais appliquée. Sans repli, la requête
+    // `teams` échouait en bloc (équipes vides) ou le desktop n'offrait plus de 2e choriste.
+    const { result, adminQueries } = await runPlanDetail({
+      teamsResponses: [
+        missingColumn as never,
+        ok([teamWith([choriste(), { id: 'pos-chorale', name: 'Chorale', archived: false }, piano()])]),
+      ],
+    })
+
+    expect(louangePositions(result)).toEqual({ Choriste: true, Chorale: true, Piano: false })
+    const teamsQueries = adminQueries.filter(q => q.table === 'teams')
+    expect(teamsQueries).toHaveLength(2)
+    expect(JSON.stringify(teamsQueries[0].calls)).toContain('allow_multiple')
+    expect(JSON.stringify(teamsQueries[1].calls)).not.toContain('allow_multiple')
+    // L'équipe reste exploitable (le catalogue n'est pas vidé par l'échec de la 1re requête).
+    expect(result.teams.find(t => t.id === 'team-louange')).toBeDefined()
+  })
+
+  it('une autre erreur de base n\'est pas retentée (pas de masquage d\'une vraie panne)', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { adminQueries } = await runPlanDetail({
+      teamsResponses: [{ data: null, error: { message: 'connection reset' } }],
+    })
+    expect(adminQueries.filter(q => q.table === 'teams')).toHaveLength(1)
+    expect(errSpy).toHaveBeenCalled()
+    errSpy.mockRestore()
+  })
+
+  it('un poste multi déjà occupé reste proposé aux AUTRES bénévoles qualifiés, jamais à celui déjà affecté dessus', async () => {
+    const { result } = await runPlanDetail({
+      userId: 'user-alice',
+      isAdmin: true,
+      teams: [teamWith([choriste({ allow_multiple: true })])],
+      teamMembers: [
+        { user_id: 'user-alice', team_id: 'team-louange' },
+        { user_id: 'user-bob', team_id: 'team-louange' },
+        { user_id: 'user-clara', team_id: 'team-louange' },
+      ],
+      memberPositions: [
+        { user_id: 'user-alice', position_id: 'pos-choriste' },
+        { user_id: 'user-bob', position_id: 'pos-choriste' },
+        { user_id: 'user-clara', position_id: 'pos-choriste' },
+      ],
+      assignments: [assignment({
+        id: 'a-alice', user_id: 'user-alice', position_id: 'pos-choriste', team_id: 'team-louange',
+        positions: { id: 'pos-choriste', name: 'Choriste', team_id: 'team-louange' },
+      })],
+    } as never)
+
+    const louange = result.teams.find(t => t.id === 'team-louange')!
+    expect(louange.candidatesByPosition['pos-choriste'].map(p => p.id)).toEqual(['user-bob', 'user-clara'])
   })
 })

@@ -37,7 +37,7 @@ if (!accueil) accueil = must(await db.from('teams').insert({ name: 'Accueil', ch
 
 const POSITIONS = [
   { name: 'Piano' }, { name: 'Basse' }, { name: 'Batterie' }, { name: 'DM' },
-  { name: 'Chorale', allow_multiple: true }, { name: 'Guitare Acoustique' },
+  { name: 'Chorale', allow_multiple: true }, { name: 'Choriste', allow_multiple: true }, { name: 'Guitare Acoustique' },
 ]
 for (const p of POSITIONS) {
   must(await db.from('positions').upsert({ team_id: louange, name: p.name, allow_multiple: !!p.allow_multiple }, { onConflict: 'team_id,name' }), `pos ${p.name}`)
@@ -55,6 +55,8 @@ for (const [k, team, role = 'member'] of membership) {
 const qualif = [
   ['paul', 'Piano'], ['nina', 'Piano'], ['bea', 'Basse'], ['bob', 'Batterie'],
   ['chloe', 'Chorale'], ['paul', 'Chorale'], ['gael', 'Guitare Acoustique'],
+  // Poste multi-bénévoles « Choriste » : 4 qualifiés pour tester l'enchaînement (spec choristes-autofill).
+  ['chloe', 'Choriste'], ['paul', 'Choriste'], ['bea', 'Choriste'], ['bob', 'Choriste'],
 ]
 for (const [k, p] of qualif) {
   must(await db.from('member_positions').upsert({ user_id: ids[k], position_id: pos[p] }, { onConflict: 'user_id,position_id' }), `mp ${k}`)
