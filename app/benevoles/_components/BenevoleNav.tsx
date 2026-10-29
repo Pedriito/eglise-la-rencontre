@@ -73,6 +73,12 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
     ],
   })
 
+  if (isAdmin || isEditor) {
+    groups[groups.length - 1].items.push(
+      { label: 'Planning équipe', href: '/benevoles/equipe', icon: IconGrid, match: p => p.startsWith('/benevoles/equipe') },
+    )
+  }
+
   const adminItems: NavItem[] = []
   if (isAdmin || isEditor) {
     adminItems.push({ label: 'Équipes',  href: '/benevoles/admin/equipes', icon: IconUsers,       match: p => p.startsWith('/benevoles/admin/equipes') })
