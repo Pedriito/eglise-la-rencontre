@@ -61,7 +61,7 @@ export async function gotoPlan(page: Page, planId: string, title: string) {
 /** Déplie le bloc d'équipe s'il est replié (admin non membre → replié par défaut).
  *  L'état est lu sur le chevron (`rotate-180` = déplié) pour ne cliquer que si nécessaire : un clic
  *  perdu avant l'hydratation est rejoué, un clic tardif n'est jamais doublé (sinon on replierait). */
-async function expandTeam(page: Page, team: string, probe: Locator) {
+export async function expandTeam(page: Page, team: string, probe: Locator) {
   const header = visible(page.getByRole('button', { name: new RegExp(`^\\s*${team}`) })).first()
   await expect(header).toBeVisible()
   await expect.poll(async () => {
@@ -117,11 +117,14 @@ export async function desktopTryAssign(page: Page, picker: Locator, fullName: st
 // ───────────────────────────── MOBILE ─────────────────────────────
 
 /** Formulaire d'un créneau mobile (MobileOpenSlot) déplié. */
-export async function mobileOpenSlot(page: Page, team: string, positionLabel: string) {
+export async function mobileOpenSlot(page: Page, team: string, positionLabel: string, formLabel = positionLabel) {
+  // `positionLabel` = libellé du bouton replié (« Ajouter · Choriste » pour un poste déjà pourvu mais
+  // multi-bénévoles) ; `formLabel` = en-tête du formulaire déplié (le nom du poste seul).
   const collapsed = visible(page.getByRole('button', { name: positionLabel, exact: true }))
-  await expandTeam(page, team, collapsed)
-  await collapsed.first().click()
-  const form = visible(page.locator('form.border-2').filter({ has: page.locator('select[name="user_id"]') }).filter({ hasText: positionLabel }))
+  const form = visible(page.locator('form.border-2').filter({ has: page.locator('select[name="user_id"]') }).filter({ hasText: formLabel }))
+  // Un poste multi-bénévoles reste DÉPLIÉ après un ajout (pour enchaîner) : on réutilise alors son formulaire.
+  await expandTeam(page, team, collapsed.or(form))
+  if ((await form.count()) === 0) await collapsed.first().click()
   await expect(form).toHaveCount(1)
   return form
 }

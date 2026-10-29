@@ -58,7 +58,7 @@ async function notifyTeamLeadersOfResponse(assignmentId: string, status: string)
     const profile = assignment.profiles as unknown as { first_name: string; last_name: string } | null
     const volunteerName = `${profile?.first_name ?? ''} ${profile?.last_name ?? ''}`.trim() || 'Un·e bénévole'
     const date = plan
-      ? new Date(plan.service_date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+      ? new Date(plan.service_date).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long' })
       : ''
     const verb = status === 'confirmed' ? 'a confirmé sa présence' : 'a décliné'
 
@@ -338,6 +338,7 @@ export async function addAssignment(formData: FormData) {
 
     if (plan) {
       const date = new Date(plan.service_date).toLocaleDateString('fr-FR', {
+        timeZone: 'Europe/Paris',
         weekday: 'long', day: 'numeric', month: 'long',
       })
       const role = (position as { name: string } | null)?.name ?? null
@@ -480,6 +481,7 @@ export async function addAssignmentAsync(input: {
 
       if (plan) {
         const date = new Date(plan.service_date).toLocaleDateString('fr-FR', {
+          timeZone: 'Europe/Paris',
           weekday: 'long', day: 'numeric', month: 'long',
         })
         const role = (position as { name: string } | null)?.name ?? null
@@ -573,7 +575,7 @@ export async function sendSingleInvitation(formData: FormData) {
     await admin.from('plan_assignments').update({ invitation_sent_at: new Date().toISOString() }).eq('id', assignmentId)
 
     // Notification push en complément de l'email (non-bloquant)
-    const dateStr = new Date(plan.service_date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+    const dateStr = new Date(plan.service_date).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long' })
     sendPushToUser(a.user_id, {
       title: `📅 ${plan.title}`,
       body:  `Tu es planifié(e) le ${dateStr}${team?.name ? ` · ${team.name}` : ''}`,
