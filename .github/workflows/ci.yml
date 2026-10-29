@@ -48,6 +48,8 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-anon-key
       SUPABASE_SERVICE_ROLE_KEY: ci-service-role-key
+      RESEND_API_KEY: re_ci_placeholder
+      CRON_SECRET: ci-cron-secret
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -55,6 +57,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # web-push valide le format des clés VAPID dès l'import du module : il en faut de vraies, jetables.
+      - name: Générer des clés VAPID jetables
+        run: |
+          node -e "const k=require('web-push').generateVAPIDKeys();console.log('NEXT_PUBLIC_VAPID_PUBLIC_KEY='+k.publicKey);console.log('VAPID_PRIVATE_KEY='+k.privateKey)" >> "$GITHUB_ENV"
       - run: npm run build
 
   valider:
