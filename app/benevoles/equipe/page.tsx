@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getTeamMonthPlanning, parseMonth, shiftMonth } from '@/lib/teamPlanning'
+import { PlanningViewToggle } from '@/app/benevoles/_components/PlanningViewToggle'
 import { TeamPlanningGrid } from './TeamPlanningGrid'
 
 type TeamOption = { id: string; name: string }
@@ -49,38 +50,45 @@ export default async function TeamPlanningPage({
 
   return (
     <div className="min-h-screen bg-teal-50">
-      <header className="bg-white border-b border-teal/20 px-4 md:px-6 pb-4 flex items-center gap-4" style={{ paddingTop: 'max(env(safe-area-inset-top, 0px) + 16px, 16px)' }}>
-        <div className="flex-1 min-w-0">
-          <p className="font-sans text-xs text-dark/40 uppercase tracking-widest font-medium">Responsable</p>
-          <h1 className="font-display text-2xl text-dark font-light truncate">
-            {current ? `Planning · ${current.name}` : 'Planning de mon équipe'}
-          </h1>
+      <header className="bg-white border-b border-teal/20 px-4 md:px-6 pb-3" style={{ paddingTop: 'max(env(safe-area-inset-top, 0px) + 16px, 16px)' }}>
+        <div className="flex items-center gap-4">
+          <Link href="/benevoles/dashboard" className="text-dark/40 hover:text-dark transition-colors font-sans text-sm shrink-0">←</Link>
+          <div className="flex-1 min-w-0">
+            <p className="font-sans text-xs text-dark/40 uppercase tracking-widest font-medium">Planifier</p>
+            <h1 className="font-display text-2xl text-dark font-light">Planification</h1>
+          </div>
+          <PlanningViewToggle current="team" showTeam className="hidden md:flex shrink-0" />
         </div>
-        {current && (
-          <nav aria-label="Mois" className="flex items-center gap-1 shrink-0">
-            <Link href={href(current.id, shiftMonth(month, -1))} aria-label="Mois précédent" className="rounded-lg border border-teal/20 px-3 py-1.5 font-sans text-sm text-dark hover:bg-teal/5">←</Link>
-            <span className="min-w-32 text-center font-sans text-sm font-medium text-dark capitalize">{monthLabel}</span>
-            <Link href={href(current.id, shiftMonth(month, 1))} aria-label="Mois suivant" className="rounded-lg border border-teal/20 px-3 py-1.5 font-sans text-sm text-dark hover:bg-teal/5">→</Link>
-          </nav>
-        )}
+        <PlanningViewToggle current="team" showTeam className="md:hidden flex mt-3 w-fit" />
       </header>
 
       <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-8 space-y-4">
-        {teams.length > 1 && (
-          <nav aria-label="Équipes" className="flex flex-wrap gap-2">
-            {teams.map(t => (
-              <Link
-                key={t.id}
-                href={href(t.id, month)}
-                aria-current={t.id === current?.id ? 'page' : undefined}
-                className={`rounded-full border px-3 py-1 font-sans text-sm transition-colors ${
-                  t.id === current?.id ? 'border-teal bg-teal text-white' : 'border-teal/20 bg-white text-dark hover:bg-teal/5'
-                }`}
-              >
-                {t.name}
-              </Link>
-            ))}
-          </nav>
+        {current && (
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+            {teams.length > 1 ? (
+              <nav aria-label="Équipes" className="flex flex-wrap gap-2">
+                {teams.map(t => (
+                  <Link
+                    key={t.id}
+                    href={href(t.id, month)}
+                    aria-current={t.id === current.id ? 'page' : undefined}
+                    className={`rounded-full border px-3 py-1 font-sans text-sm transition-colors ${
+                      t.id === current.id ? 'border-teal bg-teal text-white' : 'border-teal/20 bg-white text-dark hover:bg-teal/5'
+                    }`}
+                  >
+                    {t.name}
+                  </Link>
+                ))}
+              </nav>
+            ) : (
+              <h2 className="font-display text-xl text-dark font-light">{current.name}</h2>
+            )}
+            <nav aria-label="Mois" className="flex items-center gap-1">
+              <Link href={href(current.id, shiftMonth(month, -1))} aria-label="Mois précédent" className="rounded-lg border border-teal/20 px-3 py-1.5 font-sans text-sm text-dark hover:bg-teal/5">←</Link>
+              <span className="min-w-32 text-center font-sans text-sm font-medium text-dark capitalize">{monthLabel}</span>
+              <Link href={href(current.id, shiftMonth(month, 1))} aria-label="Mois suivant" className="rounded-lg border border-teal/20 px-3 py-1.5 font-sans text-sm text-dark hover:bg-teal/5">→</Link>
+            </nav>
+          </div>
         )}
 
         {!current ? (

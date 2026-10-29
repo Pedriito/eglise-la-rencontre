@@ -6,7 +6,8 @@ import Link from 'next/link'
 import { PlanCalendarLazy as PlanCalendar } from './PlanCalendarLazy'
 import { PlanTimeEditor } from './PlanTimeEditor'
 import { SubscribeCalendarButton } from './SubscribeCalendarButton'
-import { IconCalendar, IconMusicalNote } from '@/app/benevoles/_components/Icons'
+import { IconMusicalNote } from '@/app/benevoles/_components/Icons'
+import { PlanningViewToggle } from '@/app/benevoles/_components/PlanningViewToggle'
 import { LinkPendingSpinner } from '@/app/benevoles/_components/LinkPendingSpinner'
 import { PlanWorkspaceData } from './PlanWorkspaceData'
 import { WorkspaceSkeleton } from './WorkspaceSkeleton'
@@ -271,22 +272,7 @@ export default async function PlansPage({
             <h1 className="font-display text-2xl text-dark font-light">Planification</h1>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {/* Toggle Liste / Calendrier — desktop uniquement */}
-            <div className="hidden md:flex rounded-full bg-dark/5 p-1 gap-1">
-              <Link
-                href="?view=list"
-                className={`px-3 py-1.5 rounded-full font-sans text-xs font-medium transition-colors flex items-center gap-1 ${view === 'list' ? 'bg-white text-dark shadow-sm' : 'text-dark/45 hover:text-dark'}`}
-              >
-                ☰ Liste
-              </Link>
-              <Link
-                href="?view=calendar"
-                className={`px-3 py-1.5 rounded-full font-sans text-xs font-medium transition-colors flex items-center gap-1 ${view === 'calendar' ? 'bg-white text-dark shadow-sm' : 'text-dark/45 hover:text-dark'}`}
-              >
-                <IconCalendar className="w-3 h-3" />
-                Calendrier
-              </Link>
-            </div>
+            <PlanningViewToggle current={view} showTeam={canManage} className="hidden md:flex" />
             {canManage && <AutoFillButton ledTeamsOnly={!isAdmin} />}
             {canManage && (
               <Link
@@ -298,22 +284,7 @@ export default async function PlansPage({
             )}
           </div>
         </div>
-        {/* Toggle Liste / Calendrier — mobile uniquement */}
-        <div className="md:hidden flex mt-3 rounded-full bg-dark/5 p-1 gap-1 w-fit">
-          <Link
-            href="?view=list"
-            className={`px-3 py-1.5 rounded-full font-sans text-xs font-medium transition-colors flex items-center gap-1 ${view === 'list' ? 'bg-white text-dark shadow-sm' : 'text-dark/45 hover:text-dark'}`}
-          >
-            ☰ Liste
-          </Link>
-          <Link
-            href="?view=calendar"
-            className={`px-3 py-1.5 rounded-full font-sans text-xs font-medium transition-colors flex items-center gap-1 ${view === 'calendar' ? 'bg-white text-dark shadow-sm' : 'text-dark/45 hover:text-dark'}`}
-          >
-            <IconCalendar className="w-3 h-3" />
-            Calendrier
-          </Link>
-        </div>
+        <PlanningViewToggle current={view} showTeam={canManage} className="md:hidden flex mt-3 w-fit" />
       </header>
 
       <main className="px-4 md:px-6 py-6 md:py-8">
