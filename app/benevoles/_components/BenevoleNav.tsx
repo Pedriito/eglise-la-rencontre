@@ -43,7 +43,7 @@ const BOTTOM_TABS_DEFAULT: NavItem[] = [
 
 const BOTTOM_TABS_ADMIN: NavItem[] = [
   { label: 'Accueil',       href: '/benevoles/dashboard',            icon: IconHome,        match: p => p === '/benevoles/dashboard' },
-  { label: 'Planification', href: '/benevoles/admin/plans',          icon: IconCalendar,    match: p => p.startsWith('/benevoles/admin/plans') },
+  { label: 'Planification', href: '/benevoles/admin/plans',          icon: IconCalendar,    match: p => p.startsWith('/benevoles/admin/plans') || p.startsWith('/benevoles/equipe') },
   { label: 'Chants',        href: '/benevoles/admin/chants',         icon: IconMusicalNote, match: p => p.startsWith('/benevoles/chants') || p.startsWith('/benevoles/admin/chants') },
   { label: 'Indispos',      href: '/benevoles/mes-indisponibilites', icon: IconBan,         match: p => p.startsWith('/benevoles/mes-indisponibilites') },
   { label: 'Profil',        href: '/benevoles/profil',               icon: IconUser,        match: p => p === '/benevoles/profil' },
@@ -67,17 +67,11 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
   groups.push({
     section: 'Planifier',
     items: [
-      { label: 'Planification',    href: '/benevoles/admin/plans',          icon: IconCalendar,  match: p => p.startsWith('/benevoles/admin/plans') },
+      { label: 'Planification',    href: '/benevoles/admin/plans',          icon: IconCalendar,  match: p => p.startsWith('/benevoles/admin/plans') || p.startsWith('/benevoles/equipe') },
       { label: 'Mes indispos',     href: '/benevoles/mes-indisponibilites', icon: IconClock,     match: p => p.startsWith('/benevoles/mes-indisponibilites') },
       { label: 'Tâches & décisions', href: '/benevoles/gestion',            icon: IconClipboard, match: p => p.startsWith('/benevoles/gestion') },
     ],
   })
-
-  if (isAdmin || isEditor) {
-    groups[groups.length - 1].items.push(
-      { label: 'Planning équipe', href: '/benevoles/equipe', icon: IconGrid, match: p => p.startsWith('/benevoles/equipe') },
-    )
-  }
 
   const adminItems: NavItem[] = []
   if (isAdmin || isEditor) {
