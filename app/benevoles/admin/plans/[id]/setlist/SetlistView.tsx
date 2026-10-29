@@ -10,6 +10,46 @@ import { ProjectionView } from './ProjectionView'
 import { updatePlanSongArrangement } from '@/app/benevoles/admin/plans/actions'
 import { SlideStyleModal } from './SlideStyleModal'
 import { type SlideStyle, getPresetById } from '@/lib/slidePresets'
+import { isSectionHeader, isChordLine } from '@/lib/transpose'
+
+function DrummerChart({ chart, bpm }: { chart: string | null; bpm: number | null }) {
+  if (!chart) {
+    return (
+      <div className="bg-white rounded-xl border border-teal/20 px-4 py-6 text-center">
+        <p className="font-sans text-sm text-dark/40">Pas de grille pour cet arrangement.</p>
+      </div>
+    )
+  }
+
+  const lines = chart.split('\n')
+  const filtered = lines.filter(line => !isChordLine(line))
+
+  return (
+    <div className="bg-white rounded-2xl border border-teal/20 p-5 space-y-4">
+      {bpm && (
+        <div className="flex items-center gap-2 pb-3 border-b border-teal/10">
+          <span className="font-sans text-3xl font-bold text-teal tabular-nums">{bpm}</span>
+          <span className="font-sans text-sm text-dark/40 font-medium">BPM</span>
+        </div>
+      )}
+      <div className="font-mono text-sm leading-relaxed space-y-0.5">
+        {filtered.map((line, i) => {
+          if (!line.trim()) return <div key={i} className="h-3" />
+          if (isSectionHeader(line)) {
+            return (
+              <div key={i} className="font-sans text-xs font-semibold text-teal uppercase tracking-widest pt-3 pb-1 first:pt-0">
+                {line.replace(/^\[|\]$/g, '')}
+              </div>
+            )
+          }
+          return (
+            <div key={i} className="font-sans text-sm text-dark/80">{line}</div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 type Song = {
   planSongId: string
@@ -19,6 +59,7 @@ type Song = {
   arrangement: {
     id: string
     name: string
+    bpm: number | null
     chord_chart: string | null
     chord_chart_key: string | null
     youtube_url?: string | null
@@ -46,6 +87,7 @@ export function SetlistView({ planId, planTitle, songs, announcements, sermons, 
   const router = useRouter()
   const [activeIdx, setActiveIdx] = useState(0)
   const [mobileView, setMobileView] = useState<'list' | 'chart'>('list')
+  const [drummerMode, setDrummerMode] = useState(false)
   const [projecting, setProjecting]       = useState(autoProjection ?? false)
   const [styleModalSong, setStyleModalSong] = useState<Song | null>(null)
   const [songStyles, setSongStyles] = useState<Record<string, SlideStyle | null>>({})  // arrangementId → style
@@ -129,13 +171,29 @@ export function SetlistView({ planId, planTitle, songs, announcements, sermons, 
             <p className="font-display text-base text-dark font-light truncate">{planTitle}</p>
             <p className="font-sans text-xs text-dark/40">{songs.length} chant{songs.length > 1 ? 's' : ''}</p>
           </div>
-          <button
-            onClick={openProjection}
-            title="Mode vidéoprojecteur"
-            className="inline-flex items-center gap-1.5 shrink-0 px-2.5 py-1.5 bg-dark hover:bg-dark/80 text-white rounded-lg font-sans text-xs font-medium transition-colors"
-          >
-            <IconProjector className="w-3.5 h-3.5" /> Projection
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Mode batteur */}
+            <label className="inline-flex items-center gap-1.5 cursor-pointer select-none" title="Mode batteur : masque les accords, affiche le BPM">
+              <input
+                type="checkbox"
+                checked={drummerMode}
+                onChange={e => setDrummerMode(e.target.checked)}
+                className="sr-only"
+              />
+              <span className={`w-7 h-4 rounded-full transition-colors flex items-center px-0.5 ${drummerMode ? 'bg-teal' : 'bg-dark/20'}`}>
+                <span className={`w-3 h-3 rounded-full bg-white shadow transition-transform ${drummerMode ? 'translate-x-3' : 'translate-x-0'}`} />
+              </span>
+              <span className="font-sans text-xs text-dark/50">🥁</span>
+            </label>
+
+            <button
+              onClick={openProjection}
+              title="Mode vidéoprojecteur"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-dark hover:bg-dark/80 text-white rounded-lg font-sans text-xs font-medium transition-colors"
+            >
+              <IconProjector className="w-3.5 h-3.5" /> Projection
+            </button>
+          </div>
         </div>
 
         {/* Songs list */}
@@ -230,11 +288,14 @@ export function SetlistView({ planId, planTitle, songs, announcements, sermons, 
                 ref={el => { songRefs.current[idx] = el }}
               >
                 {/* En-tête du chant */}
-                <div className="px-4 pt-6 pb-3 flex items-baseline gap-3">
+                <div className="px-4 pt-6 pb-3 flex items-baseline gap-3 flex-wrap">
                   <span className="font-sans text-xs text-dark/40 tabular-nums shrink-0">{idx + 1}</span>
                   <h2 className="font-display text-xl text-dark font-light leading-tight">{s.song.title}</h2>
-                  {s.keySelected && (
+                  {!drummerMode && s.keySelected && (
                     <span className="font-sans text-sm text-teal font-semibold shrink-0">{s.keySelected}</span>
+                  )}
+                  {drummerMode && s.arrangement?.bpm && (
+                    <span className="font-sans text-base font-bold text-teal tabular-nums shrink-0">{s.arrangement.bpm} BPM</span>
                   )}
                 </div>
                 {s.arrangement?.name && (
@@ -243,7 +304,9 @@ export function SetlistView({ planId, planTitle, songs, announcements, sermons, 
 
                 {/* Partition ou message */}
                 <div className="px-4 pb-2">
-                  {s.arrangement?.chord_chart ? (
+                  {drummerMode ? (
+                    <DrummerChart chart={s.arrangement?.chord_chart ?? null} bpm={s.arrangement?.bpm ?? null} />
+                  ) : s.arrangement?.chord_chart ? (
                     <ChordChart
                       chart={s.arrangement.chord_chart}
                       originalKey={s.arrangement.chord_chart_key}
@@ -288,7 +351,12 @@ export function SetlistView({ planId, planTitle, songs, announcements, sermons, 
             {/* Titre */}
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
-                <h2 className="font-display text-2xl text-dark font-light">{active.song.title}</h2>
+                <div className="flex items-baseline gap-3 flex-wrap">
+                  <h2 className="font-display text-2xl text-dark font-light">{active.song.title}</h2>
+                  {drummerMode && active.arrangement?.bpm && (
+                    <span className="font-sans text-2xl font-bold text-teal tabular-nums">{active.arrangement.bpm} BPM</span>
+                  )}
+                </div>
                 {active.arrangement?.name && (
                   <p className="font-sans text-xs text-dark/40 mt-0.5">{active.arrangement.name}</p>
                 )}
@@ -331,7 +399,9 @@ export function SetlistView({ planId, planTitle, songs, announcements, sermons, 
               </button>
             </div>
 
-            {active.arrangement?.chord_chart ? (
+            {drummerMode ? (
+              <DrummerChart chart={active.arrangement?.chord_chart ?? null} bpm={active.arrangement?.bpm ?? null} />
+            ) : active.arrangement?.chord_chart ? (
               <ChordChart
                 chart={active.arrangement.chord_chart}
                 originalKey={active.arrangement.chord_chart_key}

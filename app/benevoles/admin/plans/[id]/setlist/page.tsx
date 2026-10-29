@@ -26,7 +26,7 @@ export default async function SetlistPage({
     supabase.from('plans').select('id, title').eq('id', id).single(),
     supabase
       .from('plan_songs')
-      .select('id, order_index, key_selected, songs(id, title), arrangements(id, name, chord_chart, chord_chart_key, youtube_url, audio_url, slide_style)')
+      .select('id, order_index, key_selected, songs(id, title), arrangements(id, name, bpm, chord_chart, chord_chart_key, youtube_url, audio_url, slide_style)')
       .eq('plan_id', id)
       .order('order_index'),
     supabase
@@ -84,7 +84,7 @@ export default async function SetlistPage({
     keySelected:     ps.key_selected,
     song:            (ps as any).songs as { id: number; title: string },
     arrangement:     (ps as any).arrangements as {
-      id: string; name: string
+      id: string; name: string; bpm: number | null
       chord_chart: string | null; chord_chart_key: string | null
       youtube_url: string | null; audio_url: string | null
       slide_style: import('@/lib/slidePresets').SlideStyle | null

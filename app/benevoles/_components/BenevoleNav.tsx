@@ -10,7 +10,7 @@ import {
   IconHome, IconCalendar, IconClock, IconClipboard,
   IconUsers, IconMusicalNote, IconHeart, IconUser,
   IconGlobe, IconBuilding, IconProjector, IconLogout, IconBan,
-  IconGrid, IconClose,
+  IconGrid, IconClose, IconVideoCamera,
 } from './Icons'
 
 type Props = {
@@ -91,7 +91,10 @@ export function BenevoleNav({ permission, firstName, lastName }: Props) {
   if (isAdmin || isEditor) {
     groups.push({
       section: 'Réglages',
-      items: [{ label: 'Vidéoprojection', href: '/benevoles/admin/parametres', icon: IconProjector, match: p => p.startsWith('/benevoles/admin/parametres') || p.startsWith('/benevoles/admin/mediatheque') }],
+      items: [
+        { label: 'Vidéoprojection', href: '/benevoles/admin/parametres', icon: IconProjector, match: p => p.startsWith('/benevoles/admin/parametres') || p.startsWith('/benevoles/admin/mediatheque') },
+        { label: 'Régie', href: '/benevoles/admin/regie', icon: IconVideoCamera, match: p => p.startsWith('/benevoles/admin/regie') },
+      ],
     })
   }
 
