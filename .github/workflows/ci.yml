@@ -1,0 +1,78 @@
+name: CI — validation des PR
+
+# Les PR de ce fork (branche → main) sont validées ici, automatiquement :
+#   1. typecheck + tests unitaires (Vitest)
+#   2. build Next.js de production
+#   3. si tout est vert, la PR est fusionnée toute seule (merge commit, branche supprimée).
+# Pour garder une PR sous contrôle manuel : la passer en brouillon, ou lui mettre le label `no-automerge`.
+# La suite Playwright (e2e/) demande une pile Supabase locale sous Docker : elle reste lancée à la main.
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Typecheck + tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # @eglise/ui est un workspace : les imports `@eglise/ui` s'appuient sur son build.
+      - run: npm run build:ui
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Tests unitaires
+        run: npm test
+
+  build:
+    name: Build Next.js
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Valeurs factices : le build ne contacte pas Supabase, il lui faut seulement des variables définies.
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: ci-service-role-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+  valider:
+    name: Valider et fusionner la PR
+    needs: [tests, build]
+    runs-on: ubuntu-latest
+    # Jamais pour un brouillon, un label d'exclusion, ou une PR venue d'un autre dépôt.
+    if: >-
+      github.event_name == 'pull_request'
+      && github.event.pull_request.draft == false
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && !contains(github.event.pull_request.labels.*.name, 'no-automerge')
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Fusionner la PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge "$PR_URL" --merge --delete-branch
